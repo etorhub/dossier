@@ -1,0 +1,55 @@
+{% if article %}
+<div class="p-3 bg-light small">
+  <dl class="row mb-2">
+    <dt class="col-sm-2">Title</dt>
+    <dd class="col-sm-10">{{ article.title or '—' }}</dd>
+
+    <dt class="col-sm-2">URL</dt>
+    <dd class="col-sm-10"><a href="{{ article.url }}" target="_blank" rel="noopener">{{ article.url[:80] }}{% if article.url|length > 80 %}…{% endif %}</a></dd>
+
+    <dt class="col-sm-2">Source</dt>
+    <dd class="col-sm-10">{{ article.source_name or article.source_id }}</dd>
+
+    <dt class="col-sm-2">Published</dt>
+    <dd class="col-sm-10">{{ article.published_at.strftime('%Y-%m-%d %H:%M') if article.published_at else '—' }}</dd>
+
+    <dt class="col-sm-2">Fetched</dt>
+    <dd class="col-sm-10">{{ article.fetched_at.strftime('%Y-%m-%d %H:%M') if article.fetched_at else '—' }}</dd>
+
+    <dt class="col-sm-2">Extraction</dt>
+    <dd class="col-sm-10">{{ article.extraction_status or 'pending' }}{% if article.extraction_method %} ({{ article.extraction_method }}){% endif %}</dd>
+
+    <dt class="col-sm-2">Story</dt>
+    <dd class="col-sm-10">{% if article.story_id %}<a href="{{ url_for('stories.index') }}?story={{ article.story_id }}">{{ article.story_id[:8] }}…</a>{% else %}—{% endif %}</dd>
+
+    {% if article.raw_text %}
+    <dt class="col-sm-2">Summary / RSS</dt>
+    <dd class="col-sm-10"><pre class="mb-0 small" style="white-space: pre-wrap;">{{ article.raw_text }}</pre></dd>
+    {% endif %}
+
+    {% if article.full_text %}
+    <dt class="col-sm-2">Full text</dt>
+    <dd class="col-sm-10"><pre class="mb-0 small" style="white-space: pre-wrap;">{{ article.full_text }}</pre></dd>
+    {% elif not article.raw_text %}
+    <dt class="col-sm-2">Content</dt>
+    <dd class="col-sm-10 text-muted">No content</dd>
+    {% endif %}
+
+    {% if article.image_url %}
+    <dt class="col-sm-2">Image</dt>
+    <dd class="col-sm-10"><a href="{{ article.image_url }}" target="_blank" rel="noopener">{{ article.image_url[:60] }}{% if article.image_url|length > 60 %}…{% endif %}</a>{% if article.image_source %} ({{ article.image_source }}){% endif %}</dd>
+    {% endif %}
+
+    {% if article.categories %}
+    <dt class="col-sm-2">Categories</dt>
+    <dd class="col-sm-10">{{ article.categories }}</dd>
+    {% endif %}
+  </dl>
+  <button class="btn btn-sm btn-outline-secondary" type="button"
+    data-bs-toggle="collapse"
+    data-bs-target="#article-detail-{{ article.id }}"
+    aria-expanded="true">Collapse</button>
+</div>
+{% else %}
+<div class="p-2 text-muted small">Article not found</div>
+{% endif %}

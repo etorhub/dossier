@@ -57,3 +57,13 @@ def index() -> Response:
         has_embedding=has_embedding,
         in_story=in_story,
     )
+
+
+@articles_bp.route("/partials/detail/<article_id>")
+def article_detail_partial(article_id: str) -> Response:
+    """HTMX partial: full article content (title, summary, text, etc)."""
+    article = admin_db.get_admin_article_by_id(article_id)
+    return render_template(
+        "ops/partials/article_detail.html",
+        article=article,
+    )

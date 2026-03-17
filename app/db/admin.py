@@ -503,6 +503,34 @@ def get_admin_articles(
         return_connection(conn)
 
 
+def get_admin_article_by_id(article_id: str) -> dict[str, Any] | None:
+    """Return a single article by ID with full content (raw_text, full_text) for ops detail view."""
+    conn = get_connection()
+    try:
+        with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
+            cur.execute(
+                """
+                SELECT a.id, a.title, a.url, a.source_id, a.published_at,
+                       a.fetched_at, a.raw_text, a.full_text, a.guid,
+                       a.extraction_status, a.extraction_method, a.extracted_at,
+                       a.image_url, a.image_source, a.categories,
+                       (a.embedding IS NOT NULL) AS has_embedding,
+                       sa.story_id::text AS story_id,
+                       ns.name AS source_name
+                FROM articles a
+                LEFT JOIN news_sources ns ON ns.id = a.source_id
+                LEFT JOIN story_articles sa ON sa.article_id = a.id
+                WHERE a.id = %s
+                LIMIT 1
+                """,
+                (article_id,),
+            )
+            row = cur.fetchone()
+            return dict(row) if row else None
+    finally:
+        return_connection(conn)
+
+
 def get_admin_articles_count(
     extraction_status: str | None = None,
     source_id: str | None = None,
