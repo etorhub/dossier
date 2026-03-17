@@ -8,7 +8,7 @@ Technical reference for Dossier. Update this document when architectural decisio
 
 A Flask web application that fetches news from RSS feeds and open publisher APIs on a schedule, rewrites each article via Ollama (local LLM) to match a reader's accessibility profile, and presents the result in a clean, accessible reader interface.
 
-The system has no client-side rendering. Flask renders all HTML server-side via Jinja2. HTMX makes targeted requests to Flask routes and swaps HTML fragments into the page. PostgreSQL stores user accounts, fetched articles, clusters, rewritten content, and all configuration.
+The system has no client-side rendering. Flask renders all HTML server-side via Jinja2. HTMX makes targeted requests to Flask routes and swaps HTML fragments into the page. PostgreSQL stores user accounts, fetched articles, stories, rewritten content, and all configuration.
 
 A five-stage pipeline runs on a background schedule (APScheduler): fetch feeds → enrich (extract full text) → embed → cluster → rewrite. When a user opens the app, content is already ready.
 
@@ -21,7 +21,7 @@ A five-stage pipeline runs on a background schedule (APScheduler): fetch feeds �
 | 1. Fetch | `app/feed/` | Fetch RSS feeds, parse XML, deduplicate, insert raw articles |
 | 2. Enrich | `app/extraction/` | Trafilatura extracts full text from article URLs; updates `articles` |
 | 3. Embed | `app/llm/embeddings.py` | Ollama (nomic-embed-text) embeds each article; stores vectors |
-| 4. Cluster | `app/clustering/` | Cosine similarity + Union-Find groups related articles into clusters |
+| 4. Cluster | `app/clustering/` | Cosine similarity + complete-linkage groups related articles into stories |
 | 5. Rewrite | `app/services/rewrite_service.py` | LLM cascade: merge sources → neutral EN, simplify, translate to all languages |
 
 The worker runs on a schedule (fetch every 60 min; enrich at :05; cluster at :15; rewrite daily at 06:00). When content is ready, any user whose preferred (style, language) matches an existing story rewrite sees it immediately.
@@ -62,7 +62,7 @@ User opens app
     → GET /
     → Section nav: "All" | Politics | Society | Culture | … (one per user topic)
     → Clicking a section: GET /?topic=politics
-    → Feed filtered to clusters matching that topic (article categories or source topics)
+    → Feed filtered to stories matching that topic (article categories or source topics)
     → Category chips on article cards are hidden when viewing a section (redundant)
 ```
 
@@ -118,9 +118,9 @@ The LLM abstraction layer. Nothing outside this directory calls Ollama directly.
 
 ### `app/clustering/`
 
-Article clustering by embedding similarity. Groups articles about the same event into clusters.
+Article clustering by embedding similarity. Stories are not a fixed partition of all articles — a story is created only when two or more distinct sources cover the same event. Unmatched articles remain unclustered until a second source covers the same story. Uses complete-linkage clustering (every pair in a group must meet the similarity threshold) to avoid chaining unrelated articles.
 
-- `service.py` — embeds articles, clusters by cosine similarity (Union-Find), creates story records
+- `service.py` — embeds articles, clusters by complete-linkage cosine similarity, creates story records for groups with ≥2 distinct sources
 
 ### `app/extraction/`
 
@@ -258,7 +258,8 @@ processing:
   summary_sentences: 3
   rewrite_max_tokens: 2000
   cluster_window_hours: 0
-  cluster_similarity_threshold: 0.82
+  story_similarity_threshold: 0.90
+  story_min_sources: 2
   embed_batch_size: 50
 
 relevance:
@@ -383,7 +384,7 @@ The `rewrite_requests` table and `app/db/rewrite_requests.py` exist as infrastru
 
 The daily digest is an **in-app experience only**. There is no email or push notification. When a user opens the app after the rewrite job has run, their feed shows all stories that have a cached rewrite matching their `(style, language)` variant — no waiting, no loading spinner.
 
-The `user_read_clusters` table exists as infrastructure for future per-user read-state tracking (e.g. "N new articles since your last visit"). The DB table is defined in migration 010 but has no application code layer yet; read state is not currently tracked.
+The `user_read_stories` table exists as infrastructure for future per-user read-state tracking (e.g. "N new articles since your last visit"). The DB table is defined in migration 010 but has no application code layer yet; read state is not currently tracked.
 
 ### Language and source mismatch
 

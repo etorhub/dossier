@@ -60,23 +60,6 @@ def _cosine_similarity(a: list[float], b: list[float]) -> float:
     return dot / (norm_a * norm_b)
 
 
-class UnionFind:
-    """Union-Find for merging story groups."""
-
-    def __init__(self, n: int) -> None:
-        self.parent = list(range(n))
-
-    def find(self, x: int) -> int:
-        if self.parent[x] != x:
-            self.parent[x] = self.find(self.parent[x])
-        return self.parent[x]
-
-    def union(self, x: int, y: int) -> None:
-        px, py = self.find(x), self.find(y)
-        if px != py:
-            self.parent[px] = py
-
-
 def _compute_centroid(embeddings: list[list[float]]) -> list[float] | None:
     """Compute mean of embeddings. Returns None if empty or invalid."""
     valid = [e for e in embeddings if e and len(e) > 0]
@@ -143,29 +126,61 @@ def _cluster_articles(
     articles: list[dict[str, Any]],
     threshold: float,
 ) -> list[list[str]]:
-    """Group articles by embedding similarity. Returns list of groups (each = list of article_ids)."""
+    """Group articles by embedding similarity using complete-linkage clustering.
+
+    Two groups merge only if every cross-group pair of articles has similarity >= threshold.
+    Prevents chaining: unrelated articles are not grouped via a transitive chain.
+    Returns list of groups (each = list of article_ids).
+    """
     if not articles:
         return []
     n = len(articles)
-    uf = UnionFind(n)
     ids = [a["id"] for a in articles]
     embeddings = [_embedding_from_article(a) for a in articles]
-    for i in range(n):
-        if embeddings[i] is None:
-            continue
-        for j in range(i + 1, n):
-            if embeddings[j] is None:
-                continue
-            sim = _cosine_similarity(embeddings[i], embeddings[j])
-            if sim >= threshold:
-                uf.union(i, j)
-    groups: dict[int, list[str]] = {}
-    for i in range(n):
-        root = uf.find(i)
-        if root not in groups:
-            groups[root] = []
-        groups[root].append(ids[i])
-    return list(groups.values())
+
+    valid_indices = [i for i in range(n) if embeddings[i] is not None]
+    invalid_indices = [i for i in range(n) if embeddings[i] is None]
+
+    # Build pairwise similarity matrix (upper triangle)
+    sim: dict[tuple[int, int], float] = {}
+    for i in valid_indices:
+        for j in valid_indices:
+            if i < j:
+                sim[(i, j)] = _cosine_similarity(embeddings[i], embeddings[j])
+
+    # Start with each valid article as its own group
+    groups: list[set[int]] = [{i} for i in valid_indices]
+
+    # Complete-linkage: merge only when ALL cross-group pairs meet threshold
+    merged = True
+    while merged:
+        merged = False
+        best_min_sim = -1.0
+        best_pair: tuple[int, int] | None = None
+
+        for gi in range(len(groups)):
+            for gj in range(gi + 1, len(groups)):
+                g1, g2 = groups[gi], groups[gj]
+                min_sim = 1.0
+                for a in g1:
+                    for b in g2:
+                        key = (a, b) if a < b else (b, a)
+                        min_sim = min(min_sim, sim.get(key, 0.0))
+                if min_sim >= threshold and min_sim > best_min_sim:
+                    best_min_sim = min_sim
+                    best_pair = (gi, gj)
+
+        if best_pair is not None:
+            gi, gj = best_pair
+            groups[gi].update(groups[gj])
+            groups.pop(gj)
+            merged = True
+
+    # Convert to list of article_id lists; add singletons for articles without embeddings
+    result = [[ids[i] for i in g] for g in groups]
+    for i in invalid_indices:
+        result.append([ids[i]])
+    return result
 
 
 def run_cluster_and_embed(config: dict[str, Any] | None = None) -> StoryReport:
@@ -177,7 +192,7 @@ def run_cluster_and_embed(config: dict[str, Any] | None = None) -> StoryReport:
     cfg = config or load_config()
     processing = cfg.get("processing", {})
     window_hours = processing.get("cluster_window_hours", 24)
-    threshold = processing.get("story_similarity_threshold", processing.get("cluster_similarity_threshold", 0.82))
+    threshold = processing.get("story_similarity_threshold", processing.get("cluster_similarity_threshold", 0.90))
     embed_limit = processing.get("embed_batch_size", 50)
     min_sources = processing.get("story_min_sources", 2)
 

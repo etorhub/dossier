@@ -126,18 +126,18 @@ Canonical phased plan for the minimum viable product. This document replaces sca
 
 ## Phase 3 — Processing & Storage
 
-**Goal:** Rewrite article clusters via LLM, cache results per (style, language) variant on a schedule.
+**Goal:** Rewrite stories via LLM, cache results per (style, language) variant on a schedule. Stories are aggregations of the same news event from different sources — not a fixed partition of all articles. A story is created only when two or more distinct sources cover the same event.
 
 ### Tasks
 
 1. **LLM rewriter**
    - For each configured `(style, language)` variant (from `config/app.yaml`), build prompt from `app/llm/prompts/` template
    - Output: headline + N-sentence summary + full rewritten article
-   - Store in `cluster_rewrites` keyed by `(cluster_id, style, language)`
+   - Store in `story_rewrites` keyed by `(story_id, style, language)`
 
 2. **Scheduled rewriting**
    - APScheduler daily job (configurable time, default 06:00)
-   - For each `(style, language)` variant: find clusters without a cached rewrite (within the configured cluster window)
+   - For each `(style, language)` variant: find stories without a cached rewrite (within the configured cluster window)
    - Two users with the same `preferred_style` and `language` share cached rewrites — the LLM is never called twice for the same combination
 
 3. **Variant system**
@@ -147,14 +147,14 @@ Canonical phased plan for the minimum viable product. This document replaces sca
    - User's `preferred_style` + `language` selects the correct cached rewrite at read time
 
 4. **Daily digest**
-   - Select clusters for the user filtered by their topic selections
-   - Show clusters that have a cached rewrite for the user's `(style, language)` variant
+   - Select stories for the user filtered by their topic selections
+   - Show stories that have a cached rewrite for the user's `(style, language)` variant
    - Fall back to the default variant (`neutral/ca`) if the user's preferred variant is not yet available
 
 ### Output
 
-- `cluster_rewrites` table with `title`, `summary`, `full_text` per `(cluster_id, style, language)`
-- Feed derived from clusters + user topic selections + cached rewrites
+- `story_rewrites` table with `title`, `summary`, `full_text` per `(story_id, style, language)`
+- Feed derived from stories + user topic selections + cached rewrites
 
 ---
 
@@ -211,7 +211,7 @@ End users always access the platform, never the codebase. Flow: **register → c
 | Git hooks (Lefthook) and conventional commits (Commitizen)             | ✅     |
 | News source discovery (agent or manual seed)                           | ✅     |
 | Scheduled fetching from all sources                                    | ✅     |
-| Scheduled rewriting (LLM rewrite, cache per cluster × style × language) | ✅     |
+| Scheduled rewriting (LLM rewrite, cache per story × style × language) | ✅     |
 | Multi-user authentication                                              | ✅     |
 | Profile configuration (setup wizard + settings)                        | ✅     |
 | Feed view (3-line summary, expandable)                                 | ✅     |
@@ -248,7 +248,7 @@ Rationale: Phase 0 establishes infrastructure and developer experience before an
 
 ## Database Schema Alignment
 
-The discovery agent doc defines `news_sources`, `source_feeds`, `source_discovery_log`. All use PostgreSQL-native types. The main app schema in `docs/ARCHITECTURE.md` defines `users`, `user_profiles`, `articles`, `clusters`, `cluster_rewrites`, etc.
+The discovery agent doc defines `news_sources`, `source_feeds`, `source_discovery_log`. All use PostgreSQL-native types. The main app schema in `docs/ARCHITECTURE.md` defines `users`, `user_profiles`, `articles`, `stories`, `story_rewrites`, etc.
 
 When discovery is integrated, `articles.source_id` references `news_sources.id`. When using manual `sources.yaml` seeding only, `source_id` is the string ID from the YAML file.
 

@@ -1,10 +1,10 @@
 llm:
   provider: ollama
-  model: qwen2.5:7b  # fallback for any task without its own model
+  model: qwen2.5:7b # fallback for any task without its own model
   # Per-task models (cascade: rewrite → simplify → translate). Fall back to model when unset.
-  rewrite_model: qwen2.5:7b   # merge sources → neutral EN (hardest task, use best model)
-  simplify_model: qwen2.5:7b   # neutral EN → simple EN (moderate complexity)
-  translate_model: qwen2.5:7b  # translate to other languages (simpler, can use faster model)
+  rewrite_model: qwen2.5:7b # merge sources → neutral EN (hardest task, use best model)
+  simplify_model: qwen2.5:7b # neutral EN → simple EN (moderate complexity)
+  translate_model: qwen2.5:7b # translate to other languages (simpler, can use faster model)
   host: http://ollama:11434
 
 # Story-level rewriting: one rewrite per (story, style, language).
@@ -38,11 +38,11 @@ embeddings:
 schedule:
   fetch_interval_minutes: 60
   # Pipeline order: fetch -> enrichment -> cluster -> rewrite
-  enrichment_cron: "5 * * * *"   # Hourly at :05 (after fetch at :00)
-  cluster_cron: "15 * * * *"    # Hourly at :15 (after enrichment)
+  enrichment_cron: '5 * * * *' # Hourly at :05 (after fetch at :00)
+  cluster_cron: '15 * * * *' # Hourly at :15 (after enrichment)
   # Articles older than this are not fetched (0 = no limit)
   max_article_age_hours: 24
-  rewrite_cron: "0 6 * * *"   # Daily at 6am
+  rewrite_cron: '0 6 * * *' # Daily at 6am
   # Source feed availability check (HTTP HEAD/GET) — visible in ops dashboard
   availability_check_interval_minutes: 10
   # Higher batch when showing all stories; more rewrites per run
@@ -52,13 +52,13 @@ schedule:
   fetcher:
     circuit_breaker_threshold: 5
     request_timeout_seconds: 30
-    user_agent: "Dossier/0.1 (+https://github.com/etorhub/dossier)"
+    user_agent: 'Dossier/0.1 (+https://github.com/etorhub/dossier)'
 
 extraction:
   enabled: true
   min_content_length: 200
   batch_size: 30
-  max_enrichment_rounds: 20  # Cap per run to avoid runaway loops
+  max_enrichment_rounds: 20 # Cap per run to avoid runaway loops
   rate_limit_per_domain: 2.0
   timeout: 30
 
@@ -70,8 +70,10 @@ processing:
   rewrite_max_tokens: 2000
   # 0 = all stories regardless of freshness
   cluster_window_hours: 0
-  cluster_similarity_threshold: 0.82
-  story_similarity_threshold: 0.82
+  # Minimum cosine similarity for two articles to belong to the same story.
+  # Higher = stricter; only articles about the same specific event are grouped.
+  # Recommended range: 0.88–0.95. Default: 0.90.
+  story_similarity_threshold: 0.80
   story_min_sources: 2
   embed_batch_size: 50
 
@@ -96,11 +98,11 @@ server:
 # icon: SVG icon name (newspaper, building, users, palette, globe, trending-up, flask, trophy)
 # emoji: for setup/settings topic selector
 topics:
-  general: { label: General, icon: newspaper, emoji: "📰" }
-  politics: { label: Politics, icon: building, emoji: "🏛️" }
-  society: { label: Society, icon: users, emoji: "👥" }
-  culture: { label: Culture, icon: palette, emoji: "🎭" }
-  international: { label: International, icon: globe, emoji: "🌍" }
-  economy: { label: Economy, icon: trending-up, emoji: "📈" }
-  science: { label: Science, icon: flask, emoji: "🔬" }
-  sports: { label: Sports, icon: trophy, emoji: "⚽" }
+  general: { label: General, icon: newspaper, emoji: '📰' }
+  politics: { label: Politics, icon: building, emoji: '🏛️' }
+  society: { label: Society, icon: users, emoji: '👥' }
+  culture: { label: Culture, icon: palette, emoji: '🎭' }
+  international: { label: International, icon: globe, emoji: '🌍' }
+  economy: { label: Economy, icon: trending-up, emoji: '📈' }
+  science: { label: Science, icon: flask, emoji: '🔬' }
+  sports: { label: Sports, icon: trophy, emoji: '⚽' }

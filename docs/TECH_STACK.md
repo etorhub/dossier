@@ -269,7 +269,7 @@ Background jobs in the worker:
 
 1. **Fetch jobs** — poll feeds per their configured interval. Articles are stored in the `articles` table.
 2. **Enrichment jobs** — extract full article text from URLs (Trafilatura) for articles with `extraction_status = 'pending'`.
-3. **Cluster jobs** — embed articles (Ollama nomic-embed-text), cluster by cosine similarity, create cluster records.
+3. **Cluster jobs** — embed articles (Ollama nomic-embed-text), complete-linkage cosine similarity grouping, create story records only for groups with ≥2 distinct sources covering the same event.
 4. **Rewrite jobs** — run at a configurable daily time (default: 06:00). Uses a cascading pipeline: generate neutral English from sources, simplify to simple English, then translate both to other languages. Per-task models (`rewrite_model`, `simplify_model`, `translate_model`) can be tuned in config. Rewrites are stored in `story_rewrites` and shared across all users with the same `(style, language)` variant.
 5. **Availability check** — runs every 10 minutes (configurable). HTTP HEAD/GET to each active feed; stores results in `source_availability_checks`. Visible in the ops dashboard.
 
