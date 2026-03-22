@@ -11,11 +11,11 @@ def get_db_url() -> str:
     url = os.environ.get("DATABASE_URL")
     if url:
         return url
-    user = os.environ.get("POSTGRES_USER", "news")
+    user = os.environ.get("POSTGRES_USER", "dossier")
     password = os.environ.get("POSTGRES_PASSWORD", "")
     host = os.environ.get("POSTGRES_HOST", "localhost")
     port = os.environ.get("POSTGRES_PORT", "5432")
-    dbname = os.environ.get("POSTGRES_DB", "news")
+    dbname = os.environ.get("POSTGRES_DB", "dossier")
     return f"postgresql://{user}:{password}@{host}:{port}/{dbname}"
 
 

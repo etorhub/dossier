@@ -1,0 +1,39 @@
+---
+description: Pytest conventions and boundaries. Apply when adding or changing tests under tests/.
+globs: ["tests/**/*.py"]
+---
+
+# Testing
+
+## Running tests
+
+From the repository root (with dev dependencies installed):
+
+```bash
+pytest                  # full suite
+pytest tests/test_foo.py
+pytest tests/test_foo.py::test_name
+```
+
+`lefthook` runs `pytest` on **pre-push**. Keep the suite fast enough for regular use; mark or split unusually slow integration tests if the project introduces them.
+
+## Fixtures
+
+- **`tests/conftest.py`** defines shared fixtures (`app`, `client`). Use the Flask `client` for HTTP-level tests against the main application.
+- Add new shared fixtures to `conftest.py` when multiple modules need them; keep test-local fixtures in the test file when they are single-use.
+
+## Main app routes — HTML, not JSON
+
+- The reader platform returns **rendered HTML** (HATEOAS). For route tests, assert on response status, HTML content, or redirects — not `response.get_json()` for user-facing blueprints.
+- If you need to inspect the DOM string, use stable markers (e.g. known text from `gettext` / template structure) consistent with existing tests.
+
+## LLM and the web container
+
+- **Do not** require a live Ollama instance or real LLM calls for ordinary unit or route tests.
+- Test LLM-related behaviour by mocking **`app.llm.provider`** (or the service layer that calls it), following patterns in `tests/test_llm_provider.py` and similar files.
+- Heavy pipeline tests belong near `app/feed/`, `app/worker_cli.py`, or services — keep them deterministic (fixtures, mocked HTTP, mocked provider).
+
+## Style
+
+- Test files: `tests/test_<area>.py`, functions `test_<behaviour>`.
+- Use type hints where the rest of the test file already does; match neighbouring tests for assertion style and fixture usage.

@@ -35,7 +35,7 @@ def test_fetch_feed_200(mock_client_class: MagicMock) -> None:
 
     mock_client.get.assert_called_once()
     call_kwargs = mock_client.get.call_args[1]
-    assert call_kwargs["headers"]["User-Agent"] == "AccessibleNewsAggregator/0.1"
+    assert call_kwargs["headers"]["User-Agent"] == "Dossier/0.1"
 
 
 @patch("app.feed.fetcher.httpx.Client")

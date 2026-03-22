@@ -2,7 +2,7 @@
 
 ## Supported Versions
 
-We support the latest release of Accessible News Aggregator with security updates. If you run an older version, please upgrade when possible.
+We support the latest release of Dossier with security updates. If you run an older version, please upgrade when possible.
 
 | Version | Supported          |
 | ------- | ------------------ |
@@ -14,7 +14,7 @@ We support the latest release of Accessible News Aggregator with security update
 If you discover a security vulnerability, please report it responsibly:
 
 1. **Do not** open a public issue for security vulnerabilities.
-2. **Open a private security advisory** on GitHub: [https://github.com/accessible-news/aggregator/security/advisories/new](https://github.com/accessible-news/aggregator/security/advisories/new)
+2. **Open a private security advisory** on GitHub: [https://github.com/etorhub/dossier/security/advisories/new](https://github.com/etorhub/dossier/security/advisories/new)
 3. Provide a clear description of the issue, steps to reproduce, and any suggested mitigations.
 
 We will acknowledge your report and work with you to understand and address the vulnerability. We aim to respond within 7 days and will keep you updated on progress.

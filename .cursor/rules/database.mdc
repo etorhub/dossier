@@ -1,0 +1,29 @@
+---
+description: Database access and schema changes. Apply when editing migrations, app/db, or code that touches PostgreSQL.
+globs: ["alembic/**/*.py", "app/db/**/*.py"]
+---
+
+# Database layer
+
+## PostgreSQL only
+
+The app uses **PostgreSQL**. Never introduce SQLite or other drivers for application data.
+
+## Schema changes — Alembic only
+
+- Add or change tables, columns, indexes, and constraints **only** through Alembic revisions under `alembic/versions/`.
+- After editing models or SQL in a revision, run migrations locally (`alembic upgrade head`) and keep revisions reversible when reasonable (`downgrade` implemented).
+- Do not apply ad-hoc DDL in application startup, routes, or one-off scripts that should be migrations (except documented maintenance tooling if the project already allows it).
+
+## Access goes through `app/db/`
+
+- **Routes and services** call functions in `app/db/` (e.g. `articles`, `users`, `stories`, `admin`). They must not open raw connections or embed large SQL blocks outside the db package.
+- Use the existing patterns in `app/db/connection.py` and module-specific query helpers; extend those modules instead of duplicating connection logic.
+- **`app/db/admin.py`** holds read-oriented queries for the ops dashboard; keep heavy reporting SQL there rather than in `ops/views/`.
+
+## Types and safety
+
+- Prefer typed helpers and consistent argument shapes across db functions.
+- When adding queries, consider transaction boundaries (caller vs db function) and match how sibling functions in the same module behave.
+
+See `docs/TECH_STACK.md` and `docs/ARCHITECTURE.md` for how the db layer fits the rest of the stack.

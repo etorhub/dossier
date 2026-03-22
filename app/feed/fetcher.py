@@ -22,7 +22,7 @@ def fetch_feed(
     last_modified: str | None = None,
     *,
     timeout: float = 30.0,
-    user_agent: str = "AccessibleNewsAggregator/0.1",
+    user_agent: str = "Dossier/0.1",
 ) -> FetchResult:
     """Fetch a feed via HTTP GET with optional conditional headers.
 

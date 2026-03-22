@@ -1,4 +1,4 @@
-# MVP Plan — Accessible News Aggregator
+# MVP Plan — Dossier
 
 Canonical phased plan for the minimum viable product. This document replaces scattered MVP mentions elsewhere.
 

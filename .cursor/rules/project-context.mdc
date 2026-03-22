@@ -3,7 +3,7 @@ description: Full project context — problem statement, audience, deployment, f
 alwaysApply: true
 ---
 
-# Project Context — News Aggregator
+# Project Context — Dossier
 
 Context document for an AI-powered news aggregator that puts quality and clarity first.
 
@@ -145,6 +145,12 @@ For automated news source discovery (finding feeds by location, validation, qual
 - **User setup, user operation.** Every user configures their own feed via the web UI. A family member or caregiver may do this on another person's behalf; the product supports but does not assume that flow.
 - **Config-driven throughout.** App config (source catalog, LLM prompts, server settings) lives in YAML. User preferences live in PostgreSQL, set via the setup wizard and settings page.
 - **Self-hosted must be genuinely usable.** Whoever deploys (e.g. a family member) should be able to run and maintain it without ongoing help. End users accessing the platform never touch deployment.
+
+---
+
+## Cursor IDE Rules
+
+`.cursor/rules/` contains Cursor IDE rule files that mirror this document. `project-context.mdc` is the full equivalent of CLAUDE.md for Cursor users. Additional rules cover architecture, accessibility, i18n, LLM usage, news source discovery, **database** (`database.mdc`), **testing** (`testing.mdc`), **ops dashboard** (`ops-dashboard.mdc`), and **Docker** (`docker.mdc`). These rules are authoritative for Cursor users and must stay in sync with CLAUDE.md — if one is updated, update the other.
 
 ---
 

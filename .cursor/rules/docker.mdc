@@ -1,0 +1,37 @@
+---
+description: Docker images and compose layout. Apply when editing Dockerfile, docker-compose.yml, or container-specific requirements files.
+globs: ["Dockerfile", "docker-compose.yml", "docker-compose*.yml", "requirements-web.txt", "requirements.txt"]
+---
+
+# Docker and compose
+
+## Image targets (`Dockerfile`)
+
+- **`web`** — Gunicorn serves **`app:application`**. Uses **`requirements-web.txt`** only: no `ollama`, no trafilatura-heavy processing stack unless that file is intentionally updated. This keeps the reader-facing container slim.
+- **`worker`** — Runs **`python -m app.scheduler`** (pipeline). Uses **`requirements.txt`** (full stack including Ollama client, trafilatura, etc.). LLM **inference** runs in the **ollama** service; the worker is a client via `OLLAMA_HOST`.
+
+Do **not** add LLM/embedding dependencies to the web stage or `requirements-web.txt` unless the architecture is deliberately changed and documented.
+
+## Compose services (typical layout)
+
+| Service      | Role |
+| ------------ | ---- |
+| `db`         | PostgreSQL 16 |
+| `web`        | Reader app, port **5000** |
+| `worker`     | Scheduled pipeline |
+| `ollama`     | Model runtime |
+| `ollama-init`| One-shot model pull |
+| `ops`        | Ops dashboard, Gunicorn **`ops:application`**, port **5001** |
+
+Match **depends_on** and healthchecks to this flow: DB ready before web/worker/ops; Ollama healthy before init pull; init completed before worker if the compose file requires it.
+
+## Configuration and secrets
+
+- **`config/`** is mounted into containers for YAML catalog and app config.
+- **`DATABASE_URL`**, **`SECRET_KEY`**, and **`POSTGRES_PASSWORD`** come from environment / `.env` — never commit real secrets. Use `.env.example` for documented placeholders.
+
+## Edits checklist
+
+- If you add a new Python dependency for the **worker only**, add it to **`requirements.txt`**, not `requirements-web.txt`.
+- If you add a dependency needed by **web and ops**, it belongs in **`requirements-web.txt`** (both use the `web` image target today).
+- After changing compose **ports** or **commands**, update **`docs/TECH_STACK.md`** or **`docs/ADMIN_DASHBOARD.md`** if user-facing run instructions change.

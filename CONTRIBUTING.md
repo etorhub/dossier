@@ -1,4 +1,4 @@
-# Contributing to News Aggregator
+# Contributing to Dossier
 
 Thank you for your interest in contributing. This project serves a general audience who want to read the news without the noise. Every contribution that improves content quality, accessibility, or reliability helps.
 
@@ -11,8 +11,8 @@ Thank you for your interest in contributing. This project serves a general audie
 ## Development Setup
 
 ```bash
-git clone https://github.com/accessible-news/aggregator.git
-cd aggregator
+git clone https://github.com/etorhub/dossier.git
+cd dossier
 docker-compose up -d
 ./scripts/fetch-news.sh
 ```
