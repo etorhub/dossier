@@ -14,7 +14,7 @@ from app.db import sources as sources_db
 logger = logging.getLogger(__name__)
 
 DEFAULT_TIMEOUT = 10.0
-DEFAULT_USER_AGENT = "AccessibleNewsAggregator/0.1 (+https://github.com/accessible-news/aggregator)"
+DEFAULT_USER_AGENT = "Dossier/0.1 (+https://github.com/etorhub/dossier)"
 
 
 @dataclass

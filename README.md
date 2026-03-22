@@ -1,4 +1,4 @@
-# Accessible News Aggregator
+# Dossier
 
 [![License: AGPL-3.0](https://img.shields.io/badge/License-AGPL--3.0-blue.svg)](https://opensource.org/licenses/AGPL-3.0)
 [![Python 3.12+](https://img.shields.io/badge/python-3.12+-3776ab?logo=python&logoColor=white)](https://www.python.org/)
@@ -43,8 +43,8 @@ Neither the end user nor anyone acting on their behalf ever touches the codebase
 ### Setup
 
 ```bash
-git clone https://github.com/etorhub/news.git
-cd news
+git clone https://github.com/etorhub/dossier.git
+cd dossier
 
 docker-compose up
 ```

@@ -53,7 +53,7 @@ def fetch_all_due_feeds(config: dict[str, Any] | None = None) -> FetchReport:
     max_age_hours = schedule_cfg.get("max_article_age_hours", 24)
 
     timeout = fetcher_cfg.get("request_timeout_seconds", 30)
-    user_agent = fetcher_cfg.get("user_agent", "AccessibleNewsAggregator/0.1")
+    user_agent = fetcher_cfg.get("user_agent", "Dossier/0.1")
     threshold = fetcher_cfg.get("circuit_breaker_threshold", 5)
 
     feeds = sources_db.get_all_active_feeds()

@@ -97,8 +97,8 @@ msgstr "Artículo no encontrado."
 #: templates/article.html:3 templates/base.html:6 templates/index.html:2
 #: templates/login.html:2 templates/register.html:2 templates/settings.html:2
 #: templates/setup.html:2
-msgid "Accessible News"
-msgstr "Accessible News"
+msgid "Dossier"
+msgstr "Dossier"
 
 #: templates/article.html:3
 msgid "Article not found"

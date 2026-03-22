@@ -1,4 +1,4 @@
-# Multi-stage build for Accessible News Aggregator
+# Multi-stage build for Dossier
 # Targets: web (slim), worker (feed processing + ollama client)
 # Build: docker build --target web .  or  docker build --target worker .
 

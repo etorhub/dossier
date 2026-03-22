@@ -33,7 +33,7 @@ DEFAULTS: dict[str, Any] = {
         "fetcher": {
             "circuit_breaker_threshold": 5,
             "request_timeout_seconds": 30,
-            "user_agent": "AccessibleNewsAggregator/0.1 (+https://github.com/accessible-news/aggregator)",
+            "user_agent": "Dossier/0.1 (+https://github.com/etorhub/dossier)",
         },
     },
     "processing": {

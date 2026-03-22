@@ -1,4 +1,4 @@
-# CLAUDE.md — News Aggregator
+# CLAUDE.md — Dossier
 
 Context document for an AI-powered news aggregator that puts quality and clarity first.
 

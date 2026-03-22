@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% block title %}{{ _("Today's feed") }}{% for s in sections %}{% if s.id == topic_filter %} · {{ _(s.label) }}{% endif %}{% endfor %} — {{ _('Accessible News') }}{% endblock %}
+{% block title %}{{ _("Today's feed") }}{% for s in sections %}{% if s.id == topic_filter %} · {{ _(s.label) }}{% endif %}{% endfor %} — {{ _('Dossier') }}{% endblock %}
 {% block content %}
 <h1>{{ _("Today's feed") }}{% if topic_filter %}{% for s in sections %}{% if s.id == topic_filter %} · {{ _(s.label) }}{% endif %}{% endfor %}{% endif %}{% if feed %} · {{ ngettext('%(num)d article', '%(num)d articles', feed|length)|format(num=feed|length) }}{% endif %}</h1>
 {% if sections %}

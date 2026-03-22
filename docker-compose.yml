@@ -35,11 +35,11 @@ services:
     volumes:
       - pgdata:/var/lib/postgresql/data
     environment:
-      POSTGRES_DB: news
-      POSTGRES_USER: news
+      POSTGRES_DB: dossier
+      POSTGRES_USER: dossier
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-devpassword}
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U news"]
+      test: ["CMD-SHELL", "pg_isready -U dossier"]
       interval: 5s
       timeout: 5s
       retries: 5
@@ -54,7 +54,7 @@ services:
       db:
         condition: service_healthy
     environment:
-      DATABASE_URL: postgresql://news:${POSTGRES_PASSWORD:-devpassword}@db:5432/news
+      DATABASE_URL: postgresql://dossier:${POSTGRES_PASSWORD:-devpassword}@db:5432/dossier
       POSTGRES_HOST: db
       SECRET_KEY: ${SECRET_KEY:-dev-secret-key-change-in-production}
     volumes:
@@ -72,7 +72,7 @@ services:
       ollama-init:
         condition: service_completed_successfully
     environment:
-      DATABASE_URL: postgresql://news:${POSTGRES_PASSWORD:-devpassword}@db:5432/news
+      DATABASE_URL: postgresql://dossier:${POSTGRES_PASSWORD:-devpassword}@db:5432/dossier
       POSTGRES_HOST: db
       OLLAMA_HOST: http://ollama:11434
     volumes:
@@ -89,7 +89,7 @@ services:
       db:
         condition: service_healthy
     environment:
-      DATABASE_URL: postgresql://news:${POSTGRES_PASSWORD:-devpassword}@db:5432/news
+      DATABASE_URL: postgresql://dossier:${POSTGRES_PASSWORD:-devpassword}@db:5432/dossier
       POSTGRES_HOST: db
     volumes:
       - ./config:/app/config

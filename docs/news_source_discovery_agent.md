@@ -664,7 +664,7 @@ async def discover_news_sources(location: dict) -> None:
 
 | Variable | Required | Description |
 |---|---|---|
-| `DATABASE_URL` | Yes | PostgreSQL connection string (e.g. `postgresql://news:pass@db:5432/news`) |
+| `DATABASE_URL` | Yes | PostgreSQL connection string (e.g. `postgresql://dossier:pass@db:5432/dossier`) |
 | `BING_SEARCH_API_KEY` | Recommended | Microsoft Bing Search v7 API key |
 | `SERPAPI_KEY` | Optional | SerpAPI key for Google result fallback |
 | `NEWSAPI_KEY` | Recommended | NewsAPI.org key for source directory queries |

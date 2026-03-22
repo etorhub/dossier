@@ -1,6 +1,6 @@
 # Tech Stack
 
-Technology choices for the Accessible News Aggregator, with rationale.
+Technology choices for Dossier, with rationale.
 
 ---
 
