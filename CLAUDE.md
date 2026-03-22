@@ -147,7 +147,7 @@ For automated news source discovery (finding feeds by location, validation, qual
 
 ## Cursor IDE Rules
 
-`.cursor/rules/` contains Cursor IDE rule files that mirror this document. `project-context.mdc` is the full equivalent of CLAUDE.md for Cursor users. Additional rules cover architecture, accessibility, i18n, LLM usage, and news source discovery. These rules are authoritative for Cursor users and must stay in sync with CLAUDE.md — if one is updated, update the other.
+`.cursor/rules/` contains Cursor IDE rule files that mirror this document. `project-context.mdc` is the full equivalent of CLAUDE.md for Cursor users. Additional rules cover architecture, accessibility, i18n, LLM usage, news source discovery, **database** (`database.mdc`), **testing** (`testing.mdc`), **ops dashboard** (`ops-dashboard.mdc`), and **Docker** (`docker.mdc`). These rules are authoritative for Cursor users and must stay in sync with CLAUDE.md — if one is updated, update the other.
 
 ---
 
