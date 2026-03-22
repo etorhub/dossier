@@ -1,0 +1,18 @@
+---
+description: Open GitHub pull requests with gh — push branch first, then gh pr create. Use when the user asks for a PR or to publish a branch.
+alwaysApply: true
+---
+
+# Pull requests
+
+Full narrative lives in **CLAUDE.md** (section “Pull requests (GitHub)”) and **project-context.mdc** — keep those in sync when changing this workflow.
+
+When the user wants a **pull request**:
+
+1. Prefer **`gh`** (`which gh`). If missing, say to install [GitHub CLI](https://cli.github.com/) and run `gh auth login`.
+2. **`git fetch origin`**, then ensure the head branch exists on the remote: `git ls-remote --heads origin <branch>`. If there is no output, **`git push -u origin <branch>`** before `gh pr create`.
+3. Confirm there is something to merge: `git log origin/<base>..origin/<head> --oneline` (usually `base` = `main`).
+4. Create: `gh pr create --base main --head <branch> --title "…" --body "…"`, or from a checked-out tracking branch use `gh pr create --fill` / `gh pr create`.
+5. Give the user the PR URL; optional: `gh pr view --web`.
+
+If `gh pr create` errors (head sha blank, no commits between branches, invalid head ref), re-check remote branch existence and push; do not only paste a compare URL unless `gh` is unavailable.

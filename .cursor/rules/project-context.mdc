@@ -106,6 +106,28 @@ These are hard rules, not preferences:
 
 ---
 
+## Pull requests (GitHub)
+
+Use the **GitHub CLI** (`gh`) so pull requests can be opened from the terminal without using the browser alone.
+
+1. **Install and auth (once per machine):** `brew install gh` (macOS) or see [GitHub CLI installs](https://cli.github.com/). Then `gh auth login` with repo scope.
+2. **Push the branch before opening a PR.** The head branch **must** exist on `origin`. If it only exists locally, run `git push -u origin <branch>` first. Quick check: `git ls-remote --heads origin <branch>` should print a line; if empty, push.
+3. **Create the PR** (from the repo root, after commits are pushed):
+
+   ```bash
+   gh pr create --base main --head <branch> --title "type: short summary" --body "…"
+   ```
+
+   If you are already on `<branch>` and it tracks `origin/<branch>`, you can use `gh pr create --fill` to reuse the latest commit subject/body, or run `gh pr create` and follow the prompts.
+
+4. **Verify / open in browser:** `gh pr view --web` or use the URL printed by `gh pr create`.
+
+**When the user asks you to open a PR:** run the commands yourself (push if needed, then `gh pr create`). Do not assume the remote branch exists.
+
+**Common failures:** `Head sha can't be blank`, `Head ref must be a branch`, or `No commits between main and <branch>` often mean the head branch was never pushed, was deleted on GitHub, or is already merged into the base. Run `git fetch origin`, confirm with `git log origin/main..origin/<branch>`, then push or choose the correct base/head.
+
+---
+
 ## What AI Assistants Often Get Wrong on This Stack
 
 - **Hardcoding user-facing strings.** Every UI string must be wrapped in `_()` or `ngettext()` (templates) or `gettext()` (Python). Run the i18n extraction/update/compile workflow after changes.
@@ -150,7 +172,7 @@ For automated news source discovery (finding feeds by location, validation, qual
 
 ## Cursor IDE Rules
 
-`.cursor/rules/` contains Cursor IDE rule files that mirror this document. `project-context.mdc` is the full equivalent of CLAUDE.md for Cursor users. Additional rules cover architecture, accessibility, i18n, LLM usage, news source discovery, **database** (`database.mdc`), **testing** (`testing.mdc`), **ops dashboard** (`ops-dashboard.mdc`), and **Docker** (`docker.mdc`). These rules are authoritative for Cursor users and must stay in sync with CLAUDE.md — if one is updated, update the other.
+`.cursor/rules/` contains Cursor IDE rule files that mirror this document. `project-context.mdc` is the full equivalent of CLAUDE.md for Cursor users. Additional rules cover architecture, accessibility, i18n, LLM usage, news source discovery, **database** (`database.mdc`), **testing** (`testing.mdc`), **ops dashboard** (`ops-dashboard.mdc`), **Docker** (`docker.mdc`), and **pull requests** (`pull-requests.mdc`). These rules are authoritative for Cursor users and must stay in sync with CLAUDE.md — if one is updated, update the other.
 
 ---
 
