@@ -1,0 +1,30 @@
+---
+description: Ops dashboard service — separate Flask app for operators. Apply when editing ops/ or ops-related deployment.
+globs: ["ops/**/*.py", "ops/**/*.html"]
+---
+
+# Ops dashboard (`ops/`)
+
+## Role
+
+The ops dashboard is a **separate Flask application** from the main news platform. It is for the person who deploys and maintains the instance (pipeline health, jobs, sources, articles, stories, users). See `docs/ADMIN_DASHBOARD.md`.
+
+## Service boundaries
+
+- **URL / port:** default `http://localhost:5001` in docker-compose (`ops` service).
+- **No authentication by default** — treat as trusted network access; restrict via firewall or reverse proxy in production.
+- **Same Docker image target as web** (`target: web`): the ops process must **not** load or depend on Ollama/LLM clients for request handling. It reads the database through `app.db.admin` and related db helpers.
+
+## Routes and responses
+
+- Ops views should **`render_template`** like the main app. Do not add a JSON API to the ops app for general consumption; the existing `tojson` template filter is for **displaying** structured data inside HTML, not for replacing HATEOAS with `jsonify`.
+- Templates live under **`ops/templates/`** (e.g. `ops/dashboard.html`). Keep operator UI separate from reader templates under root `templates/`.
+
+## Data access
+
+- Use **`app.db.admin`** (and other `app/db` modules as appropriate) for queries. Do not embed large raw SQL blocks in view functions — extend the db layer instead.
+
+## Not the reader product
+
+- Do not merge ops routes into `app/routes/` or share session/auth flows with end users unless the project explicitly adds authenticated ops later.
+- Internationalisation is less critical than for the reader app, but avoid unnecessary hardcoded strings if the file already uses patterns worth reusing.
