@@ -114,6 +114,25 @@ def cluster_articles_cmd() -> None:
     click.echo("Cluster job completed. Check ops dashboard for details.")
 
 
+@worker_cli.command("embedding-status")
+@click.option(
+    "--compact",
+    is_flag=True,
+    help="Single-line JSON (for scripts / watch dashboards).",
+)
+def embedding_status_cmd(compact: bool) -> None:
+    """Print embedding queue snapshot (JSON). Use scripts/embed-status.sh for a live TUI."""
+    import json
+
+    from app.clustering.embed_status import build_embedding_status
+
+    data = build_embedding_status()
+    if compact:
+        click.echo(json.dumps(data, separators=(",", ":")))
+    else:
+        click.echo(json.dumps(data, indent=2, default=str))
+
+
 @worker_cli.command("rewrite-articles")
 def rewrite_articles_cmd() -> None:
     """Rewrite today's articles for all user profiles (rewrite job)."""

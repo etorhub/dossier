@@ -153,6 +153,78 @@ def get_recent_articles_without_embedding(
         return_connection(conn)
 
 
+def count_recent_articles_without_embedding(since: datetime | None) -> int:
+    """Count articles with no valid embedding (same filter as get_recent_articles_without_embedding)."""
+    conn = get_connection()
+    try:
+        with conn.cursor() as cur:
+            need = f"NOT ({_sql_article_has_valid_embedding('embedding')})"
+            if since is not None:
+                cur.execute(
+                    f"""
+                    SELECT COUNT(*) FROM articles
+                    WHERE published_at >= %s AND {need}
+                    """,
+                    (since,),
+                )
+            else:
+                cur.execute(
+                    f"""
+                    SELECT COUNT(*) FROM articles
+                    WHERE {need}
+                    """
+                )
+            row = cur.fetchone()
+            return int(row[0]) if row else 0
+    finally:
+        return_connection(conn)
+
+
+def count_articles_published_since(since: datetime | None) -> int:
+    """Count articles with published_at >= since. If since is None, count all articles."""
+    conn = get_connection()
+    try:
+        with conn.cursor() as cur:
+            if since is not None:
+                cur.execute(
+                    "SELECT COUNT(*) FROM articles WHERE published_at >= %s",
+                    (since,),
+                )
+            else:
+                cur.execute("SELECT COUNT(*) FROM articles")
+            row = cur.fetchone()
+            return int(row[0]) if row else 0
+    finally:
+        return_connection(conn)
+
+
+def count_recent_articles_with_valid_embedding(since: datetime | None) -> int:
+    """Count articles with a valid embedding; if since is set, only published_at >= since."""
+    conn = get_connection()
+    try:
+        with conn.cursor() as cur:
+            has_emb = _sql_article_has_valid_embedding("embedding")
+            if since is not None:
+                cur.execute(
+                    f"""
+                    SELECT COUNT(*) FROM articles
+                    WHERE published_at >= %s AND {has_emb}
+                    """,
+                    (since,),
+                )
+            else:
+                cur.execute(
+                    f"""
+                    SELECT COUNT(*) FROM articles
+                    WHERE {has_emb}
+                    """
+                )
+            row = cur.fetchone()
+            return int(row[0]) if row else 0
+    finally:
+        return_connection(conn)
+
+
 def get_recent_articles_with_embedding(
     since: datetime,
 ) -> list[dict[str, Any]]:

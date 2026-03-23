@@ -4,7 +4,8 @@ from __future__ import annotations
 
 import logging
 import time
-from collections.abc import Callable
+from collections.abc import Callable, Generator
+from contextlib import contextmanager
 from typing import Any, TypeVar
 
 import httpx
@@ -12,6 +13,26 @@ import httpx
 T = TypeVar("T")
 
 logger = logging.getLogger(__name__)
+
+_QUIET_HTTP_LOGGERS = ("httpx", "httpcore")
+
+
+@contextmanager
+def quiet_http_library_info_logs() -> Generator[None, None, None]:
+    """Hide per-request INFO lines from httpx/httpcore (e.g. Ollama embed calls).
+
+    Restores each logger's previous level after the block. Safe when loggers were
+    never configured (NOTSET propagates to root).
+    """
+    loggers = [logging.getLogger(name) for name in _QUIET_HTTP_LOGGERS]
+    previous = [(lg, lg.level) for lg in loggers]
+    for lg in loggers:
+        lg.setLevel(logging.WARNING)
+    try:
+        yield
+    finally:
+        for lg, lvl in previous:
+            lg.setLevel(lvl)
 
 
 def is_ollama_connection_failure(exc: BaseException) -> bool:

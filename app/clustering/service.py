@@ -3,6 +3,8 @@
 import json
 import logging
 import os
+import shutil
+import sys
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from typing import Any
@@ -11,9 +13,36 @@ from app.config import load_config
 from app.db import articles as db_articles
 from app.db import stories as db_stories
 from app.llm.embeddings import EmbeddingProviderError, get_embedding_provider
-from app.llm.http_utils import is_ollama_connection_failure
+from app.llm.http_utils import is_ollama_connection_failure, quiet_http_library_info_logs
 
 logger = logging.getLogger(__name__)
+
+
+def _render_embedding_progress(
+    done: int,
+    total: int,
+    title: str,
+    *,
+    frame: int,
+) -> None:
+    """One-line stderr progress (TTY only). Supplements quiet httpx logging."""
+    if total <= 0 or not sys.stderr.isatty():
+        return
+    spin = "⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏"
+    ch = spin[frame % len(spin)]
+    pct = min(100, int(round(100.0 * done / total))) if total else 0
+    bar_w = min(28, max(12, shutil.get_terminal_size((88, 24)).columns - 46))
+    filled = min(bar_w, max(0, int(round(bar_w * done / total))))
+    bar_f = "█" * filled + "░" * (bar_w - filled)
+    safe = (title or "").replace("\n", " ").strip() or "—"
+    if len(safe) > 40:
+        safe = safe[:39] + "…"
+    sys.stderr.write(
+        f"\r\x1b[36m{ch}\x1b[0m embed \x1b[32m{bar_f}\x1b[0m "
+        f"\x1b[1m{done}\x1b[0m/\x1b[1m{total}\x1b[0m {pct}%  "
+        f"\x1b[2m{safe}\x1b[0m\x1b[K"
+    )
+    sys.stderr.flush()
 
 
 @dataclass
@@ -222,26 +251,42 @@ def run_cluster_and_embed(config: dict[str, Any] | None = None) -> StoryReport:
             or "http://ollama:11434"
         )
         to_embed = db_articles.get_recent_articles_without_embedding(since, limit=embed_limit)
+        eligible: list[tuple[int, dict[str, Any], str]] = []
         for i, article in enumerate(to_embed):
             text = _text_to_embed(article)
-            if not text:
-                continue
+            if text:
+                eligible.append((i, article, text))
+        total_eligible = len(eligible)
+        with quiet_http_library_info_logs():
             try:
-                embedding = provider.embed(text)
-                db_articles.update_article_embedding(article["id"], embedding)
-                report.articles_embedded += 1
-            except EmbeddingProviderError as e:
-                if is_ollama_connection_failure(e):
-                    deferred = max(0, len(to_embed) - i)
-                    logger.warning(
-                        "Ollama unreachable at %s (%s); stopping this embed run "
-                        "(%d article(s) deferred). Start Ollama or set embeddings.host / OLLAMA_HOST.",
-                        ollama_host,
-                        e,
-                        deferred,
-                    )
-                    break
-                logger.warning("Embed failed for article %s: %s", article["id"], e)
+                for k, (i, article, text) in enumerate(eligible):
+                    try:
+                        embedding = provider.embed(text)
+                        db_articles.update_article_embedding(article["id"], embedding)
+                        report.articles_embedded += 1
+                        title = str(article.get("title") or article.get("id") or "")
+                        _render_embedding_progress(
+                            report.articles_embedded,
+                            total_eligible,
+                            title,
+                            frame=k,
+                        )
+                    except EmbeddingProviderError as e:
+                        if is_ollama_connection_failure(e):
+                            deferred = max(0, len(to_embed) - i)
+                            logger.warning(
+                                "Ollama unreachable at %s (%s); stopping this embed run "
+                                "(%d article(s) deferred). Start Ollama or set embeddings.host / OLLAMA_HOST.",
+                                ollama_host,
+                                e,
+                                deferred,
+                            )
+                            break
+                        logger.warning("Embed failed for article %s: %s", article["id"], e)
+            finally:
+                if sys.stderr.isatty() and total_eligible > 0:
+                    sys.stderr.write("\n")
+                    sys.stderr.flush()
 
     # 2. Get articles not yet in a story
     if has_embedding_provider:

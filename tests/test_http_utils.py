@@ -1,10 +1,15 @@
 """Tests for shared HTTP / retry helpers."""
 
+import logging
 from unittest.mock import patch
 
 import pytest
 
-from app.llm.http_utils import is_ollama_connection_failure, run_with_retries
+from app.llm.http_utils import (
+    is_ollama_connection_failure,
+    quiet_http_library_info_logs,
+    run_with_retries,
+)
 
 
 def test_run_with_retries_first_call_ok() -> None:
@@ -82,3 +87,15 @@ def test_run_with_retries_at_least_one_attempt() -> None:
     with patch("app.llm.http_utils.time.sleep"):
         with pytest.raises(ValueError, match="nope"):
             run_with_retries(fail, max_retries=0, label="test")
+
+
+def test_quiet_http_library_info_logs_restores_levels() -> None:
+    """httpx/httpcore log level is raised during the block and restored after."""
+    hx = logging.getLogger("httpx")
+    hc = logging.getLogger("httpcore")
+    before_hx, before_hc = hx.level, hc.level
+    with quiet_http_library_info_logs():
+        assert hx.level == logging.WARNING
+        assert hc.level == logging.WARNING
+    assert hx.level == before_hx
+    assert hc.level == before_hc
