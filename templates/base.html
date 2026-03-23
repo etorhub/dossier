@@ -615,6 +615,27 @@
       body { padding-bottom: calc(60px + env(safe-area-inset-bottom, 0)); }
       /* Hide desktop top nav on mobile; .bottom-tabs and .section-nav remain visible */
       nav:not(.bottom-tabs):not(.section-nav) { display: none; }
+
+      /* Topics row: single scrollable strip (no multi-line wrap), tighter chips */
+      .section-nav {
+        flex-wrap: nowrap;
+        gap: 0.3rem;
+        margin-left: -1rem;
+        margin-right: -1rem;
+        padding-left: 1rem;
+        padding-right: 1rem;
+        margin-bottom: 0.65rem;
+        padding-bottom: 0.45rem;
+      }
+      .section-nav .section-link {
+        flex-shrink: 0;
+        padding: 0.2rem 0.6rem;
+        font-size: 0.75rem;
+        gap: 0;
+      }
+      .section-nav .section-link .topic-icon {
+        display: none;
+      }
     }
 
     /* Desktop layout */
