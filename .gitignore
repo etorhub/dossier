@@ -46,3 +46,6 @@ data/job_runs/
 # claude
 .superpowers/
 
+# git worktrees
+.worktrees/
+
