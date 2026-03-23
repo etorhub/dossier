@@ -188,8 +188,11 @@ services:
       context: .
       target: worker
     depends_on:
+      db:
+        condition: service_healthy
       ollama-init:
         condition: service_completed_successfully
+        required: false  # omitted when local-llm profile is off (host Ollama)
     environment:
       OLLAMA_HOST: http://ollama:11434
     command: python -m app.scheduler

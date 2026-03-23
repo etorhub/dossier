@@ -23,7 +23,7 @@ Do **not** add LLM/embedding dependencies to the web stage or `requirements-web.
 | `ollama-init`| One-shot model pull |
 | `ops`        | Ops dashboard, Gunicorn **`ops:application`**, port **5001** |
 
-Match **depends_on** and healthchecks to this flow: DB ready before web/worker/ops; Ollama healthy before init pull; init completed before worker if the compose file requires it.
+Match **depends_on** and healthchecks to this flow: DB ready before web/worker/ops; Ollama healthy before init pull; worker optionally waits for **`ollama-init`** (`service_completed_successfully`, **`required: false`**) when profile `local-llm` is on so pulls finish before the scheduler runs.
 
 ## Configuration and secrets
 

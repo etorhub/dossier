@@ -42,25 +42,25 @@ Neither the end user nor anyone acting on their behalf ever touches the codebase
 
 ### Setup
 
-The **Ollama** service is optional in Compose (profile `local-llm`). Clustering, embeddings, and rewrites need it. Without that profile, the worker cannot reach `http://ollama:11434`.
+The **Ollama** service is optional in Compose (profile `local-llm`). Clustering, embeddings, and rewrites need a reachable Ollama. [`.env.example`](.env.example) sets `COMPOSE_PROFILES=local-llm` so a copied `.env` starts Ollama in Docker and runs **`ollama-init`** once per `up` (pulls `qwen2.5:7b`, `qwen2.5:3b`, `nomic-embed-text` into the `ollama_data` volume). The **worker** waits for that init to finish before running. Model pull happens at **container start**, not during `docker build`.
 
-**With Ollama in Docker** (typical; pulls models on first start):
+**With Ollama in Docker** (typical):
 
 ```bash
 git clone https://github.com/etorhub/dossier.git
 cd dossier
+cp .env.example .env
 
-# GPU (default ollama image expects NVIDIA). Also merge local-llm so the worker
-# starts after model pull (ollama-init).
-docker compose --profile local-llm -f docker-compose.yml -f docker-compose.local-llm.yml up -d
+# GPU (default ollama image expects NVIDIA)
+docker compose up --build -d
 
 # No NVIDIA GPU: add the CPU override for the ollama service
-# docker compose --profile local-llm -f docker-compose.yml -f docker-compose.cpu.yml -f docker-compose.local-llm.yml up -d
+# docker compose -f docker-compose.yml -f docker-compose.cpu.yml up --build -d
 ```
 
-Or enable the profile by default in `.env`: `COMPOSE_PROFILES=local-llm`, then `docker compose -f docker-compose.local-llm.yml up -d`.
+Without a `.env`, pass the profile explicitly: `docker compose --profile local-llm up --build -d`.
 
-**Ollama on the host instead** (e.g. Windows app or `ollama serve` in WSL): keep Compose as above *without* the `local-llm` profile, and set `OLLAMA_HOST` for the worker to reach the host from the container, for example `http://host.docker.internal:11434` (Docker Desktop / WSL). See comments in [`.env.example`](.env.example).
+**Ollama on the host instead** (e.g. Windows app or `ollama serve` in WSL): remove or comment out `COMPOSE_PROFILES=local-llm` in `.env`, pull the same model tags on the host (`ollama pull …`), and set `OLLAMA_HOST` for the worker (for example `http://host.docker.internal:11434` on Docker Desktop / WSL). See [`.env.example`](.env.example).
 
 Wait for services to be healthy (web at `http://localhost:5000`, worker running, **ollama** healthy if you use the profile). Then populate with news:
 
