@@ -1,0 +1,16 @@
+# Raspberry Pi (web + light scheduler only). No Ollama / LLM client.
+# See docs/DEPLOYMENT_HYBRID.md.
+flask
+psycopg2-binary
+apscheduler
+feedparser
+trafilatura
+httpx
+python-dotenv
+bcrypt
+alembic
+sqlalchemy
+gunicorn
+PyYAML
+humanize
+Flask-Babel

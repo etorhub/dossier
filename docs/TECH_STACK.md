@@ -159,6 +159,8 @@ Five services: PostgreSQL, Ollama (LLM/embeddings), the Flask web app (slim imag
 - **worker** — Runs APScheduler (`python -m app.scheduler`) for scheduled pipeline jobs (fetch, enrich, cluster, rewrite, check_source_availability). Uses `requirements.txt` (includes ollama Python client). Connects to ollama service for LLM and embeddings. Processing CLI commands run here: `docker compose exec worker python -m app.worker_cli fetch-feeds`, etc.
 - **ops** — Separate Flask app for operators. Serves the ops dashboard at port 5001. Uses the same database; no auth by default.
 
+**Hybrid Pi + PC:** To run Postgres, the web app, and light jobs on a small board (e.g. Raspberry Pi) while Ollama and embedding/cluster/rewrite jobs run on another machine, set `SCHEDULER_MODE` (`light` / `heavy` / `full`) and see [docs/DEPLOYMENT_HYBRID.md](DEPLOYMENT_HYBRID.md).
+
 ```yaml
 # docker-compose.yml (simplified)
 services:
