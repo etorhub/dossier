@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PROJECT VERSION\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2026-03-17 17:05+0100\n"
+"POT-Creation-Date: 2026-03-23 19:48+0100\n"
 "PO-Revision-Date: 2026-03-17 12:11+0100\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language: ca\n"
@@ -16,7 +16,7 @@ msgstr ""
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=utf-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"Generated-By: Babel 2.10.3\n"
+"Generated-By: Babel 2.18.0\n"
 
 #: app/i18n_strings.py:13
 msgid "Catalan"
@@ -70,7 +70,7 @@ msgstr "Ciència"
 msgid "Sports"
 msgstr "Esports"
 
-#: app/i18n_strings.py:27 templates/index.html:7
+#: app/i18n_strings.py:27 templates/index.html:11 templates/index.html:28
 msgid "All"
 msgstr "Tot"
 
@@ -104,109 +104,114 @@ msgstr "Dossier"
 msgid "Article not found"
 msgstr "Article no trobat"
 
-#: templates/article.html:8 templates/article.html:49
+#: templates/article.html:9 templates/article.html:55
 msgid "Back"
 msgstr "Enrere"
 
-#: templates/article.html:16 templates/partials/article_card.html:7
-#: templates/partials/article_expanded.html:10
+#: templates/article.html:16 templates/partials/article_card.html:10
+#: templates/partials/article_expanded.html:13
 msgid "Image source:"
 msgstr "Font de la imatge:"
 
-#: templates/article.html:24 templates/partials/article_card.html:17
-#: templates/partials/article_expanded.html:18
+#: templates/article.html:25
 #, python-format
 msgid "%(num)d source aggregated"
 msgid_plural "%(num)d sources aggregated"
 msgstr[0] "%(num)d font agregada"
 msgstr[1] "%(num)d fonts agregades"
 
-#: templates/article.html:24 templates/partials/article_card.html:17
-#: templates/partials/article_expanded.html:18
+#: templates/article.html:26 templates/partials/article_card.html:18
+#: templates/partials/article_expanded.html:21
 #, python-format
 msgid "%(num)d source"
 msgid_plural "%(num)d sources"
 msgstr[0] "%(num)d font"
 msgstr[1] "%(num)d fonts"
 
-#: templates/article.html:29 templates/base.html:437
-#: templates/partials/article_expanded.html:23
+#: templates/article.html:34 templates/base.html:734
+#: templates/partials/article_expanded.html:29
 msgid "Read article aloud"
 msgstr "Llegir l'article en veu alta"
 
-#: templates/article.html:30 templates/base.html:434
-#: templates/partials/article_expanded.html:24
+#: templates/article.html:36 templates/base.html:731
+#: templates/partials/article_expanded.html:30
 msgid "Listen"
 msgstr "Escoltar"
 
-#: templates/article.html:35 templates/article.html:38 templates/base.html:436
-#: templates/partials/article_expanded.html:29
-#: templates/partials/article_expanded.html:32
+#: templates/article.html:41 templates/article.html:44 templates/base.html:733
+#: templates/partials/article_expanded.html:35
+#: templates/partials/article_expanded.html:39
 msgid "Volume"
 msgstr "Volum"
 
-#: templates/base.html:435
+#: templates/base.html:732
 msgid "Stop"
 msgstr "Aturar"
 
-#: templates/base.html:441
+#: templates/base.html:739 templates/base.html:767
 msgid "Feed"
 msgstr "Dossier"
 
-#: templates/base.html:442 templates/settings.html:2 templates/settings.html:4
+#: templates/base.html:740 templates/base.html:783 templates/settings.html:2
+#: templates/settings.html:4
 msgid "Settings"
 msgstr "Configuració"
 
-#: templates/base.html:443
-msgid "Admin"
-msgstr "Administració"
-
-#: templates/base.html:448
+#: templates/base.html:745
 msgid "Log out"
 msgstr "Tancar sessió"
 
-#: templates/base.html:453 templates/login.html:2 templates/login.html:4
-#: templates/login.html:18 templates/register.html:21
+#: templates/base.html:750 templates/login.html:2 templates/login.html:5
+#: templates/login.html:19 templates/register.html:22
 msgid "Log in"
 msgstr "Iniciar sessió"
 
-#: templates/base.html:454 templates/login.html:21 templates/register.html:2
-#: templates/register.html:4 templates/register.html:18
+#: templates/base.html:751 templates/login.html:22 templates/register.html:2
+#: templates/register.html:5 templates/register.html:19
 msgid "Register"
 msgstr "Registrar-se"
 
-#: templates/index.html:2 templates/index.html:4
+#: templates/base.html:759
+msgid "Main navigation"
+msgstr "Navegació principal"
+
+#: templates/base.html:775 templates/index.html:6 templates/index.html:7
+#: templates/settings.html:72 templates/setup.html:54
+msgid "Topics"
+msgstr "Temes"
+
+#: templates/index.html:2 templates/index.html:24
 msgid "Today's feed"
 msgstr "El dossier d'avui"
 
-#: templates/index.html:4
+#: templates/index.html:24
 #, python-format
 msgid "%(num)d article"
 msgid_plural "%(num)d articles"
 msgstr[0] "%(num)d article"
 msgstr[1] "%(num)d articles"
 
-#: templates/index.html:6
+#: templates/index.html:27
 msgid "News sections"
 msgstr "Seccions de notícies"
 
-#: templates/login.html:10 templates/register.html:10
+#: templates/login.html:11 templates/register.html:11
 msgid "Email"
 msgstr "Adreça de correu"
 
-#: templates/login.html:14
+#: templates/login.html:15
 msgid "Password"
 msgstr "Contrasenya"
 
-#: templates/login.html:21
+#: templates/login.html:22
 msgid "Don't have an account?"
 msgstr "No tens compte?"
 
-#: templates/register.html:14
+#: templates/register.html:15
 msgid "Password (at least 8 characters)"
 msgstr "Contrasenya (almenys 8 caràcters)"
 
-#: templates/register.html:21
+#: templates/register.html:22
 msgid "Already have an account?"
 msgstr "Ja tens compte?"
 
@@ -226,7 +231,7 @@ msgstr ""
 "Canviar aquesta configuració regenerarà el teu dossier. Pot trigar uns "
 "minuts. Els nous articles apareixeran quan estiguin preparats."
 
-#: templates/settings.html:13 templates/settings.html:55
+#: templates/settings.html:13 templates/settings.html:77
 msgid "Confirm and save"
 msgstr "Confirmar i desar"
 
@@ -254,19 +259,31 @@ msgstr "Idioma"
 msgid "Reading style"
 msgstr "Estil de lectura"
 
-#: templates/settings.html:46 templates/setup.html:31
+#: templates/settings.html:47 templates/setup.html:32
 msgid "High contrast mode"
 msgstr "Mode d'alt contrast"
 
-#: templates/settings.html:50 templates/setup.html:35
-msgid "Topics"
-msgstr "Temes"
+#: templates/settings.html:51 templates/setup.html:36
+msgid "Color scheme"
+msgstr "Esquema de color"
 
-#: templates/settings.html:51
+#: templates/settings.html:56 templates/setup.html:40
+msgid "System default"
+msgstr "Predeterminat del sistema"
+
+#: templates/settings.html:61 templates/setup.html:44
+msgid "Light"
+msgstr "Clar"
+
+#: templates/settings.html:66 templates/setup.html:48
+msgid "Dark"
+msgstr "Fosc"
+
+#: templates/settings.html:73
 msgid "Select the topics you're interested in."
 msgstr "Selecciona els temes que t'interessen."
 
-#: templates/settings.html:55
+#: templates/settings.html:77
 msgid "Save"
 msgstr "Desar"
 
@@ -284,15 +301,31 @@ msgstr ""
 "Configura les teves preferències. Pots canviar-les en qualsevol moment a "
 "Configuració."
 
-#: templates/setup.html:36
+#: templates/setup.html:55
 msgid "Select the topics you're interested in (all selected by default)."
 msgstr "Selecciona els temes que t'interessen (tots seleccionats per defecte)."
 
-#: templates/setup.html:40
+#: templates/setup.html:59
 msgid "Save and continue"
 msgstr "Desar i continuar"
 
-#: templates/partials/article_expanded.html:48
+#: templates/partials/article_card.html:31
+msgid "Read full story:"
+msgstr "Llegeix l'article complet:"
+
+#: templates/partials/article_card.html:31
+msgid "Read full story"
+msgstr "Llegeix l'article complet"
+
+#: templates/partials/article_expanded.html:54
+msgid "View original article, opens in new tab"
+msgstr "Veure l'article original, s'obre en una pestanya nova"
+
+#: templates/partials/article_expanded.html:54
+msgid "View original"
+msgstr "Veure l'original"
+
+#: templates/partials/article_expanded.html:61
 msgid "Show less"
 msgstr "Mostrar menys"
 
@@ -300,33 +333,21 @@ msgstr "Mostrar menys"
 msgid "Articles being prepared"
 msgstr "S'estan preparant els articles"
 
-#: templates/partials/feed_content.html:22
-msgid "Preparing your articles…"
-msgstr "S'estan preparant els teus articles…"
+#: templates/partials/feed_content.html:21
+msgid "Preparing your articles"
+msgstr "Preparant els teus articles"
 
-#: templates/partials/feed_content.html:24
-msgid "This usually takes a minute. The page will update automatically."
-msgstr "Solen trigar un minut. La pàgina s'actualitzarà automàticament."
+#: templates/partials/feed_content.html:22
+msgid "This may take a minute on first run."
+msgstr "Pot trigar un minut en la primera execució."
 
 #: templates/partials/feed_content.html:28
-msgid ""
-"No articles yet. Your articles are being prepared, or there are no "
-"articles matching your sources and topics for today."
-msgstr ""
-"Encara no hi ha articles. S'estan preparant els teus articles, o no hi ha"
-" articles que coincideixin amb les teves fonts i temes per avui."
+msgid "No articles yet."
+msgstr "Encara no hi ha articles."
 
-#: templates/partials/feed_content.html:29
-msgid "You can adjust your"
-msgstr "Pots ajustar la teva"
-
-#: templates/partials/feed_content.html:29
-msgid "settings"
-msgstr "configuració"
-
-#: templates/partials/feed_content.html:29
-msgid "to change which sources and topics you follow."
-msgstr "per canviar quines fonts i temes segueixes."
+#: templates/partials/feed_content.html:28
+msgid "Check your settings"
+msgstr "Comprova la configuració"
 
 #~ msgid "Read articles"
 #~ msgstr "Articles llegits"
@@ -363,4 +384,30 @@ msgstr "per canviar quines fonts i temes segueixes."
 
 #~ msgid "Spo"
 #~ msgstr "Esp"
+
+#~ msgid "Admin"
+#~ msgstr "Administració"
+
+#~ msgid "This usually takes a minute. The page will update automatically."
+#~ msgstr "Solen trigar un minut. La pàgina s'actualitzarà automàticament."
+
+#~ msgid ""
+#~ "No articles yet. Your articles are "
+#~ "being prepared, or there are no "
+#~ "articles matching your sources and "
+#~ "topics for today."
+#~ msgstr ""
+#~ "Encara no hi ha articles. S'estan "
+#~ "preparant els teus articles, o no "
+#~ "hi ha articles que coincideixin amb "
+#~ "les teves fonts i temes per avui."
+
+#~ msgid "You can adjust your"
+#~ msgstr "Pots ajustar la teva"
+
+#~ msgid "settings"
+#~ msgstr "configuració"
+
+#~ msgid "to change which sources and topics you follow."
+#~ msgstr "per canviar quines fonts i temes segueixes."
 

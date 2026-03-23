@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PROJECT VERSION\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2026-03-17 17:05+0100\n"
+"POT-Creation-Date: 2026-03-23 19:48+0100\n"
 "PO-Revision-Date: 2026-03-17 12:11+0100\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language: es\n"
@@ -16,7 +16,7 @@ msgstr ""
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=utf-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"Generated-By: Babel 2.10.3\n"
+"Generated-By: Babel 2.18.0\n"
 
 #: app/i18n_strings.py:13
 msgid "Catalan"
@@ -70,7 +70,7 @@ msgstr "Ciencia"
 msgid "Sports"
 msgstr "Deportes"
 
-#: app/i18n_strings.py:27 templates/index.html:7
+#: app/i18n_strings.py:27 templates/index.html:11 templates/index.html:28
 msgid "All"
 msgstr "Todo"
 
@@ -104,109 +104,114 @@ msgstr "Dossier"
 msgid "Article not found"
 msgstr "Artículo no encontrado"
 
-#: templates/article.html:8 templates/article.html:49
+#: templates/article.html:9 templates/article.html:55
 msgid "Back"
 msgstr "Atrás"
 
-#: templates/article.html:16 templates/partials/article_card.html:7
-#: templates/partials/article_expanded.html:10
+#: templates/article.html:16 templates/partials/article_card.html:10
+#: templates/partials/article_expanded.html:13
 msgid "Image source:"
 msgstr "Fuente de la imagen:"
 
-#: templates/article.html:24 templates/partials/article_card.html:17
-#: templates/partials/article_expanded.html:18
+#: templates/article.html:25
 #, python-format
 msgid "%(num)d source aggregated"
 msgid_plural "%(num)d sources aggregated"
 msgstr[0] "%(num)d fuente agregada"
 msgstr[1] "%(num)d fuentes agregadas"
 
-#: templates/article.html:24 templates/partials/article_card.html:17
-#: templates/partials/article_expanded.html:18
+#: templates/article.html:26 templates/partials/article_card.html:18
+#: templates/partials/article_expanded.html:21
 #, python-format
 msgid "%(num)d source"
 msgid_plural "%(num)d sources"
 msgstr[0] "%(num)d fuente"
 msgstr[1] "%(num)d fuentes"
 
-#: templates/article.html:29 templates/base.html:437
-#: templates/partials/article_expanded.html:23
+#: templates/article.html:34 templates/base.html:734
+#: templates/partials/article_expanded.html:29
 msgid "Read article aloud"
 msgstr "Leer el artículo en voz alta"
 
-#: templates/article.html:30 templates/base.html:434
-#: templates/partials/article_expanded.html:24
+#: templates/article.html:36 templates/base.html:731
+#: templates/partials/article_expanded.html:30
 msgid "Listen"
 msgstr "Escuchar"
 
-#: templates/article.html:35 templates/article.html:38 templates/base.html:436
-#: templates/partials/article_expanded.html:29
-#: templates/partials/article_expanded.html:32
+#: templates/article.html:41 templates/article.html:44 templates/base.html:733
+#: templates/partials/article_expanded.html:35
+#: templates/partials/article_expanded.html:39
 msgid "Volume"
 msgstr "Volumen"
 
-#: templates/base.html:435
+#: templates/base.html:732
 msgid "Stop"
 msgstr "Detener"
 
-#: templates/base.html:441
+#: templates/base.html:739 templates/base.html:767
 msgid "Feed"
 msgstr "Resumen"
 
-#: templates/base.html:442 templates/settings.html:2 templates/settings.html:4
+#: templates/base.html:740 templates/base.html:783 templates/settings.html:2
+#: templates/settings.html:4
 msgid "Settings"
 msgstr "Configuración"
 
-#: templates/base.html:443
-msgid "Admin"
-msgstr "Administración"
-
-#: templates/base.html:448
+#: templates/base.html:745
 msgid "Log out"
 msgstr "Cerrar sesión"
 
-#: templates/base.html:453 templates/login.html:2 templates/login.html:4
-#: templates/login.html:18 templates/register.html:21
+#: templates/base.html:750 templates/login.html:2 templates/login.html:5
+#: templates/login.html:19 templates/register.html:22
 msgid "Log in"
 msgstr "Iniciar sesión"
 
-#: templates/base.html:454 templates/login.html:21 templates/register.html:2
-#: templates/register.html:4 templates/register.html:18
+#: templates/base.html:751 templates/login.html:22 templates/register.html:2
+#: templates/register.html:5 templates/register.html:19
 msgid "Register"
 msgstr "Registrarse"
 
-#: templates/index.html:2 templates/index.html:4
+#: templates/base.html:759
+msgid "Main navigation"
+msgstr "Navegación principal"
+
+#: templates/base.html:775 templates/index.html:6 templates/index.html:7
+#: templates/settings.html:72 templates/setup.html:54
+msgid "Topics"
+msgstr "Temas"
+
+#: templates/index.html:2 templates/index.html:24
 msgid "Today's feed"
 msgstr "El resumen de hoy"
 
-#: templates/index.html:4
+#: templates/index.html:24
 #, python-format
 msgid "%(num)d article"
 msgid_plural "%(num)d articles"
 msgstr[0] "%(num)d artículo"
 msgstr[1] "%(num)d artículos"
 
-#: templates/index.html:6
+#: templates/index.html:27
 msgid "News sections"
 msgstr "Secciones de noticias"
 
-#: templates/login.html:10 templates/register.html:10
+#: templates/login.html:11 templates/register.html:11
 msgid "Email"
 msgstr "Correo electrónico"
 
-#: templates/login.html:14
+#: templates/login.html:15
 msgid "Password"
 msgstr "Contraseña"
 
-#: templates/login.html:21
+#: templates/login.html:22
 msgid "Don't have an account?"
 msgstr "¿No tienes cuenta?"
 
-#: templates/register.html:14
+#: templates/register.html:15
 msgid "Password (at least 8 characters)"
 msgstr "Contraseña (al menos 8 caracteres)"
 
-#: templates/register.html:21
+#: templates/register.html:22
 msgid "Already have an account?"
 msgstr "¿Ya tienes cuenta?"
 
@@ -226,7 +231,7 @@ msgstr ""
 "Cambiar esta configuración regenerará tu resumen. Puede tardar unos "
 "minutos. Los nuevos artículos aparecerán cuando estén listos."
 
-#: templates/settings.html:13 templates/settings.html:55
+#: templates/settings.html:13 templates/settings.html:77
 msgid "Confirm and save"
 msgstr "Confirmar y guardar"
 
@@ -254,19 +259,31 @@ msgstr "Idioma"
 msgid "Reading style"
 msgstr "Estilo de lectura"
 
-#: templates/settings.html:46 templates/setup.html:31
+#: templates/settings.html:47 templates/setup.html:32
 msgid "High contrast mode"
 msgstr "Modo de alto contraste"
 
-#: templates/settings.html:50 templates/setup.html:35
-msgid "Topics"
-msgstr "Temas"
+#: templates/settings.html:51 templates/setup.html:36
+msgid "Color scheme"
+msgstr "Esquema de color"
 
-#: templates/settings.html:51
+#: templates/settings.html:56 templates/setup.html:40
+msgid "System default"
+msgstr "Predeterminado del sistema"
+
+#: templates/settings.html:61 templates/setup.html:44
+msgid "Light"
+msgstr "Claro"
+
+#: templates/settings.html:66 templates/setup.html:48
+msgid "Dark"
+msgstr "Oscuro"
+
+#: templates/settings.html:73
 msgid "Select the topics you're interested in."
 msgstr "Selecciona los temas que te interesan."
 
-#: templates/settings.html:55
+#: templates/settings.html:77
 msgid "Save"
 msgstr "Guardar"
 
@@ -284,15 +301,31 @@ msgstr ""
 "Configura tus preferencias. Puedes cambiarlas en cualquier momento en "
 "Configuración."
 
-#: templates/setup.html:36
+#: templates/setup.html:55
 msgid "Select the topics you're interested in (all selected by default)."
 msgstr "Selecciona los temas que te interesan (todos seleccionados por defecto)."
 
-#: templates/setup.html:40
+#: templates/setup.html:59
 msgid "Save and continue"
 msgstr "Guardar y continuar"
 
-#: templates/partials/article_expanded.html:48
+#: templates/partials/article_card.html:31
+msgid "Read full story:"
+msgstr "Leer artículo completo:"
+
+#: templates/partials/article_card.html:31
+msgid "Read full story"
+msgstr "Leer artículo completo"
+
+#: templates/partials/article_expanded.html:54
+msgid "View original article, opens in new tab"
+msgstr "Ver artículo original, se abre en nueva pestaña"
+
+#: templates/partials/article_expanded.html:54
+msgid "View original"
+msgstr "Ver original"
+
+#: templates/partials/article_expanded.html:61
 msgid "Show less"
 msgstr "Mostrar menos"
 
@@ -300,33 +333,21 @@ msgstr "Mostrar menos"
 msgid "Articles being prepared"
 msgstr "Se están preparando los artículos"
 
-#: templates/partials/feed_content.html:22
-msgid "Preparing your articles…"
-msgstr "Se están preparando tus artículos…"
+#: templates/partials/feed_content.html:21
+msgid "Preparing your articles"
+msgstr "Preparando tus artículos"
 
-#: templates/partials/feed_content.html:24
-msgid "This usually takes a minute. The page will update automatically."
-msgstr "Suele tardar un minuto. La página se actualizará automáticamente."
+#: templates/partials/feed_content.html:22
+msgid "This may take a minute on first run."
+msgstr "Puede tardar un minuto en la primera ejecución."
 
 #: templates/partials/feed_content.html:28
-msgid ""
-"No articles yet. Your articles are being prepared, or there are no "
-"articles matching your sources and topics for today."
-msgstr ""
-"Aún no hay artículos. Se están preparando tus artículos, o no hay "
-"artículos que coincidan con tus fuentes y temas para hoy."
+msgid "No articles yet."
+msgstr "Todavía no hay artículos."
 
-#: templates/partials/feed_content.html:29
-msgid "You can adjust your"
-msgstr "Puedes ajustar tu"
-
-#: templates/partials/feed_content.html:29
-msgid "settings"
-msgstr "configuración"
-
-#: templates/partials/feed_content.html:29
-msgid "to change which sources and topics you follow."
-msgstr "para cambiar qué fuentes y temas sigues."
+#: templates/partials/feed_content.html:28
+msgid "Check your settings"
+msgstr "Revisa tu configuración"
 
 #~ msgid "Read articles"
 #~ msgstr "Artículos leídos"
@@ -363,4 +384,30 @@ msgstr "para cambiar qué fuentes y temas sigues."
 
 #~ msgid "Spo"
 #~ msgstr "Dep"
+
+#~ msgid "Admin"
+#~ msgstr "Administración"
+
+#~ msgid "This usually takes a minute. The page will update automatically."
+#~ msgstr "Suele tardar un minuto. La página se actualizará automáticamente."
+
+#~ msgid ""
+#~ "No articles yet. Your articles are "
+#~ "being prepared, or there are no "
+#~ "articles matching your sources and "
+#~ "topics for today."
+#~ msgstr ""
+#~ "Aún no hay artículos. Se están "
+#~ "preparando tus artículos, o no hay "
+#~ "artículos que coincidan con tus fuentes"
+#~ " y temas para hoy."
+
+#~ msgid "You can adjust your"
+#~ msgstr "Puedes ajustar tu"
+
+#~ msgid "settings"
+#~ msgstr "configuración"
+
+#~ msgid "to change which sources and topics you follow."
+#~ msgstr "para cambiar qué fuentes y temas sigues."
 
