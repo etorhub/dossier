@@ -1,3 +1,4 @@
+{% from "ops/macros.html" import job_name_display %}
 <div class="table-responsive">
   <table class="table table-sm">
     <thead>
@@ -17,7 +18,7 @@
       {% for j in job_runs %}
       <tr>
         <td>{{ j.id }}</td>
-        <td><code>{{ j.job_name }}</code></td>
+        <td>{{ job_name_display(j, code=True)|safe }}</td>
         <td>{{ j.started_at.strftime('%Y-%m-%d %H:%M:%S') if j.started_at else '—' }}</td>
         <td>{{ j.finished_at.strftime('%Y-%m-%d %H:%M:%S') if j.finished_at else '—' }}</td>
         <td>{% if j.duration_ms %}{{ (j.duration_ms / 1000)|round(1) }}s{% else %}—{% endif %}</td>

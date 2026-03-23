@@ -1,4 +1,5 @@
 {% extends "ops/base.html" %}
+{% from "ops/macros.html" import job_name_display %}
 {% block title %}Dashboard — Ops{% endblock %}
 {% block content %}
 <h1>Dashboard</h1>
@@ -45,7 +46,7 @@
       <div class="card">
         <div class="card-body">
           {% if stats.last_job_run %}
-          <div class="fw-bold">{{ stats.last_job_run.job_name }}</div>
+          <div class="fw-bold">{{ job_name_display(stats.last_job_run)|safe }}</div>
           <p class="text-muted mb-0 small">
             {{ stats.last_job_run.started_at.strftime('%Y-%m-%d %H:%M') if stats.last_job_run.started_at else '—' }}
           </p>
@@ -74,7 +75,7 @@
       <tbody>
         {% for j in job_runs %}
         <tr>
-          <td>{{ j.job_name }}</td>
+          <td>{{ job_name_display(j)|safe }}</td>
           <td>{{ j.started_at.strftime('%Y-%m-%d %H:%M') if j.started_at else '—' }}</td>
           <td>{% if j.duration_ms %}{{ (j.duration_ms / 1000)|round(1) }}s{% else %}—{% endif %}</td>
           <td><span class="badge bg-secondary">{{ j.trigger or 'scheduled' }}</span></td>

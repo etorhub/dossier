@@ -1,0 +1,4 @@
+{# Pipeline job name with fetch_feeds article count from stored job result. #}
+{% macro job_name_display(run, code=False) %}
+{% if code %}<code>{{ run.job_name | e }}</code>{% else %}{{ run.job_name | e }}{% endif %}{% if run.job_name == 'fetch_feeds' and run.result is mapping and 'articles_inserted' in run.result %} <span class="text-muted">({{ run.result['articles_inserted'] | int }})</span>{% endif %}
+{% endmacro %}
