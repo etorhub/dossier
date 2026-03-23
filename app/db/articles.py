@@ -373,25 +373,43 @@ def update_article_extraction(
                     cur.execute(
                         """
                         UPDATE articles
-                        SET full_text = %s, extraction_status = %s, extraction_method = %s,
+                        SET full_text = %s,
+                            extraction_status = %s,
+                            extraction_method = %s,
                             extracted_at = now(),
                             image_url = %s,
                             image_source = %s
                         WHERE id = %s
                         """,
-                        (full_text, status, method, image_url, image_source, article_id),
+                        (
+                            full_text,
+                            status,
+                            method,
+                            image_url,
+                            image_source,
+                            article_id,
+                        ),
                     )
                 else:
                     cur.execute(
                         """
                         UPDATE articles
-                        SET full_text = %s, extraction_status = %s, extraction_method = %s,
+                        SET full_text = %s,
+                            extraction_status = %s,
+                            extraction_method = %s,
                             extracted_at = now(),
                             image_url = COALESCE(image_url, %s),
                             image_source = COALESCE(image_source, %s)
                         WHERE id = %s
                         """,
-                        (full_text, status, method, image_url, image_source, article_id),
+                        (
+                            full_text,
+                            status,
+                            method,
+                            image_url,
+                            image_source,
+                            article_id,
+                        ),
                     )
             else:
                 cur.execute(

@@ -93,7 +93,7 @@ def test_extract_article_extract_returns_empty(mock_extract, mock_fetch) -> None
 @patch("app.extraction.trafilatura.trafilatura.fetch_url")
 @patch("app.extraction.trafilatura.trafilatura.extract")
 def test_extract_article_extract_returns_whitespace(mock_extract, mock_fetch) -> None:
-    """extract_article returns (None, None, None) when extract returns only whitespace."""
+    """extract_article returns three Nones when extract returns only whitespace."""
     mock_fetch.return_value = "<html></html>"
     mock_extract.side_effect = _mock_extract_txt_only("   \n  ")
 
@@ -191,7 +191,10 @@ def test_update_article_extraction() -> None:
         inserted = articles_db.insert_article(article)
         assert inserted is True
         art = articles_db.get_articles_needing_extraction(limit=50)
-        row = next((a for a in art if a["url"] == "https://test.example.com/update"), None)
+        row = next(
+            (a for a in art if a["url"] == "https://test.example.com/update"),
+            None,
+        )
         assert row is not None
         article_id = row["id"]
 
@@ -223,7 +226,10 @@ def test_update_article_extraction_replace_image_overwrites() -> None:
     try:
         assert articles_db.insert_article(article) is True
         art = articles_db.get_articles_needing_extraction(limit=50)
-        row = next((a for a in art if a["url"] == "https://test.example.com/img-replace"), None)
+        row = next(
+            (a for a in art if a["url"] == "https://test.example.com/img-replace"),
+            None,
+        )
         assert row is not None
         article_id = row["id"]
 

@@ -120,7 +120,7 @@ def enrich_articles(config: dict) -> EnrichmentReport:
                         )
                         continue
 
-                    # Extract with trafilatura (body image from main content; og as fallback)
+                    # Trafilatura: body image from main content; og:image as fallback
                     extracted, body_image_url, og_image_url = extract_article(
                         url, timeout=timeout
                     )

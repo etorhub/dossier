@@ -29,8 +29,9 @@ def select_story_image(
     Returns (image_url, image_source_name). image_source_name is the publisher name
     for legal attribution; None when no image or source unknown.
 
-    Scoring: image_source priority (article_body highest, then media_content, enclosure,
-    media_thumbnail, content_html, og_image), then source quality_score as bonus, then earliest
+    Scoring: image_source priority (article_body highest, then media_content,
+    enclosure, media_thumbnail, content_html, og_image), then source quality_score
+    as bonus, then earliest
     published_at as tiebreaker. Images with unknown image_source use fallback score
     so newly incorporated images are still displayed.
     """

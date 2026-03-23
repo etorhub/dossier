@@ -271,7 +271,12 @@ def _get_image_url(entry: FeedParserDict) -> tuple[str | None, str | None]:
                 continue
             medium = (item.get("medium") or "").lower()
             mime = (item.get("type") or "").lower()
-            if medium == "image" or mime.startswith("image/") or _is_image_url(str(url)):
+            looks_image = (
+                medium == "image"
+                or mime.startswith("image/")
+                or _is_image_url(str(url))
+            )
+            if looks_image:
                 width = item.get("width")
                 try:
                     w = int(width) if width is not None else 0
@@ -293,7 +298,7 @@ def _get_image_url(entry: FeedParserDict) -> tuple[str | None, str | None]:
             if url and (mime.startswith("image/") or _is_image_url(str(url))):
                 return (str(url), "enclosure")
 
-    # 3. First <img src="..."> in content HTML (usually the article lead in fulltext feeds)
+    # 3. First <img> in item content (often the article lead in fulltext feeds)
     content = entry.get("content")
     if content and isinstance(content, list):
         for block in content:

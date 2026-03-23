@@ -181,7 +181,8 @@ RSS_THUMB_AND_CONTENT_IMG = b"""<?xml version="1.0" encoding="UTF-8"?>
         <link>https://example.com/story</link>
         <description>Summary</description>
         <media:thumbnail url="https://example.com/generic-thumb.jpg" width="120"/>
-        <content:encoded><![CDATA[<p>Lead</p><img src="https://example.com/article-lead.jpg" />]]></content:encoded>
+        <content:encoded><![CDATA[<p>Lead</p>
+        <img src="https://example.com/article-lead.jpg" />]]></content:encoded>
         <pubDate>Mon, 01 Jan 2024 12:00:00 GMT</pubDate>
     </item>
 </channel>
