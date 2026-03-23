@@ -28,17 +28,21 @@ def gemini_generate_content(
     api_base: str = DEFAULT_GEMINI_API_BASE,
     timeout_seconds: float = 120.0,
     max_retries: int = 3,
+    temperature: float | None = None,
 ) -> str:
     """Call generateContent; return concatenated text from candidates."""
     base = api_base.rstrip("/")
     model_path = model.removeprefix("models/")
     q = urllib.parse.urlencode({"key": api_key})
     url = f"{base}/v1beta/models/{model_path}:generateContent?{q}"
+    gen_cfg: dict[str, Any] = {
+        "maxOutputTokens": max_output_tokens,
+    }
+    if temperature is not None:
+        gen_cfg["temperature"] = float(temperature)
     body: dict[str, Any] = {
         "contents": [{"parts": [{"text": prompt}]}],
-        "generationConfig": {
-            "maxOutputTokens": max_output_tokens,
-        },
+        "generationConfig": gen_cfg,
     }
     data = request_json_with_retries(
         "POST",

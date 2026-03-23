@@ -9,6 +9,8 @@ services:
     environment:
       NVIDIA_VISIBLE_DEVICES: all
       NVIDIA_DRIVER_CAPABILITIES: compute,utility
+      # Multiple KV-cache slots so concurrent rewrite/translate requests share one GPU load.
+      OLLAMA_NUM_PARALLEL: "4"
     deploy:
       resources:
         reservations:
@@ -31,7 +33,12 @@ services:
         condition: service_healthy
     environment:
       OLLAMA_HOST: http://ollama:11434
-    entrypoint: ["sh", "-c", "ollama pull qwen2.5:7b && ollama pull nomic-embed-text"]
+    entrypoint:
+      [
+        "sh",
+        "-c",
+        "ollama pull qwen2.5:7b && ollama pull qwen2.5:3b && ollama pull nomic-embed-text",
+      ]
     restart: "no"
 
   db:

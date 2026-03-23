@@ -206,8 +206,11 @@ All config lives in `config/`. The app reads it at startup. No config is hardcod
 
 ```yaml
 llm:
-  provider: ollama
+  provider: ollama # or vllm (OpenAI-compatible HTTP; set llm.api_base)
   model: qwen2.5:7b
+  rewrite_model: qwen2.5:7b
+  simplify_model: qwen2.5:3b
+  translate_model: qwen2.5:3b
   host: http://ollama:11434
   max_retries: 3
 
@@ -243,7 +246,7 @@ schedule:
   rewrite_cron: "0 6 * * *"
   availability_check_interval_minutes: 10
   rewrite_batch_size: 0
-  rewrite_parallel_workers: 1
+  rewrite_parallel_workers: 4
   fetcher:
     circuit_breaker_threshold: 5
     request_timeout_seconds: 30

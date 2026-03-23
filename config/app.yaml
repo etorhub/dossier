@@ -3,17 +3,23 @@ llm:
   model: qwen2.5:7b # fallback for any task without its own model
   # Per-task models (cascade: rewrite → simplify → translate). Fall back to model when unset.
   rewrite_model: qwen2.5:7b # merge sources → neutral EN (hardest task, use best model)
-  simplify_model: qwen2.5:7b # neutral EN → simple EN (moderate complexity)
-  translate_model: qwen2.5:7b # translate to other languages (simpler, can use faster model)
+  simplify_model: qwen2.5:3b # neutral EN → simple EN (smaller model is usually enough)
+  translate_model: qwen2.5:3b # translate to other languages (faster than 7B)
   host: http://ollama:11434
   # Per-call retries for Ollama chat (transient errors)
   max_retries: 3
+  # Sampling temperature per pipeline step (lower = more deterministic, fewer typos).
+  rewrite_temperature: 0.2
+  simplify_temperature: 0.2
+  translate_temperature: 0.15
+  proofread_temperature: 0.1
 
 # Story-level rewriting: one rewrite per (story, style, language).
 # Styles and languages are extensible via config.
-# Cascade: generate neutral EN from sources, simplify to simple EN, translate both to other languages.
+# Cascade: generate neutral text in base_language from sources, simplify in base_language,
+# then translate neutral+simple to each entry in languages other than base_language.
 rewriting:
-  base_language: en
+  base_language: es
   styles:
     - id: neutral
       label: Neutral
@@ -22,15 +28,12 @@ rewriting:
       label: Simple
       prompt: rewrite_cluster_simple
   languages:
-    - id: ca
-      label: Catalan
     - id: es
       label: Spanish
-    - id: en
-      label: English
+      writing_note: European Spanish. Correct gender/number agreement; natural Spanish syntax (not English calques). Prefer standard financial vocabulary (e.g. valoración). Use suscriptores for paying followers, not subscriptores.
   # Fallback when user's preferred (style, language) is not yet available
   default_style: neutral
-  default_language: ca
+  default_language: es
 
 embeddings:
   provider: ollama
@@ -51,8 +54,8 @@ schedule:
   availability_check_interval_minutes: 10
   # 0 = process every story needing rewrite in one run; >0 caps stories per run
   rewrite_batch_size: 0
-  # Parallel workers for rewrite. Ollama serializes internally; 1 avoids overloading.
-  rewrite_parallel_workers: 1
+  # Parallel stories + intra-story translations (ThreadPoolExecutor). Match OLLAMA_NUM_PARALLEL in Docker.
+  rewrite_parallel_workers: 4
   fetcher:
     circuit_breaker_threshold: 5
     request_timeout_seconds: 30
@@ -72,6 +75,8 @@ processing:
   summary_sentences: 3
   # Max tokens for rewrite output. Lower = faster local inference (default 2000).
   rewrite_max_tokens: 2000
+  # Extra LLM call per variant to fix spelling/grammar only; disable to save latency/cost.
+  rewrite_proofread_enabled: true
   # 0 = all stories regardless of freshness
   cluster_window_hours: 0
   # Minimum cosine similarity for two articles to belong to the same story.

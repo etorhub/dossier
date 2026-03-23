@@ -2,11 +2,14 @@ Translate this news article to {target_language}.
 
 ## Instructions
 - Output exclusively in {target_language}. The title, summary (short version), and full text must all be written in {target_language}. Do not use words, phrases, or expressions from any other language.
-- Write with correct spelling and grammar. No typos or spelling errors are acceptable.
+- Write with correct spelling and grammar. No typos or spelling errors are acceptable. Double-check subject–verb and determiner–noun agreement.
+- Avoid literal calques from English: use natural word order and idioms for {target_language}, not a word-for-word mirror of the source.
+- Do not invent words or malformed participles (e.g. verify gerunds and verb forms match standard {target_language}).
 - No markdown formatting. Use plain text only. Do not wrap the title, summary, or full text in ** or any other markdown.
 - Tone and style: {style_description}
 - Preserve factual accuracy. Translate faithfully; do not add or omit information.
 - TITLE: Translate the headline accurately. No clickbait.
+- Produce ONE coherent article. Avoid repeating the same biographical phrase or attribution in consecutive paragraphs when the reader already knows who is meant.
 - Respond with exactly three sections, using these exact headers:
 
 TITLE:
@@ -18,6 +21,7 @@ Write exactly {summary_sentences} plain sentences summarizing the article.
 FULL:
 Translate the full article. Follow the tone and style instructions above.
 
+{writing_note_section}
 ## Source Article
 
 {article_text}

@@ -9,10 +9,18 @@ DEFAULTS: dict[str, Any] = {
     "llm": {
         "provider": "ollama",
         "model": "qwen2.5:7b",
+        "rewrite_model": "qwen2.5:7b",
+        "simplify_model": "qwen2.5:3b",
+        "translate_model": "qwen2.5:3b",
         "host": "http://ollama:11434",
         "api_base": "",
         "timeout_seconds": 120,
         "max_retries": 3,
+        # Low temperatures reduce typos and calques in rewrite / translate / proofread.
+        "rewrite_temperature": 0.2,
+        "simplify_temperature": 0.2,
+        "translate_temperature": 0.15,
+        "proofread_temperature": 0.1,
     },
     "embeddings": {
         "provider": "ollama",
@@ -36,7 +44,7 @@ DEFAULTS: dict[str, Any] = {
         "cluster_cron": "*/5 * * * *",
         "rewrite_cron": "*/5 * * * *",
         "rewrite_batch_size": 0,
-        "rewrite_parallel_workers": 1,
+        "rewrite_parallel_workers": 4,
         "fetcher": {
             "circuit_breaker_threshold": 5,
             "request_timeout_seconds": 30,
@@ -47,6 +55,8 @@ DEFAULTS: dict[str, Any] = {
         "articles_per_day": 10,
         "summary_sentences": 3,
         "rewrite_max_tokens": 2000,
+        # Second LLM pass: spelling, grammar, agreement only (after each draft rewrite).
+        "rewrite_proofread_enabled": True,
         "cluster_window_hours": 24,
         "story_similarity_threshold": 0.90,
         "story_min_sources": 2,
@@ -58,17 +68,24 @@ DEFAULTS: dict[str, Any] = {
         "debug": False,
     },
     "rewriting": {
+        "base_language": "es",
         "styles": [
             {"id": "neutral", "label": "Neutral", "prompt": "rewrite_cluster_neutral"},
             {"id": "simple", "label": "Simple", "prompt": "rewrite_cluster_simple"},
         ],
         "languages": [
-            {"id": "ca", "label": "Catalan"},
-            {"id": "es", "label": "Spanish"},
-            {"id": "en", "label": "English"},
+            {
+                "id": "es",
+                "label": "Spanish",
+                "writing_note": (
+                    "European Spanish. Correct gender/number agreement; natural Spanish syntax "
+                    "(not English calques). Prefer standard financial vocabulary (e.g. valoración). "
+                    "Use suscriptores for paying followers, not subscriptores."
+                ),
+            },
         ],
         "default_style": "neutral",
-        "default_language": "ca",
+        "default_language": "es",
     },
 }
 

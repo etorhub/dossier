@@ -10,7 +10,7 @@ Technology choices for Dossier, with rationale.
 | --- | --- | --- |
 | Backend | Python 3.12+ with Flask | Lightweight, well-understood, Jinja2 built-in |
 | Database | PostgreSQL 18 | Robust, multi-user, JSONB support, wide hosting availability |
-| LLM | Ollama (local) via provider interface | Local inference, no API key; text generation (qwen2.5:7b) and embeddings (nomic-embed-text) |
+| LLM | Ollama (local) or OpenAI-compatible HTTP (vLLM) via provider interface | Local inference; defaults: `qwen2.5:7b` (rewrite), `qwen2.5:3b` (simplify/translate), `nomic-embed-text` embeddings |
 | Frontend | Plain HTML + CSS + HTMX | No build step, no JS framework, server-rendered throughout |
 | Templating | Jinja2 (Flask built-in) | Tight Flask integration, partial rendering for HTMX |
 | Scheduling | APScheduler in dedicated worker container | Web and worker run as separate containers; web has zero ML/LLM deps |
@@ -57,7 +57,7 @@ Technology choices for Dossier, with rationale.
 │   ├── routes/              # Flask blueprints — reader, auth, setup, settings
 │   ├── services/            # Business logic — routes call services
 │   ├── llm/
-│   │   ├── provider.py      # Abstract LLM interface + OllamaProvider
+│   │   ├── provider.py      # Abstract LLM interface + Ollama, Gemini, Anthropic, vLLM-compatible
 │   │   ├── embeddings.py    # Embedding provider (Ollama nomic-embed-text)
 │   │   └── prompts/        # rewrite_cluster_neutral, simplify_article, translate_article
 │   ├── feed/                # RSS fetching (fetcher, parser, orchestrator, availability)
@@ -155,7 +155,7 @@ docker compose up -d ops
 
 Five services: PostgreSQL, Ollama (LLM/embeddings), the Flask web app (slim image), the worker (feed processing + ollama client), and the ops dashboard.
 
-- **ollama** — Runs Ollama server. Models (qwen2.5:7b, nomic-embed-text) are pulled on first start via `ollama-init`. GPU is the default; use `docker-compose.cpu.yml` for CPU-only systems.
+- **ollama** — Runs Ollama server. Models (`qwen2.5:7b`, `qwen2.5:3b`, `nomic-embed-text`) are pulled on first start via `ollama-init`. `OLLAMA_NUM_PARALLEL=4` is set so concurrent rewrite jobs share the GPU. GPU is the default; use `docker-compose.cpu.yml` for CPU-only systems.
 - **web** — Gunicorn serves the Flask app. Uses `requirements-web.txt` (no ollama, no feed processing). Runs `alembic upgrade head` on startup, then Gunicorn.
 - **worker** — Runs APScheduler (`python -m app.scheduler`) for scheduled pipeline jobs (fetch, enrich, cluster, rewrite, check_source_availability). Uses `requirements.txt` (includes ollama Python client). Connects to ollama service for LLM and embeddings. Processing CLI commands run here: `docker compose exec worker python -m app.worker_cli fetch-feeds`, etc.
 - **ops** — Separate Flask app for operators. Serves the ops dashboard at port 5001. Uses the same database; no auth by default.
@@ -295,7 +295,9 @@ If Ollama uses high CPU but negligible GPU utilization:
 
 ## LLM Provider Interface
 
-The app never calls Ollama directly. All LLM access goes through `app/llm/provider.py`, which defines an abstract `LLMProvider` class. The only implementation is `OllamaProvider`, which connects to the Ollama service via HTTP. Config in `config/app.yaml`: `llm.model` (default: `qwen2.5:7b`), `llm.host` (default: `http://ollama:11434`). Per-task models for the rewrite cascade: `rewrite_model`, `simplify_model`, `translate_model` (each falls back to `model` when unset). No API key required.
+The app never calls Ollama directly. All LLM access goes through `app/llm/provider.py`, which defines an abstract `LLMProvider` class. Implementations include `OllamaProvider` (default), Gemini, Anthropic, and `VllmOpenAIProvider` for any OpenAI-compatible HTTP server (e.g. vLLM, SGLang). Config in `config/app.yaml`: `llm.provider` (`ollama` \| `vllm` \| …), `llm.model`, `llm.host` (Ollama default `http://ollama:11434`). For `llm.provider: vllm`, set `llm.api_base` to the server’s OpenAI root (e.g. `http://localhost:8000/v1`). Per-task models for the rewrite cascade: `rewrite_model`, `simplify_model`, `translate_model` (each falls back to `model` when unset). Defaults use `qwen2.5:7b` for rewrite and `qwen2.5:3b` for simplify/translate. No API key required for Ollama.
+
+Rewrite throughput: `schedule.rewrite_parallel_workers` runs multiple stories concurrently; each story parallelizes translation steps. Align with Ollama’s `OLLAMA_NUM_PARALLEL` (see `docker-compose.yml`). Benchmark: `python scripts/benchmark_rewrite_llm.py --help`.
 
 ## Embedding Provider
 
@@ -312,7 +314,7 @@ Background jobs in the worker:
 1. **Fetch jobs** — poll feeds per their configured interval. Articles are stored in the `articles` table.
 2. **Enrichment jobs** — extract full article text from URLs (Trafilatura) for articles with `extraction_status = 'pending'`.
 3. **Cluster jobs** — embed articles (Ollama nomic-embed-text), complete-linkage cosine similarity grouping, create story records only for groups with ≥2 distinct sources covering the same event.
-4. **Rewrite jobs** — run at a configurable daily time (default: 06:00). Uses a cascading pipeline: generate neutral English from sources, simplify to simple English, then translate both to other languages. Per-task models (`rewrite_model`, `simplify_model`, `translate_model`) can be tuned in config. Rewrites are stored in `story_rewrites` and shared across all users with the same `(style, language)` variant.
+4. **Rewrite jobs** — run at a configurable daily time (default: 06:00). Uses a cascading pipeline: generate neutral English from sources, simplify to simple English, then translate both to other languages (translations may run in parallel within a story; multiple stories may run in parallel). Per-task models (`rewrite_model`, `simplify_model`, `translate_model`) can be tuned in config. Rewrites are stored in `story_rewrites` and shared across all users with the same `(style, language)` variant.
 5. **Availability check** — runs every 10 minutes (configurable). HTTP HEAD/GET to each active feed; stores results in `source_availability_checks`. Visible in the ops dashboard.
 
 When a user opens the app, content is already ready. No waiting.

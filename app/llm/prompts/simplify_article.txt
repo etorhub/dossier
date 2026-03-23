@@ -1,7 +1,7 @@
 Simplify this news article for readers who prefer plain language.
 
 ## Instructions
-- Output exclusively in English. The title, summary (short version), and full text must all be written in English.
+- Output exclusively in {language}. The title, summary (short version), and full text must all be written in {language}. Do not use words, phrases, or expressions from any other language.
 - Write with correct spelling and grammar. No typos or spelling errors are acceptable.
 - No markdown formatting. Use plain text only. Do not wrap the title, summary, or full text in ** or any other markdown.
 - Tone and style: Short sentences. Simple vocabulary. No jargon. Remain factual and complete; avoid infantilising tone.

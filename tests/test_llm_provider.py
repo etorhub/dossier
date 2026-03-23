@@ -9,6 +9,7 @@ from app.llm.provider import (
     OllamaProvider,
     get_provider,
 )
+from app.llm.vllm_provider import VllmOpenAIProvider
 
 
 def test_get_provider_ollama() -> None:
@@ -27,6 +28,34 @@ def test_get_provider_ollama_with_host() -> None:
     provider = get_provider(config)
     assert isinstance(provider, OllamaProvider)
     assert provider._host == "http://localhost:11434"
+
+
+def test_get_provider_vllm() -> None:
+    """get_provider returns VllmOpenAIProvider when llm.provider is vllm."""
+    config = {
+        "llm": {
+            "provider": "vllm",
+            "model": "Qwen/Qwen2.5-7B-Instruct",
+            "api_base": "http://localhost:8000/v1",
+        }
+    }
+    provider = get_provider(config)
+    assert isinstance(provider, VllmOpenAIProvider)
+    assert provider._model == "Qwen/Qwen2.5-7B-Instruct"
+    assert provider._api_base == "http://localhost:8000/v1"
+
+
+def test_vllm_provider_complete() -> None:
+    """VllmOpenAIProvider.complete parses OpenAI-style JSON."""
+    payload = {
+        "choices": [
+            {"message": {"content": "TITLE:\nT\n\nSUMMARY:\nOne. Two. Three.\n\nFULL:\nF."}}
+        ]
+    }
+    with patch("app.llm.vllm_provider.request_json_with_retries", return_value=payload):
+        p = VllmOpenAIProvider("m", "http://x:1/v1", max_retries=1)
+        out = p.complete("hi", max_tokens=100)
+    assert "TITLE:" in out
 
 
 def test_get_provider_defaults() -> None:
@@ -60,6 +89,30 @@ def test_ollama_provider_complete() -> None:
         model="qwen2.5:7b",
         messages=[{"role": "user", "content": "Rewrite this"}],
         options={"num_predict": 100},
+    )
+
+
+def test_ollama_provider_complete_passes_temperature() -> None:
+    """OllamaProvider.complete forwards temperature in options when set."""
+    mock_response = {
+        "message": {"content": "TITLE:\nT\n\nSUMMARY:\nS.\n\nFULL:\nF."}
+    }
+    mock_client = MagicMock()
+    mock_client.chat.return_value = mock_response
+
+    with patch("ollama.Client") as mock_client_class:
+        mock_client_class.return_value = mock_client
+        provider = OllamaProvider(
+            model="qwen2.5:7b",
+            host="http://localhost:11434",
+            max_retries=1,
+        )
+        provider.complete("Hi", max_tokens=50, temperature=0.15)
+
+    mock_client.chat.assert_called_once_with(
+        model="qwen2.5:7b",
+        messages=[{"role": "user", "content": "Hi"}],
+        options={"num_predict": 50, "temperature": 0.15},
     )
 
 

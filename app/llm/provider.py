@@ -23,8 +23,17 @@ class LLMProvider(ABC):
         pass
 
     @abstractmethod
-    def complete(self, prompt: str, max_tokens: int = 1000) -> str:
-        """Send prompt to the model and return the generated text."""
+    def complete(
+        self,
+        prompt: str,
+        max_tokens: int = 1000,
+        *,
+        temperature: float | None = None,
+    ) -> str:
+        """Send prompt to the model and return the generated text.
+
+        temperature: optional sampling temperature; when None, provider default applies.
+        """
         ...
 
 
@@ -42,15 +51,18 @@ class OllamaProvider(LLMProvider):
         self._host = host
         self._max_retries = max_retries
 
-    def _complete_once(self, prompt: str, max_tokens: int) -> str:
+    def _complete_once(self, prompt: str, max_tokens: int, temperature: float | None) -> str:
         import ollama
 
         try:
             client = ollama.Client(host=self._host)
+            options: dict[str, Any] = {"num_predict": max_tokens}
+            if temperature is not None:
+                options["temperature"] = float(temperature)
             response = client.chat(
                 model=self._model,
                 messages=[{"role": "user", "content": prompt}],
-                options={"num_predict": max_tokens},
+                options=options,
             )
             message = (
                 response.get("message")
@@ -72,9 +84,15 @@ class OllamaProvider(LLMProvider):
                 raise
             raise LLMProviderError(str(e)) from e
 
-    def complete(self, prompt: str, max_tokens: int = 1000) -> str:
+    def complete(
+        self,
+        prompt: str,
+        max_tokens: int = 1000,
+        *,
+        temperature: float | None = None,
+    ) -> str:
         return run_with_retries(
-            lambda: self._complete_once(prompt, max_tokens),
+            lambda: self._complete_once(prompt, max_tokens, temperature),
             max_retries=self._max_retries,
             label=f"Ollama chat ({self._model})",
             retry_if=lambda exc: not is_ollama_connection_failure(exc),
@@ -85,7 +103,7 @@ def get_provider(
     config: dict[str, Any] | None = None,
     task: str | None = None,
 ) -> LLMProvider:
-    """Return the configured LLM provider (Ollama, Gemini, or Anthropic).
+    """Return the configured LLM provider (Ollama, Gemini, Anthropic, or vLLM-compatible).
 
     task: optional task name ('rewrite', 'simplify', 'translate').
     Uses llm.{task}_model if set, otherwise falls back to llm.model.
@@ -114,4 +132,9 @@ def get_provider(
 
         cfg = {**llm, "model": model}
         return AnthropicLLMProvider.from_llm_config(cfg)
+    if provider_name == "vllm":
+        from app.llm.vllm_provider import VllmOpenAIProvider
+
+        cfg = {**llm, "model": model}
+        return VllmOpenAIProvider.from_llm_config(cfg)
     raise LLMProviderError(f"Unknown llm.provider: {provider_name!r}")

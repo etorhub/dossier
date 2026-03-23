@@ -26,9 +26,11 @@ def get_pool() -> pool.ThreadedConnectionPool:
     """Get or create the connection pool."""
     global _connection_pool
     if _connection_pool is None:
+        # Headroom for parallel rewrite workers (each thread may hold a conn briefly).
+        maxconn = int(os.environ.get("DOSSIER_DB_POOL_MAX", "32"))
         _connection_pool = pool.ThreadedConnectionPool(
             minconn=1,
-            maxconn=10,
+            maxconn=max(10, maxconn),
             dsn=get_db_url(),
         )
     return _connection_pool

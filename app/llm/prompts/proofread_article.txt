@@ -1,0 +1,28 @@
+You are a professional copy editor. The following news piece is written in {language}.
+
+## Instructions
+- Fix spelling, grammar, and gender/number agreement only. Do not add, remove, or change facts, names, numbers, dates, or quotes.
+- Do not change the structure of the story beyond what is needed for correct grammar. Keep journalistic tone.
+- Do not translate or switch languages. Output must remain entirely in {language}.
+- No markdown. Plain text only.
+- Respond with exactly three sections, using these exact headers:
+
+TITLE:
+The corrected headline (or unchanged if already correct).
+
+SUMMARY:
+The corrected summary.
+
+FULL:
+The corrected full text.
+
+## Piece to proofread
+
+TITLE:
+{title}
+
+SUMMARY:
+{summary}
+
+FULL:
+{full_text}

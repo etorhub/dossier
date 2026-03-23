@@ -6,8 +6,11 @@ import pytest
 
 from app.services.rewrite_service import (
     RewriteReport,
+    _get_language_writing_note,
+    _llm_task_temperature,
     _parse_cluster_llm_response,
     _strip_markdown_bold,
+    _writing_note_section_for_translate,
     rewrite_story,
     run_rewrite_batch,
 )
@@ -134,9 +137,12 @@ Simplified article here."""
             full_text="Simplified article here.",
             rewrite_failed=False,
         )
-        mock_provider.complete.assert_called_once()
-        call_kwargs = mock_provider.complete.call_args[1]
-        assert call_kwargs["max_tokens"] == 2000  # default when not in config
+        assert mock_provider.complete.call_count == 2  # draft + proofread
+        draft_kwargs = mock_provider.complete.call_args_list[0][1]
+        assert draft_kwargs["max_tokens"] == 2000  # default when not in config
+        assert draft_kwargs["temperature"] == 0.2
+        proof_kwargs = mock_provider.complete.call_args_list[1][1]
+        assert proof_kwargs["temperature"] == 0.1
 
 
 def test_rewrite_story_uses_config_max_tokens() -> None:
@@ -164,8 +170,120 @@ Full text."""
 
         rewrite_story("story-1", articles, "neutral", "ca", config)
 
+        assert mock_provider.complete.call_count == 2
+        assert mock_provider.complete.call_args_list[0][1]["max_tokens"] == 1500
+        assert mock_provider.complete.call_args_list[1][1]["max_tokens"] == 1500
+
+
+def test_rewrite_story_skips_proofread_when_disabled() -> None:
+    """rewrite_proofread_enabled False skips the second LLM call."""
+    with (
+        patch("app.services.rewrite_service.db_stories") as mock_db,
+        patch("app.services.rewrite_service.get_provider") as mock_get,
+    ):
+        mock_provider = MagicMock()
+        mock_provider.complete.return_value = """TITLE:
+T.
+
+SUMMARY:
+One. Two. Three.
+
+FULL:
+Full."""
+        mock_get.return_value = mock_provider
+        articles = [{"id": "art1", "raw_text": "x", "full_text": None}]
+        config = {
+            "processing": {"summary_sentences": 3, "rewrite_proofread_enabled": False},
+            "rewriting": {"styles": [{"id": "neutral", "prompt": "rewrite_cluster_neutral"}]},
+        }
+        assert rewrite_story("story-x", articles, "neutral", "ca", config) is True
         mock_provider.complete.assert_called_once()
-        assert mock_provider.complete.call_args[1]["max_tokens"] == 1500
+
+
+def test_rewrite_story_proofread_bad_response_keeps_draft() -> None:
+    """When proofread output is unparseable, stored text is the draft."""
+    valid = """TITLE:
+H.
+
+SUMMARY:
+A. B. C.
+
+FULL:
+Body."""
+    with (
+        patch("app.services.rewrite_service.db_stories") as mock_db,
+        patch("app.services.rewrite_service.get_provider") as mock_get,
+    ):
+        mock_provider = MagicMock()
+        mock_provider.complete.side_effect = [valid, "no TITLE here"]
+        mock_get.return_value = mock_provider
+        articles = [{"id": "art1", "raw_text": "Text", "full_text": None}]
+        config = {
+            "processing": {"summary_sentences": 3},
+            "rewriting": {"styles": [{"id": "neutral", "prompt": "rewrite_cluster_neutral"}]},
+        }
+        assert rewrite_story("s1", articles, "neutral", "ca", config) is True
+        mock_db.insert_story_rewrite.assert_called_once_with(
+            story_id="s1",
+            style="neutral",
+            language="ca",
+            title="H.",
+            summary="A. B. C.",
+            full_text="Body.",
+            rewrite_failed=False,
+        )
+
+
+def test_llm_task_temperature_defaults_and_override() -> None:
+    """_llm_task_temperature uses llm config or built-in fallbacks."""
+    assert _llm_task_temperature({}, "translate") == 0.15
+    assert _llm_task_temperature({"llm": {"translate_temperature": 0.05}}, "translate") == 0.05
+
+
+def test_writing_note_for_spanish_in_translate_section() -> None:
+    """writing_note from rewriting.languages appears in translate section text."""
+    config = {
+        "rewriting": {
+            "languages": [
+                {"id": "es", "label": "Spanish", "writing_note": "Use peninsular Spanish."},
+            ],
+        },
+    }
+    assert _get_language_writing_note(config, "es") == "Use peninsular Spanish."
+    sec = _writing_note_section_for_translate(config, "es")
+    assert "Locale and register" in sec
+    assert "Use peninsular Spanish." in sec
+    assert _writing_note_section_for_translate(config, "en") == ""
+
+
+def test_translate_article_prompt_has_required_placeholders() -> None:
+    """translate_article template includes all keys used by rewrite_service.format."""
+    from app.llm.prompts import load_prompt
+
+    txt = load_prompt("translate_article")
+    sample = txt.format(
+        target_language="Spanish",
+        style_description="Journalistic.",
+        summary_sentences=3,
+        writing_note_section="## Locale\nNote.\n",
+        article_text="TITLE:\nT\n\nSUMMARY:\nS\n\nFULL:\nF",
+    )
+    assert "Spanish" in sample
+    assert "Locale" in sample
+
+
+def test_proofread_article_prompt_formats() -> None:
+    """proofread_article template accepts title/summary/full blocks."""
+    from app.llm.prompts import load_prompt
+
+    p = load_prompt("proofread_article").format(
+        language="Spanish",
+        title="T",
+        summary="S",
+        full_text="F",
+    )
+    assert "Spanish" in p
+    assert "TITLE:\nT" in p
 
 
 def test_rewrite_story_provider_error_stores_failed() -> None:

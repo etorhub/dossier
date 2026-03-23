@@ -55,7 +55,13 @@ class AnthropicLLMProvider(LLMProvider):
             max_retries=retries,
         )
 
-    def complete(self, prompt: str, max_tokens: int = 1000) -> str:
+    def complete(
+        self,
+        prompt: str,
+        max_tokens: int = 1000,
+        *,
+        temperature: float | None = None,
+    ) -> str:
         api_key = _anthropic_api_key()
         url = f"{self._api_base}/v1/messages"
         # Anthropic requires max_tokens >= 1; cap to API limits in config
@@ -65,6 +71,8 @@ class AnthropicLLMProvider(LLMProvider):
             "max_tokens": mt,
             "messages": [{"role": "user", "content": prompt}],
         }
+        if temperature is not None:
+            body["temperature"] = float(temperature)
         headers = {
             "Content-Type": "application/json",
             "x-api-key": api_key,

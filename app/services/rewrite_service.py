@@ -2,6 +2,7 @@
 
 import logging
 import re
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from typing import Any
@@ -111,6 +112,70 @@ def _get_style_description(config: dict[str, Any], style_id: str) -> str:
     return descriptions.get(style_id, "Preserve the tone of the source.")
 
 
+def _llm_task_temperature(config: dict[str, Any], task: str) -> float:
+    """Return sampling temperature for rewrite, simplify, translate, or proofread."""
+    llm = config.get("llm") or {}
+    key = f"{task}_temperature"
+    raw = llm.get(key)
+    if raw is None:
+        fallbacks = {
+            "rewrite": 0.2,
+            "simplify": 0.2,
+            "translate": 0.15,
+            "proofread": 0.1,
+        }
+        return float(fallbacks.get(task, 0.2))
+    return float(raw)
+
+
+def _get_language_writing_note(config: dict[str, Any], lang_id: str) -> str:
+    """Optional per-language guidance for translation (from rewriting.languages)."""
+    for lang in config.get("rewriting", {}).get("languages", []):
+        if lang.get("id") == lang_id:
+            raw = lang.get("writing_note")
+            if isinstance(raw, str) and raw.strip():
+                return raw.strip()
+            return ""
+    return ""
+
+
+def _writing_note_section_for_translate(config: dict[str, Any], lang_id: str) -> str:
+    """Markdown section injected into translate_article.txt, or empty."""
+    note = _get_language_writing_note(config, lang_id)
+    if not note:
+        return ""
+    return f"## Locale and register for {lang_id}\n{note}\n"
+
+
+def _proofread_if_enabled(
+    provider: LLMProvider,
+    title: str,
+    summary: str,
+    full_text: str,
+    language_label: str,
+    config: dict[str, Any],
+) -> tuple[str, str, str]:
+    """Optional second pass: spelling, grammar, agreement only. Keeps draft on failure."""
+    proc = config.get("processing") or {}
+    if proc.get("rewrite_proofread_enabled") is False:
+        return title, summary, full_text
+    max_tokens = int(proc.get("rewrite_max_tokens") or 2000)
+    temp = _llm_task_temperature(config, "proofread")
+    prompt_template = load_prompt("proofread_article")
+    prompt = prompt_template.format(
+        language=language_label,
+        title=title,
+        summary=summary,
+        full_text=full_text,
+    )
+    try:
+        response = provider.complete(prompt, max_tokens=max_tokens, temperature=temp)
+        return _parse_story_llm_response(response)
+    except Exception as e:
+        logger.debug("proofread failed, using draft: %s", e)
+        return title, summary, full_text
+
+
 def _get_rewriting_variants(config: dict[str, Any]) -> list[tuple[str, str]]:
     """Return list of (style_id, language_id) from config."""
     rewriting = config.get("rewriting", {})
@@ -181,8 +246,17 @@ def rewrite_story(
             style,
             language,
         )
-        response = provider.complete(prompt, max_tokens=max_tokens)
+        rw_temp = _llm_task_temperature(config, "rewrite")
+        response = provider.complete(prompt, max_tokens=max_tokens, temperature=rw_temp)
         title, summary, full_text = _parse_story_llm_response(response)
+        title, summary, full_text = _proofread_if_enabled(
+            provider,
+            title,
+            summary,
+            full_text,
+            prompt_language,
+            config,
+        )
         db_stories.insert_story_rewrite(
             story_id=story_id,
             style=style,
@@ -221,26 +295,38 @@ def _simplify_rewrite(
     neutral_rewrite: dict[str, Any],
     config: dict[str, Any],
     provider: LLMProvider,
+    base_language: str,
 ) -> bool:
-    """Simplify a neutral English rewrite to simple English. Returns True on success."""
+    """Simplify a neutral rewrite in base_language to simple language in the same locale."""
     article_text = _build_article_text_from_rewrite(neutral_rewrite)
     processing = config.get("processing", {})
     summary_sentences = processing.get("summary_sentences", 3)
     max_tokens = processing.get("rewrite_max_tokens", 2000)
+    prompt_language = _get_language_label(config, base_language)
 
     prompt_template = load_prompt("simplify_article")
     prompt = prompt_template.format(
         article_text=article_text,
         summary_sentences=summary_sentences,
+        language=prompt_language,
     )
 
     try:
-        response = provider.complete(prompt, max_tokens=max_tokens)
+        sim_temp = _llm_task_temperature(config, "simplify")
+        response = provider.complete(prompt, max_tokens=max_tokens, temperature=sim_temp)
         title, summary, full_text = _parse_story_llm_response(response)
+        title, summary, full_text = _proofread_if_enabled(
+            provider,
+            title,
+            summary,
+            full_text,
+            prompt_language,
+            config,
+        )
         db_stories.insert_story_rewrite(
             story_id=story_id,
             style="simple",
-            language="en",
+            language=base_language,
             title=title,
             summary=summary,
             full_text=full_text,
@@ -252,7 +338,7 @@ def _simplify_rewrite(
         db_stories.insert_story_rewrite(
             story_id=story_id,
             style="simple",
-            language="en",
+            language=base_language,
             title=None,
             summary=None,
             full_text=None,
@@ -279,17 +365,28 @@ def _translate_rewrite(
     summary_sentences = processing.get("summary_sentences", 3)
     max_tokens = processing.get("rewrite_max_tokens", 2000)
 
+    writing_note_section = _writing_note_section_for_translate(config, target_lang_id)
     prompt_template = load_prompt("translate_article")
     prompt = prompt_template.format(
         article_text=article_text,
         target_language=target_language,
         style_description=style_description,
         summary_sentences=summary_sentences,
+        writing_note_section=writing_note_section,
     )
 
     try:
-        response = provider.complete(prompt, max_tokens=max_tokens)
+        tr_temp = _llm_task_temperature(config, "translate")
+        response = provider.complete(prompt, max_tokens=max_tokens, temperature=tr_temp)
         title, summary, full_text = _parse_story_llm_response(response)
+        title, summary, full_text = _proofread_if_enabled(
+            provider,
+            title,
+            summary,
+            full_text,
+            target_language,
+            config,
+        )
         db_stories.insert_story_rewrite(
             story_id=story_id,
             style=style,
@@ -333,6 +430,8 @@ def _rewrite_story_cascading(
     rewrite_provider: LLMProvider,
     simplify_provider: LLMProvider,
     translate_provider: LLMProvider,
+    *,
+    translation_max_workers: int = 1,
 ) -> tuple[int, int]:
     """Cascade: neutral/en -> simple/en -> translate both. Returns (succeeded, failed)."""
     succeeded = 0
@@ -374,6 +473,7 @@ def _rewrite_story_cascading(
             neutral_rewrite=neutral_rewrite,
             config=config,
             provider=simplify_provider,
+            base_language=base_language,
         )
         if not ok:
             failed += 1
@@ -382,27 +482,47 @@ def _rewrite_story_cascading(
             all_rewrites = db_stories.get_all_rewrites_for_story(story_id)
             existing_rewrites[simple_key] = all_rewrites.get(simple_key, {})
 
-    # Step 3: Translate to other languages
+    # Step 3: Translate to other languages (parallel when translation_max_workers > 1)
     simple_rewrite = existing_rewrites.get(simple_key)
+    translation_jobs: list[tuple[str, str, dict[str, Any]]] = []
     for lang_id in other_languages:
         for style in ("neutral", "simple"):
             key = (style, lang_id)
-            if needs_full_regen or key not in existing_rewrites:
-                source = neutral_rewrite if style == "neutral" else (simple_rewrite or {})
-                if not source or not source.get("title"):
-                    continue
-                ok = _translate_rewrite(
-                    story_id=story_id,
-                    source_rewrite=source,
-                    style=style,
-                    target_lang_id=lang_id,
-                    config=config,
-                    provider=translate_provider,
-                )
-                if ok:
+            if not (needs_full_regen or key not in existing_rewrites):
+                continue
+            source = neutral_rewrite if style == "neutral" else (simple_rewrite or {})
+            if not source or not source.get("title"):
+                continue
+            translation_jobs.append((style, lang_id, source))
+
+    def _run_one_translation(job: tuple[str, str, dict[str, Any]]) -> bool:
+        style_j, lang_j, source_j = job
+        return _translate_rewrite(
+            story_id=story_id,
+            source_rewrite=source_j,
+            style=style_j,
+            target_lang_id=lang_j,
+            config=config,
+            provider=translate_provider,
+        )
+
+    if translation_jobs:
+        tw = max(1, translation_max_workers)
+        if tw <= 1 or len(translation_jobs) == 1:
+            for job in translation_jobs:
+                if _run_one_translation(job):
                     succeeded += 1
                 else:
                     failed += 1
+        else:
+            max_workers = min(tw, len(translation_jobs))
+            with ThreadPoolExecutor(max_workers=max_workers) as executor:
+                futures = [executor.submit(_run_one_translation, j) for j in translation_jobs]
+                for fut in as_completed(futures):
+                    if fut.result():
+                        succeeded += 1
+                    else:
+                        failed += 1
 
     db_stories.set_story_needs_rewrite(story_id, False)
     return (succeeded, failed)
@@ -438,12 +558,27 @@ def _execute_cascading_rewrites(
     rewrite_provider: LLMProvider,
     simplify_provider: LLMProvider,
     translate_provider: LLMProvider,
+    *,
+    parallel_workers: int | None = None,
+    translation_max_workers: int | None = None,
 ) -> tuple[int, int]:
     """Run cascading rewrites for work items. Returns (succeeded, failed)."""
+    if not work:
+        return (0, 0)
+    schedule_cfg = config.get("schedule", {})
+    pw = parallel_workers
+    if pw is None:
+        pw = max(1, int(schedule_cfg.get("rewrite_parallel_workers") or 1))
+    tw = translation_max_workers if translation_max_workers is not None else pw
+
     total = len(work)
     succeeded = 0
     failed = 0
-    for i, (story_id, articles, needs_full_regen) in enumerate(work, 1):
+
+    def _process_one(
+        pack: tuple[int, str, list[dict[str, Any]], bool],
+    ) -> tuple[int, str, int, int]:
+        idx, story_id, articles, needs_full_regen = pack
         existing = db_stories.get_all_rewrites_for_story(story_id)
         s, f = _rewrite_story_cascading(
             story_id=story_id,
@@ -456,18 +591,42 @@ def _execute_cascading_rewrites(
             rewrite_provider=rewrite_provider,
             simplify_provider=simplify_provider,
             translate_provider=translate_provider,
+            translation_max_workers=tw,
         )
-        succeeded += s
-        failed += f
-        short_id = story_id[:12]
-        logger.info(
-            "    [%d/%d] %s... %d ok, %d fail",
-            i,
-            total,
-            short_id,
-            s,
-            f,
-        )
+        return (idx, story_id, s, f)
+
+    if pw <= 1:
+        for i, (story_id, articles, needs_full_regen) in enumerate(work, 1):
+            _, _, s, f = _process_one((i, story_id, articles, needs_full_regen))
+            succeeded += s
+            failed += f
+            short_id = story_id[:12]
+            logger.info(
+                "    [%d/%d] %s... %d ok, %d fail",
+                i,
+                total,
+                short_id,
+                s,
+                f,
+            )
+        return (succeeded, failed)
+
+    packs = [(i, sid, arts, nr) for i, (sid, arts, nr) in enumerate(work, 1)]
+    with ThreadPoolExecutor(max_workers=min(pw, len(work))) as executor:
+        future_map = {executor.submit(_process_one, p): p for p in packs}
+        for future in as_completed(future_map):
+            idx, story_id, s, f = future.result()
+            succeeded += s
+            failed += f
+            short_id = story_id[:12]
+            logger.info(
+                "    [%d/%d] %s... %d ok, %d fail (parallel)",
+                idx,
+                total,
+                short_id,
+                s,
+                f,
+            )
     return (succeeded, failed)
 
 
@@ -511,7 +670,8 @@ def run_rewrite_batch(config: dict[str, Any]) -> RewriteReport:
             stories_failed=0,
         )
 
-    logger.info("  Rewriting %d story(ies) (cascade)...", len(work))
+    parallel_w = max(1, int(schedule_cfg.get("rewrite_parallel_workers") or 1))
+    logger.info("  Rewriting %d story(ies) (cascade, parallel_workers=%d)...", len(work), parallel_w)
     logger.info("  Loading LLM providers (rewrite, simplify, translate)...")
     rewrite_provider = get_provider(config, task="rewrite")
     simplify_provider = get_provider(config, task="simplify")
