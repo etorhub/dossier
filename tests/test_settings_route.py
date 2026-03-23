@@ -136,5 +136,5 @@ def test_settings_post_regeneration_needed_shows_confirmation(
         )
 
         assert response.status_code == 200
-        assert b"Feed regeneration" in response.data
-        assert b"Confirm and save" in response.data
+        assert b'role="alert"' in response.data
+        assert b'name="confirm_regenerate"' in response.data

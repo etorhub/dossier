@@ -217,18 +217,26 @@ def _proofread_if_enabled(
         return title, summary, full_text
 
 
+def _configured_style_ids(config: dict[str, Any]) -> list[str]:
+    """Ordered style ids from rewriting.styles; default neutral when empty."""
+    styles = config.get("rewriting", {}).get("styles", [])
+    out: list[str] = []
+    for s in styles:
+        if isinstance(s, dict):
+            sid = s.get("id")
+            if isinstance(sid, str) and sid.strip():
+                out.append(sid.strip())
+    return out if out else ["neutral"]
+
+
 def _get_rewriting_variants(config: dict[str, Any]) -> list[tuple[str, str]]:
     """Return list of (style_id, language_id) from config."""
     rewriting = config.get("rewriting", {})
-    styles = rewriting.get("styles", [])
+    style_ids = _configured_style_ids(config)
     languages = rewriting.get("languages", [])
-    if not styles or not languages:
+    if not languages:
         return [("neutral", "ca")]
-    return [
-        (s["id"], lang["id"])
-        for s in styles
-        for lang in languages
-    ]
+    return [(sid, lang["id"]) for sid in style_ids for lang in languages]
 
 
 def rewrite_story(
@@ -482,11 +490,12 @@ def _rewrite_story_cascading(
     *,
     translation_max_workers: int = 1,
 ) -> tuple[int, int]:
-    """Cascade: neutral/en -> simple/en -> translate both. Returns (succeeded, failed)."""
+    """Cascade: neutral in base_language, optional simplify for simple, then translate configured styles."""
     succeeded = 0
     failed = 0
+    style_ids = _configured_style_ids(config)
 
-    # Step 1: Neutral English (merge sources)
+    # Step 1: Neutral in base language (merge sources)
     neutral_key = ("neutral", base_language)
     if needs_full_regen or neutral_key not in existing_rewrites:
         ok = rewrite_story(
@@ -514,32 +523,37 @@ def _rewrite_story_cascading(
     if not neutral_rewrite or not neutral_rewrite.get("title"):
         return (succeeded, failed + 1)
 
-    # Step 2: Simple English (simplify)
+    # Step 2: Simple in base language (only when "simple" is a configured style)
     simple_key = ("simple", base_language)
-    if needs_full_regen or simple_key not in existing_rewrites:
-        ok = _simplify_rewrite(
-            story_id=story_id,
-            neutral_rewrite=neutral_rewrite,
-            config=config,
-            provider=simplify_provider,
-            base_language=base_language,
-        )
-        if not ok:
-            failed += 1
-        else:
-            succeeded += 1
-            all_rewrites = db_stories.get_all_rewrites_for_story(story_id)
-            existing_rewrites[simple_key] = all_rewrites.get(simple_key, {})
+    simple_rewrite: dict[str, Any] | None = None
+    if "simple" in style_ids:
+        if needs_full_regen or simple_key not in existing_rewrites:
+            ok = _simplify_rewrite(
+                story_id=story_id,
+                neutral_rewrite=neutral_rewrite,
+                config=config,
+                provider=simplify_provider,
+                base_language=base_language,
+            )
+            if not ok:
+                failed += 1
+            else:
+                succeeded += 1
+                all_rewrites = db_stories.get_all_rewrites_for_story(story_id)
+                existing_rewrites[simple_key] = all_rewrites.get(simple_key, {})
+        simple_rewrite = existing_rewrites.get(simple_key)
 
     # Step 3: Translate to other languages (parallel when translation_max_workers > 1)
-    simple_rewrite = existing_rewrites.get(simple_key)
     translation_jobs: list[tuple[str, str, dict[str, Any]]] = []
     for lang_id in other_languages:
-        for style in ("neutral", "simple"):
+        for style in style_ids:
             key = (style, lang_id)
             if not (needs_full_regen or key not in existing_rewrites):
                 continue
-            source = neutral_rewrite if style == "neutral" else (simple_rewrite or {})
+            if style == "neutral":
+                source = neutral_rewrite
+            else:
+                source = simple_rewrite or {}
             if not source or not source.get("title"):
                 continue
             translation_jobs.append((style, lang_id, source))
@@ -705,8 +719,12 @@ def _execute_cascading_rewrites(
 
 
 def run_rewrite_batch(config: dict[str, Any]) -> RewriteReport:
-    """Process stories via cascade: neutral EN from sources, simplify, translate both."""
-    logger.info("━━ Rewrite job starting (cascade: rewrite → simplify → translate)")
+    """Process stories via configured rewrite cascade (neutral; optional simplify; translate)."""
+    style_ids = _configured_style_ids(config)
+    if "simple" in style_ids:
+        logger.info("━━ Rewrite job starting (cascade: rewrite → simplify → translate)")
+    else:
+        logger.info("━━ Rewrite job starting (cascade: rewrite → translate)")
     processing = config.get("processing", {})
     window_hours = processing.get("cluster_window_hours", 24)
     since = (
@@ -746,9 +764,13 @@ def run_rewrite_batch(config: dict[str, Any]) -> RewriteReport:
 
     parallel_w = max(1, int(schedule_cfg.get("rewrite_parallel_workers") or 1))
     logger.info("  Rewriting %d story(ies) (cascade, parallel_workers=%d)...", len(work), parallel_w)
-    logger.info("  Loading LLM providers (rewrite, simplify, translate)...")
     rewrite_provider = get_provider(config, task="rewrite")
-    simplify_provider = get_provider(config, task="simplify")
+    if "simple" in style_ids:
+        logger.info("  Loading LLM providers (rewrite, simplify, translate)...")
+        simplify_provider = get_provider(config, task="simplify")
+    else:
+        logger.info("  Loading LLM providers (rewrite, translate)...")
+        simplify_provider = rewrite_provider
     translate_provider = get_provider(config, task="translate")
 
     stories_succeeded, stories_failed = _execute_cascading_rewrites(

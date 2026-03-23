@@ -329,7 +329,7 @@ def test_run_rewrite_batch_unlimited_passes_no_sql_limit() -> None:
             "processing": {"cluster_window_hours": 24},
             "rewriting": {
                 "base_language": "en",
-                "styles": [{"id": "neutral"}, {"id": "simple"}],
+                "styles": [{"id": "neutral"}],
                 "languages": [{"id": "ca"}, {"id": "en"}],
             },
         }
@@ -348,13 +348,13 @@ def test_run_rewrite_batch_empty_variants() -> None:
             "processing": {"cluster_window_hours": 24},
             "rewriting": {
                 "base_language": "en",
-                "styles": [{"id": "neutral"}, {"id": "simple"}],
+                "styles": [{"id": "neutral"}],
                 "languages": [{"id": "ca"}, {"id": "es"}, {"id": "en"}],
             },
         }
         report = run_rewrite_batch(config)
         assert report == RewriteReport(
-            variants_processed=6,
+            variants_processed=3,
             stories_attempted=0,
             stories_succeeded=0,
             stories_failed=0,
@@ -384,20 +384,20 @@ def test_run_rewrite_batch_counts() -> None:
             "processing": {"cluster_window_hours": 24},
             "rewriting": {
                 "base_language": "en",
-                "styles": [{"id": "neutral"}, {"id": "simple"}],
+                "styles": [{"id": "neutral"}],
                 "languages": [{"id": "ca"}, {"id": "es"}, {"id": "en"}],
             },
         }
         report = run_rewrite_batch(config)
 
-        assert report.variants_processed == 6
+        assert report.variants_processed == 3
         assert report.stories_attempted == 2
         assert report.stories_succeeded == 5
         assert report.stories_failed == 3
 
 
 def test_run_rewrite_batch_calls_cascade() -> None:
-    """run_rewrite_batch uses cascading rewrites (rewrite → simplify → translate)."""
+    """run_rewrite_batch loads rewrite+translate when only neutral style is configured."""
     with (
         patch("app.services.rewrite_service.db_stories") as mock_stories,
         patch("app.services.rewrite_service.get_provider") as mock_get,
@@ -410,25 +410,24 @@ def test_run_rewrite_batch_calls_cascade() -> None:
         mock_stories.get_articles_in_story.return_value = [
             {"id": "a1", "raw_text": "t1", "full_text": None},
         ]
-        mock_execute.return_value = (6, 0)  # all 6 variants succeeded
+        mock_execute.return_value = (3, 0)  # all 3 variants succeeded
 
         config = {
             "schedule": {"rewrite_batch_size": 10},
             "processing": {"cluster_window_hours": 24},
             "rewriting": {
                 "base_language": "en",
-                "styles": [{"id": "neutral"}, {"id": "simple"}],
+                "styles": [{"id": "neutral"}],
                 "languages": [{"id": "ca"}, {"id": "es"}, {"id": "en"}],
             },
         }
         report = run_rewrite_batch(config)
 
         assert report.stories_attempted == 1
-        assert report.stories_succeeded == 6
+        assert report.stories_succeeded == 3
         mock_execute.assert_called_once()
-        # Verify get_provider called with task for each step
-        assert mock_get.call_count == 3
+        assert mock_get.call_count == 2
         tasks = [c[1]["task"] for c in mock_get.call_args_list if c[1].get("task")]
         assert "rewrite" in tasks
-        assert "simplify" in tasks
         assert "translate" in tasks
+        assert "simplify" not in tasks

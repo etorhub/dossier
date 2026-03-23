@@ -1082,7 +1082,7 @@ def get_stories_with_rewrite_status(
     styles = [s["id"] for s in config.get("rewriting", {}).get("styles", [])]
     languages = [l["id"] for l in config.get("rewriting", {}).get("languages", [])]
     if not styles:
-        styles = ["neutral", "simple"]
+        styles = ["neutral"]
     if not languages:
         languages = ["ca", "es", "en"]
 

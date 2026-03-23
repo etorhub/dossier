@@ -21,17 +21,15 @@ llm:
 
 # Story-level rewriting: one rewrite per (story, style, language).
 # Styles and languages are extensible via config.
-# Cascade: generate neutral text in base_language from sources, simplify in base_language,
-# then translate neutral+simple to each entry in languages other than base_language.
+# Cascade: generate neutral text in base_language from sources, then translate each
+# configured style to each entry in languages other than base_language. (Optional
+# style "simple" triggers an extra simplify step in base_language before translating.)
 rewriting:
   base_language: es
   styles:
     - id: neutral
       label: Neutral
       prompt: rewrite_cluster_neutral
-    - id: simple
-      label: Simple
-      prompt: rewrite_cluster_simple
   languages:
     - id: es
       label: Spanish

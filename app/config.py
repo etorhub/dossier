@@ -74,7 +74,6 @@ DEFAULTS: dict[str, Any] = {
         "base_language": "es",
         "styles": [
             {"id": "neutral", "label": "Neutral", "prompt": "rewrite_cluster_neutral"},
-            {"id": "simple", "label": "Simple", "prompt": "rewrite_cluster_simple"},
         ],
         "languages": [
             {

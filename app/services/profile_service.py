@@ -5,6 +5,31 @@ from typing import Any
 from app.db import users
 
 
+def get_style_options(config: dict[str, Any]) -> list[tuple[str, str]]:
+    """(style_id, label) pairs from rewriting.styles for setup/settings selects."""
+    styles = config.get("rewriting", {}).get("styles", [])
+    out: list[tuple[str, str]] = []
+    for s in styles:
+        if isinstance(s, dict):
+            sid = s.get("id")
+            if isinstance(sid, str) and sid.strip():
+                label = s.get("label", sid)
+                out.append((sid.strip(), str(label)))
+    if not out:
+        return [("neutral", "Neutral")]
+    return out
+
+
+def normalize_preferred_style(preferred_style: str, config: dict[str, Any]) -> str:
+    """Clamp submitted style to ids declared in rewriting.styles."""
+    allowed = {sid for sid, _ in get_style_options(config)}
+    p = (preferred_style or "").strip()
+    if p in allowed:
+        return p
+    rewriting = config.get("rewriting", {})
+    return str(rewriting.get("default_style", "neutral"))
+
+
 def get_reading_variant(
     profile: dict[str, Any],
     config: dict[str, Any],

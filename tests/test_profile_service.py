@@ -1,6 +1,10 @@
 """Tests for profile_service."""
 
-from app.services.profile_service import regeneration_needed
+from app.services.profile_service import (
+    get_style_options,
+    normalize_preferred_style,
+    regeneration_needed,
+)
 
 
 def test_regeneration_needed_when_language_changes() -> None:
@@ -22,6 +26,22 @@ def test_regeneration_needed_when_topic_ids_change() -> None:
     old = {"language": "ca", "topic_ids": ["t1"]}
     new_form = {"language": "ca"}
     assert regeneration_needed(old, new_form, ["t1", "t2"]) is True
+
+
+def test_get_style_options_empty_config() -> None:
+    """Empty rewriting.styles falls back to a single neutral option."""
+    assert get_style_options({}) == [("neutral", "Neutral")]
+
+
+def test_normalize_preferred_style_rejects_unknown_id() -> None:
+    """Unknown style id is replaced with default_style from config."""
+    cfg = {
+        "rewriting": {
+            "styles": [{"id": "neutral", "label": "Neutral"}],
+            "default_style": "neutral",
+        }
+    }
+    assert normalize_preferred_style("simple", cfg) == "neutral"
 
 
 def test_regeneration_needed_when_preferred_style_changes() -> None:

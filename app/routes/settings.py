@@ -9,11 +9,6 @@ from app.services import profile_service
 
 settings_bp = Blueprint("settings", __name__, url_prefix="/settings")
 
-PREFERRED_STYLE_OPTIONS = [
-    ("neutral", "Neutral"),
-    ("simple", "Simple"),
-]
-
 
 def _all_topics(sources: list[dict[str, Any]]) -> list[str]:
     """Collect unique topic ids from sources."""
@@ -59,14 +54,17 @@ def settings_page() -> Any:
             sources=sources,
             topics=topics,
             topic_infos=topic_infos,
-            style_options=PREFERRED_STYLE_OPTIONS,
+            style_options=profile_service.get_style_options(config),
             languages=languages,
             needs_regeneration_confirmation=False,
         )
 
+    config = load_config()
     location = request.form.get("location", "").strip() or None
     language = request.form.get("language", "ca").strip()
-    preferred_style = request.form.get("preferred_style", "neutral").strip()
+    preferred_style = profile_service.normalize_preferred_style(
+        request.form.get("preferred_style", "neutral"), config
+    )
     high_contrast = request.form.get("high_contrast") == "on"
 
     topic_ids = request.form.getlist("topics")
@@ -94,7 +92,6 @@ def settings_page() -> Any:
             "high_contrast": form_data.get("high_contrast"),
             "topic_ids": topic_ids,
         }
-        config = load_config()
         languages = config.get("rewriting", {}).get(
             "languages",
             [{"id": "ca", "label": "Catalan"}, {"id": "es", "label": "Spanish"}, {"id": "en", "label": "English"}],
@@ -106,7 +103,7 @@ def settings_page() -> Any:
             sources=sources,
             topics=topics,
             topic_infos=topic_infos,
-            style_options=PREFERRED_STYLE_OPTIONS,
+            style_options=profile_service.get_style_options(config),
             languages=languages,
             needs_regeneration_confirmation=True,
         )
