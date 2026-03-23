@@ -58,7 +58,8 @@
               hx-get="{{ url_for('reader.collapse_story', story_id=article.id) }}"
               hx-target="#article-{{ article.id }}"
               hx-swap="innerHTML"
-              onclick="ttsStop()">{{ _('Show less') }}</button>
+              onclick="ttsStop()"
+              aria-label="{{ _('Show less:') }} {{ article.title }}">{{ _('Show less') }}</button>
     </div>
   </div>
 </article>

@@ -37,6 +37,11 @@ def subscribe() -> tuple[str, int] | str:
         logger.debug("Invalid subscription payload: %s", ex)
         return render_template_string(""), 400
 
+    # Sanity-check field lengths (push endpoints ~200-300 chars; keys are base64url-encoded)
+    if len(endpoint) > 2048 or len(p256dh) > 200 or len(auth) > 100:
+        logger.debug("Push subscription fields exceed expected length")
+        return render_template_string(""), 400
+
     try:
         push_db.save_subscription(user_id, endpoint, p256dh, auth)
     except Exception as ex:

@@ -109,7 +109,7 @@ def update_profile(user_id: int, data: dict[str, Any]) -> None:
                     rewrite_tone = COALESCE(%s, rewrite_tone),
                     high_contrast = COALESCE(%s, high_contrast),
                     preferred_style = COALESCE(%s, preferred_style),
-                    color_scheme = %s,
+                    color_scheme = %s,  -- intentionally bare (not COALESCE): NULL means "follow system"
                     updated_at = now()
                 WHERE user_id = %s
                 """,

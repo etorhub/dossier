@@ -109,6 +109,8 @@
       --muted:        #6b7280;
     }
 
+    /* high-contrast is declared after body.dark and body.light so it always wins.
+       Do not reorder these rules. */
     body.high-contrast {
       --bg:      #000000;
       --fg:      #ffffff;
@@ -215,7 +217,7 @@
     .btn-link {
       background: none;
       border: none;
-      min-height: unset;
+      min-height: var(--touch-min);
       min-width: unset;
       padding: 0.75rem 0;
       font-family: var(--font-ui);
@@ -732,7 +734,8 @@
   data-tts-stop="{{ _('Stop') }}"
   data-tts-volume="{{ _('Volume') }}"
   data-tts-read-aloud="{{ _('Read article aloud') }}"
-  data-vapid-key="{{ vapid_public_key or '' }}">
+  data-vapid-key="{{ vapid_public_key or '' }}"
+  data-sw-url="{{ url_for('static', filename='sw.js') }}">
   <nav>
     {% if session.get('user_id') %}
       <div>
@@ -787,7 +790,8 @@
   <script>
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', function() {
-        navigator.serviceWorker.register('/static/sw.js').catch(function() {});
+        var swUrl = document.body.dataset.swUrl;
+        if (swUrl) navigator.serviceWorker.register(swUrl).catch(function() {});
       });
     }
 

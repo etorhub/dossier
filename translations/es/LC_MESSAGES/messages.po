@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PROJECT VERSION\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2026-03-23 19:48+0100\n"
+"POT-Creation-Date: 2026-03-23 20:56+0100\n"
 "PO-Revision-Date: 2026-03-17 12:11+0100\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language: es\n"
@@ -16,7 +16,7 @@ msgstr ""
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=utf-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"Generated-By: Babel 2.18.0\n"
+"Generated-By: Babel 2.10.3\n"
 
 #: app/i18n_strings.py:13
 msgid "Catalan"
@@ -128,54 +128,54 @@ msgid_plural "%(num)d sources"
 msgstr[0] "%(num)d fuente"
 msgstr[1] "%(num)d fuentes"
 
-#: templates/article.html:34 templates/base.html:734
+#: templates/article.html:34 templates/base.html:736
 #: templates/partials/article_expanded.html:29
 msgid "Read article aloud"
 msgstr "Leer el artículo en voz alta"
 
-#: templates/article.html:36 templates/base.html:731
+#: templates/article.html:36 templates/base.html:733
 #: templates/partials/article_expanded.html:30
 msgid "Listen"
 msgstr "Escuchar"
 
-#: templates/article.html:41 templates/article.html:44 templates/base.html:733
+#: templates/article.html:41 templates/article.html:44 templates/base.html:735
 #: templates/partials/article_expanded.html:35
 #: templates/partials/article_expanded.html:39
 msgid "Volume"
 msgstr "Volumen"
 
-#: templates/base.html:732
+#: templates/base.html:734
 msgid "Stop"
 msgstr "Detener"
 
-#: templates/base.html:739 templates/base.html:767
+#: templates/base.html:742 templates/base.html:770
 msgid "Feed"
 msgstr "Resumen"
 
-#: templates/base.html:740 templates/base.html:783 templates/settings.html:2
+#: templates/base.html:743 templates/base.html:786 templates/settings.html:2
 #: templates/settings.html:4
 msgid "Settings"
 msgstr "Configuración"
 
-#: templates/base.html:745
+#: templates/base.html:748
 msgid "Log out"
 msgstr "Cerrar sesión"
 
-#: templates/base.html:750 templates/login.html:2 templates/login.html:5
+#: templates/base.html:753 templates/login.html:2 templates/login.html:5
 #: templates/login.html:19 templates/register.html:22
 msgid "Log in"
 msgstr "Iniciar sesión"
 
-#: templates/base.html:751 templates/login.html:22 templates/register.html:2
+#: templates/base.html:754 templates/login.html:22 templates/register.html:2
 #: templates/register.html:5 templates/register.html:19
 msgid "Register"
 msgstr "Registrarse"
 
-#: templates/base.html:759
+#: templates/base.html:762
 msgid "Main navigation"
 msgstr "Navegación principal"
 
-#: templates/base.html:775 templates/index.html:6 templates/index.html:7
+#: templates/base.html:778 templates/index.html:6 templates/index.html:7
 #: templates/settings.html:72 templates/setup.html:54
 msgid "Topics"
 msgstr "Temas"
@@ -325,7 +325,11 @@ msgstr "Ver artículo original, se abre en nueva pestaña"
 msgid "View original"
 msgstr "Ver original"
 
-#: templates/partials/article_expanded.html:61
+#: templates/partials/article_expanded.html:62
+msgid "Show less:"
+msgstr "Ver menos:"
+
+#: templates/partials/article_expanded.html:62
 msgid "Show less"
 msgstr "Mostrar menos"
 

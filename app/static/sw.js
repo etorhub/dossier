@@ -73,12 +73,13 @@ self.addEventListener('push', function(e) {
 
 self.addEventListener('notificationclick', function(e) {
   e.notification.close();
+  var url = (e.notification.data && e.notification.data.url) || '/';
   e.waitUntil(
     clients.matchAll({ type: 'window' }).then(function(list) {
       for (var i = 0; i < list.length; i++) {
-        if (list[i].url === '/' && 'focus' in list[i]) return list[i].focus();
+        if (list[i].url === url && 'focus' in list[i]) return list[i].focus();
       }
-      if (clients.openWindow) return clients.openWindow('/');
+      if (clients.openWindow) return clients.openWindow(url);
     })
   );
 });
