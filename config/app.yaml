@@ -1,3 +1,8 @@
+# Per-job-run log files (.log) for worker jobs; worker and ops must share this directory
+# (see docker-compose volumes). Shown on Ops → Jobs → Log.
+paths:
+  job_run_logs: data/job_runs
+
 llm:
   provider: ollama
   model: qwen2.5:7b # fallback for any task without its own model

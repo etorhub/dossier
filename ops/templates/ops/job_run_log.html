@@ -1,0 +1,20 @@
+{% extends "ops/base.html" %}
+{% block title %}{% if job %}Job #{{ job.id }} log{% else %}Job log{% endif %} — Ops{% endblock %}
+{% block content %}
+<p class="mb-2"><a href="{{ url_for('jobs.index') }}">← Jobs</a></p>
+<h1 class="h4">Job run log</h1>
+{% if job %}
+<p class="text-muted small">
+  <strong>{{ job.job_name }}</strong> · id {{ job.id }} ·
+  {% if job.started_at %}{{ job.started_at.strftime('%Y-%m-%d %H:%M:%S') }}{% else %}—{% endif %}
+  {% if job.status %}· <span class="badge bg-secondary">{{ job.status }}</span>{% endif %}
+</p>
+{% endif %}
+{% if missing %}
+<p class="alert alert-warning">
+  {% if reason %}{{ reason }}{% elif job and not job.log_path %}No log file was recorded for this run (older migration or run before logging was enabled).{% elif job %}Log file missing on this host.{% else %}Not found.{% endif %}
+</p>
+{% else %}
+<pre class="bg-dark text-light p-3 rounded small" style="white-space: pre-wrap; max-height: 70vh; overflow: auto;">{{ log_body }}</pre>
+{% endif %}
+{% endblock %}

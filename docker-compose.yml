@@ -91,6 +91,7 @@ services:
       OLLAMA_HOST: http://ollama:11434
     volumes:
       - ./config:/app/config
+      - ./data/job_runs:/app/data/job_runs
     command: python -m app.scheduler
 
   ops:
@@ -107,6 +108,7 @@ services:
       POSTGRES_HOST: db
     volumes:
       - ./config:/app/config
+      - ./data/job_runs:/app/data/job_runs
     command: gunicorn -b 0.0.0.0:5001 ops:application
 
 volumes:

@@ -11,8 +11,10 @@ from __future__ import annotations
 import contextlib
 import logging
 import os
-from dataclasses import asdict
-from typing import Any, Callable
+import time
+from collections.abc import Callable
+from dataclasses import asdict, is_dataclass
+from typing import Any
 
 from apscheduler.schedulers.blocking import BlockingScheduler
 from apscheduler.triggers.cron import CronTrigger
@@ -24,6 +26,7 @@ from app.db import articles as articles_db
 from app.extraction.extractor import enrich_all_articles
 from app.feed.availability import check_all_feeds_availability
 from app.feed.orchestrator import fetch_all_due_feeds
+from app.job_run_logging import append_job_run_summary, job_run_file_logging
 
 logger = logging.getLogger(__name__)
 
@@ -72,17 +75,46 @@ def _run_tracked_job(
     job_fn: Callable[[dict[str, Any]], Any],
     trigger: str = "scheduled",
 ) -> None:
-    """Run a pipeline job with admin tracking. Wraps config load, execution, and result logging."""
+    """Run a tracked pipeline job: config, job_fn, DB row, and per-run log file."""
     logger.info("Starting %s job", job_name)
     job_id = admin_db.insert_job_run(job_name, trigger=trigger)
-    try:
-        config = load_config()
-        report = job_fn(config)
-        admin_db.update_job_run(job_id, status="success", result=asdict(report))
-        logger.info("%s job completed: %s", job_name, report)
-    except Exception as e:
-        admin_db.update_job_run(job_id, status="error", error_message=str(e))
-        logger.exception("%s job failed", job_name)
+    config = load_config()
+    t0 = time.perf_counter()
+    with job_run_file_logging(
+        job_id,
+        job_name,
+        trigger,
+        config,
+    ) as (log_file, _log_rel):
+        try:
+            report = job_fn(config)
+            if is_dataclass(report) and not isinstance(report, type):
+                result_dict = asdict(report)
+            elif isinstance(report, dict):
+                result_dict = report
+            else:
+                result_dict = {"value": repr(report)}
+            duration_ms = int((time.perf_counter() - t0) * 1000)
+            admin_db.update_job_run(job_id, status="success", result=result_dict)
+            logger.info("%s job completed: %s", job_name, report)
+            append_job_run_summary(
+                log_file,
+                status="success",
+                duration_ms=duration_ms,
+                result=result_dict,
+                error_message=None,
+            )
+        except Exception as e:
+            duration_ms = int((time.perf_counter() - t0) * 1000)
+            logger.exception("%s job failed", job_name)
+            append_job_run_summary(
+                log_file,
+                status="error",
+                duration_ms=duration_ms,
+                result=None,
+                error_message=str(e),
+            )
+            admin_db.update_job_run(job_id, status="error", error_message=str(e))
 
 
 def main() -> None:
@@ -122,7 +154,10 @@ def main() -> None:
             id="enrich_articles",
         )
         scheduler.add_job(
-            lambda: _run_tracked_job("check_source_availability", check_all_feeds_availability),
+            lambda: _run_tracked_job(
+                "check_source_availability",
+                check_all_feeds_availability,
+            ),
             trigger=IntervalTrigger(minutes=availability_interval),
             id="check_source_availability",
         )
@@ -155,8 +190,8 @@ def main() -> None:
         )
     else:
         logger.info(
-            "Scheduler started (mode=full): fetch every %d min, enrichment=%s, cluster=%s, "
-            "rewrite=%s, availability every %d min",
+            "Scheduler started (mode=full): fetch every %d min, enrichment=%s, "
+            "cluster=%s, rewrite=%s, availability every %d min",
             interval_min,
             enrichment_cron,
             cluster_cron,

@@ -70,6 +70,7 @@
           <th>Duration</th>
           <th>Trigger</th>
           <th>Status</th>
+          <th>Log</th>
         </tr>
       </thead>
       <tbody>
@@ -84,9 +85,14 @@
             {% elif j.status == 'error' %}<span class="badge bg-danger">error</span>
             {% else %}<span class="badge bg-warning">running</span>{% endif %}
           </td>
+          <td>
+            {% if j.log_path %}
+            <a class="btn btn-sm btn-outline-secondary" href="{{ url_for('jobs.job_run_log', job_id=j.id) }}">View</a>
+            {% else %}—{% endif %}
+          </td>
         </tr>
         {% else %}
-        <tr><td colspan="5">No job runs</td></tr>
+        <tr><td colspan="6">No job runs</td></tr>
         {% endfor %}
       </tbody>
     </table>

@@ -12,6 +12,7 @@
         <th>Status</th>
         <th>Result</th>
         <th>Error</th>
+        <th>Log</th>
       </tr>
     </thead>
     <tbody>
@@ -37,9 +38,14 @@
           {% else %}—{% endif %}
         </td>
         <td><small>{{ j.error_message[:100] if j.error_message else '—' }}{% if j.error_message and j.error_message|length > 100 %}…{% endif %}</small></td>
+        <td>
+          {% if j.log_path %}
+          <a class="btn btn-sm btn-outline-secondary" href="{{ url_for('jobs.job_run_log', job_id=j.id) }}">View</a>
+          {% else %}—{% endif %}
+        </td>
       </tr>
       {% else %}
-      <tr><td colspan="9">No job runs</td></tr>
+      <tr><td colspan="10">No job runs</td></tr>
       {% endfor %}
     </tbody>
   </table>

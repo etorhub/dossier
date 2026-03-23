@@ -2,15 +2,58 @@
 
 import logging
 import re
+import shutil
+import sys
+import threading
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
-logger = logging.getLogger(__name__)
 from app.db import stories as db_stories
+from app.llm.http_utils import quiet_http_library_info_logs
 from app.llm.prompts import load_prompt
 from app.llm.provider import LLMProvider, get_provider
+
+logger = logging.getLogger(__name__)
+
+_rewrite_progress_lock = threading.Lock()
+
+
+def _rewrite_story_title_snippet(articles: list[dict[str, Any]], story_id: str) -> str:
+    if articles:
+        t = str((articles[0].get("title") or "")).strip()
+        if t:
+            return t
+    return story_id[:12] if story_id else "—"
+
+
+def _render_rewrite_progress(
+    done: int,
+    total: int,
+    title: str,
+    *,
+    frame: int,
+) -> None:
+    """One-line stderr progress (TTY only). Matches embed / enrich job UX."""
+    if total <= 0 or not sys.stderr.isatty():
+        return
+    with _rewrite_progress_lock:
+        spin = "⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏"
+        ch = spin[frame % len(spin)]
+        pct = min(100, round(100.0 * done / total)) if total else 0
+        bar_w = min(28, max(12, shutil.get_terminal_size((88, 24)).columns - 50))
+        filled = min(bar_w, max(0, round(bar_w * done / total)))
+        bar_f = "█" * filled + "░" * (bar_w - filled)
+        safe = (title or "").replace("\n", " ").strip() or "—"
+        if len(safe) > 40:
+            safe = safe[:39] + "…"
+        sys.stderr.write(
+            f"\r\x1b[36m{ch}\x1b[0m rewrite \x1b[32m{bar_f}\x1b[0m "
+            f"\x1b[1m{done}\x1b[0m/\x1b[1m{total}\x1b[0m {pct}%  "
+            f"\x1b[2m{safe}\x1b[0m\x1b[K"
+        )
+        sys.stderr.flush()
 
 
 @dataclass
@@ -580,6 +623,7 @@ def _execute_cascading_rewrites(
     total = len(work)
     succeeded = 0
     failed = 0
+    progress_state = {"done": 0, "frame": 0}
 
     def _process_one(
         pack: tuple[int, str, list[dict[str, Any]], bool],
@@ -599,40 +643,64 @@ def _execute_cascading_rewrites(
             translate_provider=translate_provider,
             translation_max_workers=tw,
         )
+        if pw > 1:
+            with _rewrite_progress_lock:
+                progress_state["done"] += 1
+                progress_state["frame"] += 1
+                tit = _rewrite_story_title_snippet(articles, story_id)
+                _render_rewrite_progress(
+                    progress_state["done"],
+                    total,
+                    tit,
+                    frame=progress_state["frame"],
+                )
         return (idx, story_id, s, f)
 
-    if pw <= 1:
-        for i, (story_id, articles, needs_full_regen) in enumerate(work, 1):
-            _, _, s, f = _process_one((i, story_id, articles, needs_full_regen))
-            succeeded += s
-            failed += f
-            short_id = story_id[:12]
-            logger.info(
-                "    [%d/%d] %s... %d ok, %d fail",
-                i,
-                total,
-                short_id,
-                s,
-                f,
-            )
-        return (succeeded, failed)
+    with quiet_http_library_info_logs():
+        try:
+            if pw <= 1:
+                for i, (story_id, articles, needs_full_regen) in enumerate(work, 1):
+                    _, _, s, f = _process_one((i, story_id, articles, needs_full_regen))
+                    succeeded += s
+                    failed += f
+                    short_id = story_id[:12]
+                    logger.info(
+                        "    [%d/%d] %s... %d ok, %d fail",
+                        i,
+                        total,
+                        short_id,
+                        s,
+                        f,
+                    )
+                    _render_rewrite_progress(
+                        i,
+                        total,
+                        _rewrite_story_title_snippet(articles, story_id),
+                        frame=i - 1,
+                    )
+                return (succeeded, failed)
 
-    packs = [(i, sid, arts, nr) for i, (sid, arts, nr) in enumerate(work, 1)]
-    with ThreadPoolExecutor(max_workers=min(pw, len(work))) as executor:
-        future_map = {executor.submit(_process_one, p): p for p in packs}
-        for future in as_completed(future_map):
-            idx, story_id, s, f = future.result()
-            succeeded += s
-            failed += f
-            short_id = story_id[:12]
-            logger.info(
-                "    [%d/%d] %s... %d ok, %d fail (parallel)",
-                idx,
-                total,
-                short_id,
-                s,
-                f,
-            )
+            packs = [(i, sid, arts, nr) for i, (sid, arts, nr) in enumerate(work, 1)]
+            with ThreadPoolExecutor(max_workers=min(pw, len(work))) as executor:
+                future_map = {executor.submit(_process_one, p): p for p in packs}
+                for future in as_completed(future_map):
+                    idx, story_id, s, f = future.result()
+                    succeeded += s
+                    failed += f
+                    short_id = story_id[:12]
+                    logger.info(
+                        "    [%d/%d] %s... %d ok, %d fail (parallel)",
+                        idx,
+                        total,
+                        short_id,
+                        s,
+                        f,
+                    )
+        finally:
+            if sys.stderr.isatty() and total > 0:
+                sys.stderr.write("\n")
+                sys.stderr.flush()
+
     return (succeeded, failed)
 
 

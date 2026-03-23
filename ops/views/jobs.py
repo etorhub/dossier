@@ -2,7 +2,9 @@
 
 from flask import Blueprint, Response, render_template, request
 
+from app.config import load_config
 from app.db import admin as admin_db
+from app.job_run_logging import resolve_job_run_log_file
 
 jobs_bp = Blueprint("jobs", __name__)
 
@@ -32,6 +34,55 @@ def index() -> Response:
         per_page=per_page,
         job_name=job_name,
         status=status,
+    )
+
+
+@jobs_bp.route("/<int:job_id>/log")
+def job_run_log(job_id: int) -> Response:
+    """Plain-text job run log (logging output + summary footer)."""
+    row = admin_db.get_job_run_by_id(job_id)
+    if not row:
+        return (
+            render_template(
+                "ops/job_run_log.html",
+                job=None,
+                log_body="",
+                missing=True,
+                reason="Job run not found.",
+            ),
+            404,
+        )
+
+    log_rel = row.get("log_path")
+    if not log_rel:
+        return render_template(
+            "ops/job_run_log.html",
+            job=row,
+            log_body="",
+            missing=True,
+            reason="",
+        )
+
+    cfg = load_config()
+    path = resolve_job_run_log_file(cfg, str(log_rel))
+    if path is None or not path.is_file():
+        return render_template(
+            "ops/job_run_log.html",
+            job=row,
+            log_body="",
+            missing=True,
+            reason=(
+                "Log file not found on disk "
+                "(check paths.job_run_logs and worker/ops volume)."
+            ),
+        )
+
+    body = path.read_text(encoding="utf-8", errors="replace")
+    return render_template(
+        "ops/job_run_log.html",
+        job=row,
+        log_body=body,
+        missing=False,
     )
 
 

@@ -40,6 +40,9 @@ htmlcov/
 .DS_Store
 Thumbs.db
 
+# Worker job run logs (bind-mounted for ops dashboard)
+data/job_runs/
+
 # claude
 .superpowers/
 

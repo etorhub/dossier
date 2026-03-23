@@ -6,6 +6,9 @@ from typing import Any
 import yaml
 
 DEFAULTS: dict[str, Any] = {
+    "paths": {
+        "job_run_logs": "data/job_runs",
+    },
     "llm": {
         "provider": "ollama",
         "model": "qwen2.5:7b",
