@@ -69,7 +69,7 @@ def get_provider(
     config: dict[str, Any] | None = None,
     task: str | None = None,
 ) -> LLMProvider:
-    """Return the configured LLM provider (Ollama).
+    """Return the configured LLM provider (Ollama, Gemini, or Anthropic).
 
     task: optional task name ('rewrite', 'simplify', 'translate').
     Uses llm.{task}_model if set, otherwise falls back to llm.model.
@@ -77,10 +77,24 @@ def get_provider(
     if config is None:
         config = load_config()
     llm = config.get("llm", {})
+    provider_name = (llm.get("provider") or "ollama").lower()
     fallback_model = llm.get("model") or "qwen2.5:7b"
     if task:
         model = llm.get(f"{task}_model") or fallback_model
     else:
         model = fallback_model
-    host = llm.get("host") or os.environ.get("OLLAMA_HOST") or "http://ollama:11434"
-    return OllamaProvider(model=model, host=host)
+
+    if provider_name == "ollama":
+        host = llm.get("host") or os.environ.get("OLLAMA_HOST") or "http://ollama:11434"
+        return OllamaProvider(model=model, host=host)
+    if provider_name == "gemini":
+        from app.llm.gemini import GeminiLLMProvider
+
+        cfg = {**llm, "model": model}
+        return GeminiLLMProvider.from_llm_config(cfg)
+    if provider_name == "anthropic":
+        from app.llm.anthropic_llm import AnthropicLLMProvider
+
+        cfg = {**llm, "model": model}
+        return AnthropicLLMProvider.from_llm_config(cfg)
+    raise LLMProviderError(f"Unknown llm.provider: {provider_name!r}")

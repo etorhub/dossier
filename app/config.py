@@ -10,11 +10,18 @@ DEFAULTS: dict[str, Any] = {
         "provider": "ollama",
         "model": "qwen2.5:7b",
         "host": "http://ollama:11434",
+        "api_base": "",
+        "timeout_seconds": 120,
+        "max_retries": 3,
     },
     "embeddings": {
         "provider": "ollama",
         "model": "nomic-embed-text",
         "host": "http://ollama:11434",
+        "api_base": "",
+        "timeout_seconds": 60,
+        "max_retries": 3,
+        "max_input_chars": 8000,
     },
     "extraction": {
         "enabled": True,
