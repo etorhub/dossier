@@ -1,14 +1,44 @@
 """Batch enrichment orchestrator for article content extraction."""
 
 import logging
+import shutil
+import sys
 import time
 from dataclasses import dataclass
 from urllib.parse import urlparse
 
 from app.db import articles as db_articles
 from app.extraction.trafilatura import extract_article
+from app.llm.http_utils import quiet_http_library_info_logs
 
 logger = logging.getLogger(__name__)
+
+
+def _render_enrich_progress(
+    done: int,
+    total: int,
+    title: str,
+    *,
+    frame: int,
+) -> None:
+    """One-line stderr progress (TTY only). Matches cluster embed job UX."""
+    if total <= 0 or not sys.stderr.isatty():
+        return
+    spin = "⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏"
+    ch = spin[frame % len(spin)]
+    pct = min(100, round(100.0 * done / total)) if total else 0
+    bar_w = min(28, max(12, shutil.get_terminal_size((88, 24)).columns - 48))
+    filled = min(bar_w, max(0, round(bar_w * done / total)))
+    bar_f = "█" * filled + "░" * (bar_w - filled)
+    safe = (title or "").replace("\n", " ").strip() or "—"
+    if len(safe) > 40:
+        safe = safe[:39] + "…"
+    sys.stderr.write(
+        f"\r\x1b[36m{ch}\x1b[0m enrich \x1b[32m{bar_f}\x1b[0m "
+        f"\x1b[1m{done}\x1b[0m/\x1b[1m{total}\x1b[0m {pct}%  "
+        f"\x1b[2m{safe}\x1b[0m\x1b[K"
+    )
+    sys.stderr.flush()
 
 
 @dataclass
@@ -59,62 +89,84 @@ def enrich_articles(config: dict) -> EnrichmentReport:
     )
 
     min_interval = 1.0 / rate_limit if rate_limit > 0 else 0
+    total_candidates = len(candidates)
 
-    for _domain, arts in by_domain.items():
-        for art in arts:
-            report.articles_checked += 1
-            article_id = art["id"]
-            url = art["url"]
-            full_text = art.get("full_text") or ""
-            raw_text = art.get("raw_text") or ""
+    with quiet_http_library_info_logs():
+        try:
+            for _domain, arts in by_domain.items():
+                for art in arts:
+                    report.articles_checked += 1
+                    article_id = art["id"]
+                    url = art["url"]
+                    full_text = art.get("full_text") or ""
+                    raw_text = art.get("raw_text") or ""
+                    title = str(art.get("title") or article_id or "")
+                    frame = report.articles_checked - 1
 
-            # Skip if RSS already provided enough content
-            if len(full_text) >= min_content_length:
-                db_articles.update_article_extraction(
-                    article_id, full_text, "skipped", "rss"
-                )
-                report.articles_skipped += 1
-                continue
+                    # Skip if RSS already provided enough content
+                    if len(full_text) >= min_content_length:
+                        db_articles.update_article_extraction(
+                            article_id, full_text, "skipped", "rss"
+                        )
+                        report.articles_skipped += 1
+                        _render_enrich_progress(
+                            report.articles_checked,
+                            total_candidates,
+                            title,
+                            frame=frame,
+                        )
+                        continue
 
-            # Extract with trafilatura
-            extracted, og_image_url = extract_article(url, timeout=timeout)
+                    # Extract with trafilatura
+                    extracted, og_image_url = extract_article(url, timeout=timeout)
 
-            # Use og:image as fallback only if article has no image from RSS
-            image_url: str | None = None
-            image_source: str | None = None
-            if not art.get("image_url") and og_image_url:
-                image_url = og_image_url
-                image_source = "og_image"
+                    # Use og:image as fallback only if article has no image from RSS
+                    image_url: str | None = None
+                    image_source: str | None = None
+                    if not art.get("image_url") and og_image_url:
+                        image_url = og_image_url
+                        image_source = "og_image"
 
-            if extracted and len(extracted) >= min_content_length:
-                db_articles.update_article_extraction(
-                    article_id,
-                    extracted,
-                    "extracted",
-                    "trafilatura",
-                    image_url=image_url,
-                    image_source=image_source,
-                )
-                report.articles_extracted += 1
-            else:
-                # Keep raw_text as fallback, mark failed
-                fallback = full_text or raw_text
-                db_articles.update_article_extraction(
-                    article_id,
-                    fallback or None,
-                    "failed",
-                    "trafilatura",
-                    image_url=image_url,
-                    image_source=image_source,
-                )
-                report.articles_failed += 1
-                logger.debug(
-                    "Extraction failed or insufficient for %s (got %d chars)",
-                    url,
-                    len(extracted or ""),
-                )
+                    if extracted and len(extracted) >= min_content_length:
+                        db_articles.update_article_extraction(
+                            article_id,
+                            extracted,
+                            "extracted",
+                            "trafilatura",
+                            image_url=image_url,
+                            image_source=image_source,
+                        )
+                        report.articles_extracted += 1
+                    else:
+                        # Keep raw_text as fallback, mark failed
+                        fallback = full_text or raw_text
+                        db_articles.update_article_extraction(
+                            article_id,
+                            fallback or None,
+                            "failed",
+                            "trafilatura",
+                            image_url=image_url,
+                            image_source=image_source,
+                        )
+                        report.articles_failed += 1
+                        logger.debug(
+                            "Extraction failed or insufficient for %s (got %d chars)",
+                            url,
+                            len(extracted or ""),
+                        )
 
-            time.sleep(min_interval)
+                    _render_enrich_progress(
+                        report.articles_checked,
+                        total_candidates,
+                        title,
+                        frame=frame,
+                    )
+
+                    time.sleep(min_interval)
+        finally:
+            if sys.stderr.isatty() and total_candidates > 0:
+                sys.stderr.write("\n")
+                sys.stderr.flush()
 
     return report
 
