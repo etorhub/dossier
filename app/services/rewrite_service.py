@@ -89,8 +89,50 @@ def _strip_markdown_bold(text: str) -> str:
     return s.strip()
 
 
+# LLM prompts ask for TITLE:/SUMMARY:/FULL: but "output exclusively in {language}"
+# often makes models use localized headers (e.g. TÍTULO:/RESUMEN:/COMPLETO:).
+# Longer patterns must run before shorter prefixes (e.g. TEXTO COMPLETO before COMPLETO).
+_HEADER_NORMALIZATIONS: tuple[tuple[re.Pattern[str], str], ...] = tuple(
+    (re.compile(pat, re.I | re.M), repl)
+    for pat, repl in (
+        # FULL
+        (r"^TEXTO\s+COMPLETO\s*:", "FULL:"),
+        (r"^TEXT\s+COMPLET\s*:", "FULL:"),
+        (r"^(?:ARTÍCULO|ARTICULO)\s+COMPLETO\s*:", "FULL:"),
+        (r"^VOLLSTÄNDIGER\s+TEXT\s*:", "FULL:"),
+        (r"^TEXTE\s+COMPLET\s*:", "FULL:"),
+        (r"^VOLLTEXT\s*:", "FULL:"),
+        (r"^COMPLETO\s*:", "FULL:"),
+        (r"^COMPLET\s*:", "FULL:"),
+        (r"^CORPS\s*:", "FULL:"),
+        # SUMMARY
+        (r"^RESUMEN\s*:", "SUMMARY:"),
+        (r"^ZUSAMMENFASSUNG\s*:", "SUMMARY:"),
+        (r"^RÉSUMÉ\s*:", "SUMMARY:"),
+        (r"^RESUME\s*:", "SUMMARY:"),
+        (r"^RESUM\s*:", "SUMMARY:"),
+        # TITLE
+        (r"^TÍTULO\s*:", "TITLE:"),
+        (r"^TITULO\s*:", "TITLE:"),
+        (r"^TÍTOL\s*:", "TITLE:"),
+        (r"^TITOL\s*:", "TITLE:"),
+        (r"^TITRE\s*:", "TITLE:"),
+        (r"^TITEL\s*:", "TITLE:"),
+    )
+)
+
+
+def _normalize_story_llm_section_headers(text: str) -> str:
+    """Replace localized section headers with TITLE:/SUMMARY:/FULL: for parsing."""
+    out = text.lstrip("\ufeff")
+    for pattern, repl in _HEADER_NORMALIZATIONS:
+        out = pattern.sub(repl, out)
+    return out
+
+
 def _parse_story_llm_response(text: str) -> tuple[str, str, str]:
     """Parse LLM output into (title, summary, full_text). Raises ValueError on bad format."""
+    text = _normalize_story_llm_section_headers(text)
     if not re.search(r"TITLE\s*:", text, re.I):
         raise ValueError("Response missing TITLE:, SUMMARY:, or FULL: sections")
     if not re.search(r"SUMMARY\s*:", text, re.I):

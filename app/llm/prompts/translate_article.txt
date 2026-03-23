@@ -10,7 +10,7 @@ Translate this news article to {target_language}.
 - Preserve factual accuracy. Translate faithfully; do not add or omit information.
 - TITLE: Translate the headline accurately. No clickbait.
 - Produce ONE coherent article. Avoid repeating the same biographical phrase or attribution in consecutive paragraphs when the reader already knows who is meant.
-- Respond with exactly three sections, using these exact headers:
+- Respond with exactly three sections. Use these three labels exactly as written (English words with a colon), even though the article is in {target_language}: TITLE:, SUMMARY:, FULL:
 
 TITLE:
 One headline.

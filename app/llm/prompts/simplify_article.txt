@@ -7,7 +7,7 @@ Simplify this news article for readers who prefer plain language.
 - Tone and style: Short sentences. Simple vocabulary. No jargon. Remain factual and complete; avoid infantilising tone.
 - Preserve factual accuracy. Never add information not present in the source.
 - TITLE: Write a single, journalistically accurate headline. No clickbait.
-- Respond with exactly three sections, using these exact headers:
+- Respond with exactly three sections. Use these three labels exactly as written (English words with a colon), even though the article is in {language}: TITLE:, SUMMARY:, FULL:
 
 TITLE:
 One headline.

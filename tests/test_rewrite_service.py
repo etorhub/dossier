@@ -32,6 +32,38 @@ This is the full simplified article. Short sentences. Simple words."""
     assert "This is the full simplified article" in full
 
 
+def test_parse_cluster_llm_response_spanish_section_headers() -> None:
+    """Localized Spanish headers are normalized and parsed."""
+    text = """TÍTULO:
+Corte de luz en el barrio.
+
+RESUMEN:
+Primera frase. Segunda frase. Tercera frase.
+
+COMPLETO:
+Texto del artículo completo aquí."""
+    title, summary, full = _parse_cluster_llm_response(text)
+    assert "Corte de luz" in title
+    assert "Primera frase" in summary
+    assert "Texto del artículo completo" in full
+
+
+def test_parse_cluster_llm_response_catalan_text_complet_header() -> None:
+    """Catalan TEXT COMPLET / RESUM / TÍTOL headers parse correctly."""
+    text = """TÍTOL:
+Títol català.
+
+RESUM:
+Una dos tres.
+
+TEXT COMPLET:
+Cos de l'article."""
+    title, summary, full = _parse_cluster_llm_response(text)
+    assert "Títol català" in title
+    assert "Una dos tres" in summary
+    assert "Cos de l'article" in full
+
+
 def test_strip_markdown_bold() -> None:
     """_strip_markdown_bold removes ** from start and end of text."""
     assert _strip_markdown_bold("**Title here**") == "Title here"

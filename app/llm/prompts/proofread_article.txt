@@ -5,7 +5,7 @@ You are a professional copy editor. The following news piece is written in {lang
 - Do not change the structure of the story beyond what is needed for correct grammar. Keep journalistic tone.
 - Do not translate or switch languages. Output must remain entirely in {language}.
 - No markdown. Plain text only.
-- Respond with exactly three sections, using these exact headers:
+- Respond with exactly three sections. Keep the three labels in English exactly as written (TITLE:, SUMMARY:, FULL:); only the body under each label is in {language}.
 
 TITLE:
 The corrected headline (or unchanged if already correct).
