@@ -1,6 +1,7 @@
 """LLM rewrite orchestration. Runs on schedule for all (style, language) variants."""
 
 import logging
+import os
 import re
 import shutil
 import sys
@@ -11,18 +12,30 @@ from datetime import UTC, datetime, timedelta
 from typing import Any
 
 from app.db import stories as db_stories
-from app.llm.http_utils import quiet_http_library_info_logs
+from app.llm.http_utils import (
+    is_ollama_connection_failure,
+    quiet_http_library_info_logs,
+)
 from app.llm.prompts import load_prompt
 from app.llm.provider import LLMProvider, get_provider
 
 logger = logging.getLogger(__name__)
+
+
+class RewriteBatchAbort(Exception):
+    """LLM host unreachable; abort the rest of this batch (like cluster embed stop)."""
+
+
+def _llm_host_for_logging(config: dict[str, Any]) -> str:
+    llm = config.get("llm") or {}
+    return str(llm.get("host") or os.environ.get("OLLAMA_HOST") or "http://ollama:11434")
 
 _rewrite_progress_lock = threading.Lock()
 
 
 def _rewrite_story_title_snippet(articles: list[dict[str, Any]], story_id: str) -> str:
     if articles:
-        t = str((articles[0].get("title") or "")).strip()
+        t = str(articles[0].get("title") or "").strip()
         if t:
             return t
     return story_id[:12] if story_id else "—"
@@ -35,14 +48,14 @@ def _render_rewrite_progress(
     *,
     frame: int,
 ) -> None:
-    """One-line stderr progress (TTY only). Matches embed / enrich job UX."""
+    """One-line stderr progress (TTY only). Same layout as cluster embed bar."""
     if total <= 0 or not sys.stderr.isatty():
         return
     with _rewrite_progress_lock:
         spin = "⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏"
         ch = spin[frame % len(spin)]
         pct = min(100, round(100.0 * done / total)) if total else 0
-        bar_w = min(28, max(12, shutil.get_terminal_size((88, 24)).columns - 50))
+        bar_w = min(28, max(12, shutil.get_terminal_size((88, 24)).columns - 48))
         filled = min(bar_w, max(0, round(bar_w * done / total)))
         bar_f = "█" * filled + "░" * (bar_w - filled)
         safe = (title or "").replace("\n", " ").strip() or "—"
@@ -213,6 +226,8 @@ def _proofread_if_enabled(
         response = provider.complete(prompt, max_tokens=max_tokens, temperature=temp)
         return _parse_story_llm_response(response)
     except Exception as e:
+        if is_ollama_connection_failure(e):
+            raise RewriteBatchAbort(str(e)) from e
         logger.debug("proofread failed, using draft: %s", e)
         return title, summary, full_text
 
@@ -326,6 +341,8 @@ def rewrite_story(
         logger.debug("rewrite_story: done story_id=%s ok=True", story_id)
         return True
     except Exception as e:
+        if is_ollama_connection_failure(e):
+            raise RewriteBatchAbort(str(e)) from e
         err_msg = str(e)[:500]
         db_stories.insert_story_rewrite(
             story_id=story_id,
@@ -391,6 +408,8 @@ def _simplify_rewrite(
         )
         return True
     except Exception as e:
+        if is_ollama_connection_failure(e):
+            raise RewriteBatchAbort(str(e)) from e
         err_msg = str(e)[:500]
         db_stories.insert_story_rewrite(
             story_id=story_id,
@@ -455,6 +474,8 @@ def _translate_rewrite(
         )
         return True
     except Exception as e:
+        if is_ollama_connection_failure(e):
+            raise RewriteBatchAbort(str(e)) from e
         err_msg = str(e)[:500]
         db_stories.insert_story_rewrite(
             story_id=story_id,
@@ -638,6 +659,7 @@ def _execute_cascading_rewrites(
     succeeded = 0
     failed = 0
     progress_state = {"done": 0, "frame": 0}
+    ollama_host = _llm_host_for_logging(config)
 
     def _process_one(
         pack: tuple[int, str, list[dict[str, Any]], bool],
@@ -674,11 +696,24 @@ def _execute_cascading_rewrites(
         try:
             if pw <= 1:
                 for i, (story_id, articles, needs_full_regen) in enumerate(work, 1):
-                    _, _, s, f = _process_one((i, story_id, articles, needs_full_regen))
+                    try:
+                        pack = (i, story_id, articles, needs_full_regen)
+                        _, _, s, f = _process_one(pack)
+                    except RewriteBatchAbort as e:
+                        remaining = max(0, total - i)
+                        logger.warning(
+                            "Ollama unreachable at %s (%s); stopping this rewrite run "
+                            "(%d story(s) not processed). "
+                            "Start Ollama or set llm.host / OLLAMA_HOST.",
+                            ollama_host,
+                            e,
+                            remaining,
+                        )
+                        break
                     succeeded += s
                     failed += f
                     short_id = story_id[:12]
-                    logger.info(
+                    logger.debug(
                         "    [%d/%d] %s... %d ok, %d fail",
                         i,
                         total,
@@ -698,11 +733,21 @@ def _execute_cascading_rewrites(
             with ThreadPoolExecutor(max_workers=min(pw, len(work))) as executor:
                 future_map = {executor.submit(_process_one, p): p for p in packs}
                 for future in as_completed(future_map):
-                    idx, story_id, s, f = future.result()
+                    try:
+                        idx, story_id, s, f = future.result()
+                    except RewriteBatchAbort as e:
+                        logger.warning(
+                            "Ollama unreachable at %s (%s); stopping this rewrite run "
+                            "(remaining parallel work may be incomplete). "
+                            "Start Ollama or set llm.host / OLLAMA_HOST.",
+                            ollama_host,
+                            e,
+                        )
+                        break
                     succeeded += s
                     failed += f
                     short_id = story_id[:12]
-                    logger.info(
+                    logger.debug(
                         "    [%d/%d] %s... %d ok, %d fail (parallel)",
                         idx,
                         total,
@@ -721,10 +766,6 @@ def _execute_cascading_rewrites(
 def run_rewrite_batch(config: dict[str, Any]) -> RewriteReport:
     """Process stories via configured rewrite cascade (neutral; optional simplify; translate)."""
     style_ids = _configured_style_ids(config)
-    if "simple" in style_ids:
-        logger.info("━━ Rewrite job starting (cascade: rewrite → simplify → translate)")
-    else:
-        logger.info("━━ Rewrite job starting (cascade: rewrite → translate)")
     processing = config.get("processing", {})
     window_hours = processing.get("cluster_window_hours", 24)
     since = (
@@ -743,18 +784,16 @@ def run_rewrite_batch(config: dict[str, Any]) -> RewriteReport:
         if lang["id"] != base_language
     ]
 
-    variant_str = ", ".join(f"{s}/{l}" for s, l in variants)
+    variant_str = ", ".join(f"{sty}/{lng}" for sty, lng in variants)
     batch_desc = "unlimited" if batch_size <= 0 else str(batch_size)
-    logger.info(
-        "  Variants: %s (batch_size=%s, base=%s)",
-        variant_str or "none",
-        batch_desc,
-        base_language,
-    )
 
     work = _gather_rewrite_work(variants, since, batch_size)
     if not work:
-        logger.info("  No stories needing rewrite")
+        logger.info(
+            "Rewrite batch: no stories need rewrite (window_hours=%s, batch_size=%s)",
+            window_hours if window_hours else "all",
+            batch_desc,
+        )
         return RewriteReport(
             variants_processed=len(variants),
             stories_attempted=0,
@@ -763,13 +802,17 @@ def run_rewrite_batch(config: dict[str, Any]) -> RewriteReport:
         )
 
     parallel_w = max(1, int(schedule_cfg.get("rewrite_parallel_workers") or 1))
-    logger.info("  Rewriting %d story(ies) (cascade, parallel_workers=%d)...", len(work), parallel_w)
+    logger.info(
+        "Rewrite batch: %d stories, workers=%d, base_language=%s, variants=%s",
+        len(work),
+        parallel_w,
+        base_language,
+        variant_str or "—",
+    )
     rewrite_provider = get_provider(config, task="rewrite")
     if "simple" in style_ids:
-        logger.info("  Loading LLM providers (rewrite, simplify, translate)...")
         simplify_provider = get_provider(config, task="simplify")
     else:
-        logger.info("  Loading LLM providers (rewrite, translate)...")
         simplify_provider = rewrite_provider
     translate_provider = get_provider(config, task="translate")
 
@@ -784,12 +827,6 @@ def run_rewrite_batch(config: dict[str, Any]) -> RewriteReport:
     )
 
     stories_attempted = len(work)
-    logger.info(
-        "━━ Rewrite complete: %d stories, %d variants ok, %d failed",
-        stories_attempted,
-        stories_succeeded,
-        stories_failed,
-    )
     return RewriteReport(
         variants_processed=len(variants),
         stories_attempted=stories_attempted,
