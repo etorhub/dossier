@@ -111,6 +111,11 @@
       --fg-faint:#aaaaaa;
       --border:  #ffffff;
       --surface: #111111;
+      --surface-2:    #222222;
+      --border-strong:#ffffff;
+      --accent-hover: #ffffff;
+      --accent-bg:    #000000;
+      --accent-text:  #ffffff;
     }
 
     * { box-sizing: border-box; }
@@ -408,7 +413,7 @@
       display: inline-flex;
       align-items: center;
       gap: 0.25rem;
-      min-height: 36px;
+      min-height: var(--touch-min);
       padding: 0.25rem 0.75rem;
       font-family: var(--font-ui);
       font-size: 0.8rem;
@@ -555,7 +560,7 @@
       .tab-active .tab-label { font-weight: 700; }
       /* Push content above bottom tabs on mobile */
       body { padding-bottom: calc(60px + env(safe-area-inset-bottom, 0)); }
-      /* Hide desktop top nav on mobile */
+      /* Hide desktop top nav on mobile; .bottom-tabs and .section-nav remain visible */
       nav:not(.bottom-tabs):not(.section-nav) { display: none; }
     }
 
