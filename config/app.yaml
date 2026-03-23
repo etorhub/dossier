@@ -74,6 +74,21 @@ extraction:
   rate_limit_per_domain: 2.0
   timeout: 30
 
+# Reader feed: drop RSS items that look like native ads (matched in title + start of body).
+feed:
+  promoted_content:
+    enabled: true
+    body_prefix_chars: 400
+    patterns:
+      - contenido patrocinado
+      - contingut patrocinat
+      - con la colaboración de
+      - con la colaboracion de
+      - en colaboración con
+      - en colaboracion con
+      - sponsored content
+      - paid partnership
+
 processing:
   # 0 = no limit; show every story with a rewrite
   articles_per_day: 0

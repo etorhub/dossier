@@ -187,6 +187,70 @@ def test_get_feed_min_sources_one_disables_filter() -> None:
         assert feed[0]["id"] == "c1"
 
 
+def test_get_feed_excludes_story_when_promoted_strips_below_min_sources() -> None:
+    """After removing sponsored items, stories with too few distinct sources are omitted."""
+    now = datetime.now(UTC)
+    sources = {
+        "s1": {"id": "s1", "name": "Source 1", "topics": ["politics"]},
+        "s2": {"id": "s2", "name": "Source 2", "topics": ["politics"]},
+    }
+    articles = [
+        {
+            "id": "a1",
+            "source_id": "s1",
+            "published_at": now,
+            "url": "https://s1.com/1",
+            "title": "Real headline",
+            "raw_text": "Body",
+            "full_text": "",
+        },
+        {
+            "id": "a2",
+            "source_id": "s2",
+            "published_at": now,
+            "url": "https://s2.com/1",
+            "title": "Contenido patrocinado",
+            "raw_text": "",
+            "full_text": "",
+        },
+    ]
+
+    with (
+        patch("app.services.article_service.profile_service") as mock_ps,
+        patch("app.services.article_service.load_sources") as mock_load_sources,
+        patch("app.services.article_service.load_config") as mock_load_config,
+        patch("app.services.article_service.db_stories") as mock_db,
+    ):
+        mock_ps.get_profile_with_selections.return_value = {
+            "topic_ids": ["politics"],
+        }
+        mock_ps.get_reading_variant.return_value = ("neutral", "ca")
+        mock_load_sources.return_value = list(sources.values())
+        mock_load_config.return_value = {
+            "processing": {"cluster_window_hours": 24, "articles_per_day": 10},
+            "relevance": {"min_sources": 2},
+            "rewriting": {"default_style": "neutral", "default_language": "ca"},
+            "feed": {
+                "promoted_content": {
+                    "enabled": True,
+                    "body_prefix_chars": 400,
+                    "patterns": ["contenido patrocinado"],
+                },
+            },
+        }
+        mock_db.get_stories_with_articles_in_window.return_value = [
+            {"story_id": "c-mixed"},
+        ]
+        mock_db.get_articles_in_story.return_value = articles
+        mock_db.get_story_rewrites.return_value = {
+            "c-mixed": {"title": "T", "summary": "", "full_text": "Text"},
+        }
+
+        feed, _ = get_feed(user_id=1)
+
+        assert feed == []
+
+
 def test_get_feed_excludes_read_stories() -> None:
     """Stories marked as read are excluded from the feed (when read tracking is implemented)."""
     now = datetime.now(UTC)

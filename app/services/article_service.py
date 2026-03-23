@@ -6,6 +6,7 @@ from typing import Any
 from app.config import load_config, load_sources
 from app.db import stories as db_stories
 from app.services import profile_service
+from app.services.promoted_content_service import exclude_promoted_articles
 from app.services.scoring_service import score_story
 
 _IMAGE_SOURCE_SCORES: dict[str, float] = {
@@ -156,7 +157,9 @@ def get_feed(
     visible_stories: list[dict[str, Any]] = []
     for row in story_rows:
         story_id = row["story_id"]
-        articles = db_stories.get_articles_in_story(story_id)
+        articles = exclude_promoted_articles(
+            db_stories.get_articles_in_story(story_id), config
+        )
         distinct_sources = len({a["source_id"] for a in articles})
         if distinct_sources < min_sources:
             continue
@@ -242,7 +245,9 @@ def get_expanded_story(
     """Return story with full rewritten text for expansion. None if not found."""
     if not db_stories.story_exists(story_id):
         return None
-    articles = db_stories.get_articles_in_story(story_id)
+    articles = exclude_promoted_articles(
+        db_stories.get_articles_in_story(story_id), config
+    )
     if not articles:
         return None
     rewrites_map = _get_rewrite_with_fallback([story_id], style, language, config)

@@ -70,6 +70,22 @@ DEFAULTS: dict[str, Any] = {
         "port": 5000,
         "debug": False,
     },
+    "feed": {
+        "promoted_content": {
+            "enabled": True,
+            "body_prefix_chars": 400,
+            "patterns": [
+                "contenido patrocinado",
+                "contingut patrocinat",
+                "con la colaboración de",
+                "con la colaboracion de",
+                "en colaboración con",
+                "en colaboracion con",
+                "sponsored content",
+                "paid partnership",
+            ],
+        },
+    },
     "rewriting": {
         "base_language": "es",
         "styles": [
