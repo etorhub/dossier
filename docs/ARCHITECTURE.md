@@ -181,7 +181,7 @@ Separate Flask application for operators. Runs on port 5001. Connects to the sam
 Jinja2 templates. Main app templates live at project root `templates/`; ops templates live in `ops/templates/ops/`. Pages extend their respective base templates. HTMX responses use partials.
 
 ```
-templates/                  # Main news platform
+templates/                  # Main Dossier reader UI
 ├── base.html               # Shell: nav, font settings; contains inline <script> for Web Speech API TTS only
 ├── index.html              # Main reader view (today's digest); section nav (All + topic sections), feed content
 ├── article.html            # Full-page single article view

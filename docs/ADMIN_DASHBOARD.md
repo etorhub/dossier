@@ -1,6 +1,6 @@
 # Ops Dashboard
 
-The ops dashboard provides operators with visibility into ingestion pipelines, job history, news sources, articles, stories, and user activity. It is a **separate service** from the main news platform, intended for the person who deploys and maintains the instance.
+The ops dashboard provides operators with visibility into ingestion pipelines, job history, configured sources, articles, stories, and user activity. It is a **separate service** from the main Dossier web app, intended for the person who deploys and maintains the instance.
 
 ---
 
@@ -57,7 +57,7 @@ Filters: job name, status. Auto-refresh every 30s.
 
 ### 3. Sources
 
-Table of news sources and feeds:
+Table of sources and feeds:
 
 - Source name, domain, country, feed URL
 - Poll interval, active, **availability status**

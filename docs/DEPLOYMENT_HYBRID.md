@@ -16,7 +16,7 @@ For the default all-in-one setup, use Docker as described in [TECH_STACK.md](TEC
 Environment variables:
 
 - **Pi:** `DATABASE_URL` → local Postgres, `SCHEDULER_MODE=light`, `SECRET_KEY`.
-- **PC:** `DATABASE_URL` → `postgresql://news:PASSWORD@PI_LAN_IP:5432/news`, `OLLAMA_HOST=http://localhost:11434`, `SCHEDULER_MODE=heavy`.
+- **PC:** `DATABASE_URL` → `postgresql://dossier:PASSWORD@PI_LAN_IP:5432/dossier`, `OLLAMA_HOST=http://localhost:11434`, `SCHEDULER_MODE=heavy`.
 
 Both hosts need the same `config/` directory (or deploy the repo on both). Run **Alembic migrations once** (on the Pi, against the Pi database) before starting either scheduler.
 
@@ -41,8 +41,8 @@ sudo apt install -y postgresql postgresql-contrib
 Create role and database (adjust password):
 
 ```bash
-sudo -u postgres psql -c "CREATE USER news WITH PASSWORD 'your-secure-password';"
-sudo -u postgres psql -c "CREATE DATABASE news OWNER news;"
+sudo -u postgres psql -c "CREATE USER dossier WITH PASSWORD 'your-secure-password';"
+sudo -u postgres psql -c "CREATE DATABASE dossier OWNER dossier;"
 ```
 
 **Listen on the LAN** so the PC can connect. Edit `postgresql.conf` (location varies, e.g. `/etc/postgresql/16/main/postgresql.conf`):
@@ -56,7 +56,7 @@ Restrict who can reach port 5432 with a host firewall (e.g. `ufw allow from 192.
 Edit `pg_hba.conf` (same directory) and allow the PC subnet:
 
 ```text
-host    news    news    192.168.1.0/24    scram-sha-256
+host    dossier    dossier    192.168.1.0/24    scram-sha-256
 ```
 
 Adjust the CIDR to your LAN. Reload Postgres: `sudo systemctl reload postgresql`.
@@ -79,9 +79,9 @@ Install Python 3.12+ if available (`sudo apt install python3 python3-venv python
 
 ```bash
 cd /opt   # or your preferred path
-sudo git clone https://github.com/accessible-news/aggregator.git news
-sudo chown -R $USER:$USER news
-cd news
+sudo git clone https://github.com/etorhub/dossier.git dossier
+sudo chown -R $USER:$USER dossier
+cd dossier
 python3 -m venv .venv
 source .venv/bin/activate
 pip install --upgrade pip
@@ -91,7 +91,7 @@ pip install -r requirements-pi.txt
 Copy `.env.example` to `.env` and set at least:
 
 ```bash
-DATABASE_URL=postgresql://news:your-secure-password@127.0.0.1:5432/news
+DATABASE_URL=postgresql://dossier:your-secure-password@127.0.0.1:5432/dossier
 SECRET_KEY=<long-random-string>
 SCHEDULER_MODE=light
 ```
@@ -112,20 +112,20 @@ Bind to all interfaces if the tunnel runs on the same host (or keep `127.0.0.1` 
 gunicorn -b 0.0.0.0:5000 --workers 2 app:application
 ```
 
-Use a **systemd** unit for production, e.g. `/etc/systemd/system/news-web.service`:
+Use a **systemd** unit for production, e.g. `/etc/systemd/system/dossier-web.service`:
 
 ```ini
 [Unit]
-Description=News aggregator web
+Description=Dossier web
 After=network.target postgresql.service
 
 [Service]
 Type=simple
 User=pi
 Group=pi
-WorkingDirectory=/opt/news
-EnvironmentFile=/opt/news/.env
-ExecStart=/opt/news/.venv/bin/gunicorn -b 127.0.0.1:5000 --workers 2 app:application
+WorkingDirectory=/opt/dossier
+EnvironmentFile=/opt/dossier/.env
+ExecStart=/opt/dossier/.venv/bin/gunicorn -b 127.0.0.1:5000 --workers 2 app:application
 Restart=on-failure
 
 [Install]
@@ -136,20 +136,20 @@ Using `127.0.0.1` limits direct exposure; pair with a tunnel (below).
 
 ### 1.5 Light scheduler (systemd)
 
-`/etc/systemd/system/news-scheduler-light.service`:
+`/etc/systemd/system/dossier-scheduler-light.service`:
 
 ```ini
 [Unit]
-Description=News aggregator light scheduler
+Description=Dossier light scheduler
 After=network.target postgresql.service
 
 [Service]
 Type=simple
 User=pi
 Group=pi
-WorkingDirectory=/opt/news
-EnvironmentFile=/opt/news/.env
-ExecStart=/opt/news/.venv/bin/python -m app.scheduler
+WorkingDirectory=/opt/dossier
+EnvironmentFile=/opt/dossier/.env
+ExecStart=/opt/dossier/.venv/bin/python -m app.scheduler
 Restart=on-failure
 
 [Install]
@@ -160,7 +160,7 @@ Ensure `.env` includes `SCHEDULER_MODE=light`.
 
 ```bash
 sudo systemctl daemon-reload
-sudo systemctl enable --now news-web.service news-scheduler-light.service
+sudo systemctl enable --now dossier-web.service dossier-scheduler-light.service
 ```
 
 ### 1.6 Ops dashboard (optional)
@@ -168,10 +168,10 @@ sudo systemctl enable --now news-web.service news-scheduler-light.service
 Runs on the Pi for operators on the LAN. Second Gunicorn process on port 5001:
 
 ```bash
-/opt/news/.venv/bin/gunicorn -b 0.0.0.0:5001 --workers 1 ops:application
+/opt/dossier/.venv/bin/gunicorn -b 0.0.0.0:5001 --workers 1 ops:application
 ```
 
-Add a systemd unit similar to `news-web.service` with `ops:application` and port `5001`. Do **not** expose 5001 through the public tunnel unless you add authentication and understand the risk (see [ADMIN_DASHBOARD.md](ADMIN_DASHBOARD.md)).
+Add a systemd unit similar to `dossier-web.service` with `ops:application` and port `5001`. Do **not** expose 5001 through the public tunnel unless you add authentication and understand the risk (see [ADMIN_DASHBOARD.md](ADMIN_DASHBOARD.md)).
 
 ### 1.7 Exposing the web app to the internet
 
@@ -215,7 +215,7 @@ For production you may omit dev-only packages at the bottom of `requirements.txt
 `.env` on the PC:
 
 ```bash
-DATABASE_URL=postgresql://news:your-secure-password@PI_LAN_IP:5432/news
+DATABASE_URL=postgresql://dossier:your-secure-password@PI_LAN_IP:5432/dossier
 OLLAMA_HOST=http://127.0.0.1:11434
 SCHEDULER_MODE=heavy
 ```
@@ -225,7 +225,7 @@ Use the Pi’s **LAN IP** (static DHCP reservation recommended).
 ### 2.3 Run heavy scheduler
 
 ```bash
-cd /path/to/news
+cd /path/to/dossier
 source .venv/bin/activate
 python -m app.scheduler
 ```

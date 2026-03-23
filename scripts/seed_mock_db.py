@@ -19,9 +19,9 @@ Requires: migrations applied (``alembic upgrade head``), ``DATABASE_URL`` or
 port ``5432`` (see ``docker-compose.override.yml``). Either omit
 ``DATABASE_URL`` and set ``POSTGRES_HOST=localhost`` (default when building
 from ``POSTGRES_*``), or set e.g.
-``DATABASE_URL=postgresql://news:PASSWORD@localhost:5432/news`` so the DB
+``DATABASE_URL=postgresql://dossier:PASSWORD@localhost:5432/dossier`` so the DB
 name matches the container (``POSTGRES_DB``). If your ``.env`` uses a Docker
-service hostname (``@db:``, ``@news-db:``), this script rewrites it to
+service hostname (e.g. ``@db:``), this script rewrites it to
 ``localhost`` unless ``DOSSIER_SKIP_DB_HOST_REMAP=1``.
 
 Usage:
@@ -51,10 +51,8 @@ load_dotenv(ROOT / ".env")
 
 MOCK_URL_BASE = "https://mock.dossier.invalid"
 
-# Compose service names that only resolve inside the Docker network; replace
-# with localhost when running this script on the host. Longest first so we do
-# not turn "news-db" into "news-localhost" by matching "db" first.
-_DOCKER_DB_HOST_ALIASES: tuple[str, ...] = ("news-db", "db", "postgres")
+# Compose DB hostnames that only resolve on the Docker network.
+_DOCKER_DB_HOST_ALIASES: tuple[str, ...] = ("db", "postgres")
 
 
 def _configure_database_url_for_host_runner() -> None:

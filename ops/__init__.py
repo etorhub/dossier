@@ -1,4 +1,4 @@
-"""Ops dashboard Flask application. Separate from the main news platform."""
+"""Ops dashboard Flask application. Separate from the main Dossier web app."""
 
 import json
 import os
