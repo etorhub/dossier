@@ -1,7 +1,29 @@
 {% extends "ops/base.html" %}
 {% block title %}Stories — Ops{% endblock %}
 {% block content %}
-<h1>Stories (clusters)</h1>
+<h1>Stories (clusters) <span class="text-muted fw-normal fs-5">({{ total }})</span></h1>
+
+<form class="row g-2 mb-3" method="get" action="{{ url_for('stories.index') }}">
+  <div class="col-auto">
+    <label class="visually-hidden" for="story-filter">Story ID</label>
+    <input type="text" id="story-filter" name="story" value="{{ story_filter or '' }}"
+      class="form-control form-control-sm" placeholder="Story UUID" style="min-width: 22rem;"
+      autocomplete="off" spellcheck="false">
+  </div>
+  <input type="hidden" name="page" value="1">
+  <input type="hidden" name="per_page" value="{{ per_page }}">
+  <div class="col-auto">
+    <button type="submit" class="btn btn-sm btn-primary">Filter</button>
+  </div>
+  {% if story_filter %}
+  <div class="col-auto">
+    <a class="btn btn-sm btn-outline-secondary" href="{{ url_for('stories.index', per_page=per_page) }}">Clear</a>
+  </div>
+  {% endif %}
+</form>
+{% if story_invalid %}
+<p class="text-warning small mb-2">Not a valid story UUID.</p>
+{% endif %}
 
 <div class="table-responsive">
   <table class="table table-sm">
@@ -66,10 +88,9 @@
     {% set total_pages = ((total / per_page)|round(0, 'ceil'))|int if total else 1 %}
     {% for p in range(1, [total_pages, 1]|max + 1) %}
     <li class="page-item {% if p == page %}active{% endif %}">
-      <a class="page-link" href="{{ url_for('stories.index') }}?page={{ p }}&per_page={{ per_page }}">{{ p }}</a>
+      <a class="page-link" href="{{ url_for('stories.index') }}?page={{ p }}&per_page={{ per_page }}{% if story_filter and not story_invalid %}&story={{ story_filter|urlencode }}{% endif %}">{{ p }}</a>
     </li>
     {% endfor %}
   </ul>
 </nav>
-<p class="text-muted small">Total: {{ total }}</p>
 {% endblock %}
