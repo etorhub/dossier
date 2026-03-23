@@ -66,6 +66,7 @@ def settings_page() -> Any:
         request.form.get("preferred_style", "neutral"), config
     )
     high_contrast = request.form.get("high_contrast") == "on"
+    color_scheme = request.form.get("color_scheme", "").strip() or None
 
     topic_ids = request.form.getlist("topics")
     if not topic_ids:
@@ -76,6 +77,7 @@ def settings_page() -> Any:
         "language": language,
         "preferred_style": preferred_style,
         "high_contrast": high_contrast,
+        "color_scheme": color_scheme,
     }
 
     confirm_regenerate = request.form.get("confirm_regenerate") == "1"
@@ -90,6 +92,7 @@ def settings_page() -> Any:
             "language": form_data.get("language"),
             "preferred_style": form_data.get("preferred_style"),
             "high_contrast": form_data.get("high_contrast"),
+            "color_scheme": form_data.get("color_scheme"),
             "topic_ids": topic_ids,
         }
         languages = config.get("rewriting", {}).get(

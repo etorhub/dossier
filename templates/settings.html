@@ -45,6 +45,26 @@
       <input type="checkbox" id="high_contrast" name="high_contrast" {% if profile.high_contrast %}checked{% endif %}>
       <label for="high_contrast">{{ _('High contrast mode') }}</label>
     </p>
+    <div class="form-group">
+      <label class="form-label" id="color-scheme-label">{{ _('Color scheme') }}</label>
+      <div class="radio-group" role="radiogroup" aria-labelledby="color-scheme-label">
+        <label class="radio-option">
+          <input type="radio" name="color_scheme" value=""
+                 {% if not profile.color_scheme %}checked{% endif %}>
+          {{ _('System default') }}
+        </label>
+        <label class="radio-option">
+          <input type="radio" name="color_scheme" value="light"
+                 {% if profile.color_scheme == 'light' %}checked{% endif %}>
+          {{ _('Light') }}
+        </label>
+        <label class="radio-option">
+          <input type="radio" name="color_scheme" value="dark"
+                 {% if profile.color_scheme == 'dark' %}checked{% endif %}>
+          {{ _('Dark') }}
+        </label>
+      </div>
+    </div>
   </section>
   <section>
     <h2>{{ _('Topics') }}</h2>

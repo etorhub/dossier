@@ -504,6 +504,15 @@
       width: 1rem; height: 1rem; flex-shrink: 0; opacity: 0.8;
     }
 
+    /* Color scheme radio group in settings/setup */
+    .radio-group { display: flex; flex-wrap: wrap; gap: 0.75rem; margin-top: 0.25rem; }
+    .radio-option {
+      display: flex; align-items: center; gap: 0.4rem;
+      font-family: var(--font-ui); font-size: 0.9rem; color: var(--fg);
+      cursor: pointer; min-height: var(--touch-min);
+    }
+    .radio-option input[type="radio"] { min-width: 18px; min-height: 18px; accent-color: var(--accent); }
+
     /* TTS player */
     .tts-player {
       display: flex;

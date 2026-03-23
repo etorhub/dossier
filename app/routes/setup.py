@@ -60,6 +60,7 @@ def setup_page() -> Any:
         request.form.get("preferred_style", "neutral"), config
     )
     high_contrast = request.form.get("high_contrast") == "on"
+    color_scheme = request.form.get("color_scheme", "").strip() or None
 
     topic_ids = request.form.getlist("topics")
     if not topic_ids:
@@ -70,6 +71,7 @@ def setup_page() -> Any:
         "language": language,
         "preferred_style": preferred_style,
         "high_contrast": high_contrast,
+        "color_scheme": color_scheme,
     }
     profile_service.save_setup(user_id, form_data, topic_ids)
 
