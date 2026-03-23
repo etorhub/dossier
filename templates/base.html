@@ -615,6 +615,71 @@
         padding: 0 2rem;
       }
     }
+
+    /* ── Desktop sidebar layout ── */
+    .app-layout {
+      display: block; /* single column on mobile */
+    }
+    .topic-sidebar { display: none; } /* hidden on mobile */
+    .main-content { width: 100%; }
+    .feed-header h1 { margin-bottom: 0.5rem; }
+    .feed-count {
+      font-size: 0.75rem;
+      font-weight: 400;
+      color: var(--fg-faint);
+      margin-left: 0.5rem;
+    }
+    .sidebar-heading {
+      font-family: var(--font-ui);
+      font-size: 0.7rem;
+      font-weight: 700;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--fg-faint);
+      margin: 0 0 0.5rem;
+      padding: 0 0.75rem;
+    }
+    .sidebar-link {
+      display: flex;
+      align-items: center;
+      min-height: var(--touch-min);
+      padding: 0.4rem 0.75rem;
+      font-family: var(--font-ui);
+      font-size: 0.875rem;
+      color: var(--fg-muted);
+      text-decoration: none;
+      border-radius: var(--radius);
+      border-left: 2px solid transparent;
+      transition: color 0.15s, background 0.15s;
+    }
+    .sidebar-link:hover {
+      color: var(--fg);
+      background: var(--surface);
+    }
+    .sidebar-link--active {
+      color: var(--accent-text);
+      font-weight: 600;
+      background: var(--accent-bg);
+      border-left-color: var(--accent);
+    }
+
+    @media (min-width: 1024px) {
+      .app-layout {
+        display: grid;
+        grid-template-columns: 200px 1fr;
+        gap: 0 2rem;
+        align-items: start;
+      }
+      .topic-sidebar {
+        display: block;
+        position: sticky;
+        top: 1.5rem;
+        padding-right: 1rem;
+        border-right: 1px solid var(--border);
+      }
+      /* Hide mobile pill nav on desktop — sidebar takes over */
+      .section-nav { display: none; }
+    }
   </style>
   {% block head %}{% endblock %}
 </head>

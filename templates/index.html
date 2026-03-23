@@ -1,16 +1,39 @@
 {% extends "base.html" %}
 {% block title %}{{ _("Today's feed") }}{% for s in sections %}{% if s.id == topic_filter %} · {{ _(s.label) }}{% endif %}{% endfor %} — {{ _('Dossier') }}{% endblock %}
 {% block content %}
-<h1>{{ _("Today's feed") }}{% if topic_filter %}{% for s in sections %}{% if s.id == topic_filter %} · {{ _(s.label) }}{% endif %}{% endfor %}{% endif %}{% if feed %} · {{ ngettext('%(num)d article', '%(num)d articles', feed|length)|format(num=feed|length) }}{% endif %}</h1>
-{% if sections %}
-<nav class="section-nav" aria-label="{{ _('News sections') }}">
-  <a href="{{ url_for('reader.index') }}" class="section-link{% if not topic_filter %} section-active{% endif %}" title="{{ _('All') }}">{% with icon='newspaper' %}{% include "partials/topic_icon.html" %}{% endwith %}{{ _('All') }}</a>
-  {% for s in sections %}
-  <a href="{{ url_for('reader.index', topic=s.id) }}" class="section-link{% if topic_filter == s.id %} section-active{% endif %}" title="{{ _(s.label) }}">{% with icon=s.icon %}{% include "partials/topic_icon.html" %}{% endwith %}{{ _(s.label) }}</a>
-  {% endfor %}
-</nav>
-{% endif %}
-<div id="feed-container">
-  {% include "partials/feed_content.html" %}
+<div class="app-layout">
+  {% if sections %}
+  <aside class="topic-sidebar" aria-label="{{ _('Topics') }}">
+    <p class="sidebar-heading">{{ _('Topics') }}</p>
+    <a href="{{ url_for('reader.index') }}"
+       class="sidebar-link{% if not topic_filter %} sidebar-link--active{% endif %}"
+       aria-current="{% if not topic_filter %}page{% else %}false{% endif %}">
+      {{ _('All') }}
+    </a>
+    {% for s in sections %}
+    <a href="{{ url_for('reader.index', topic=s.id) }}"
+       class="sidebar-link{% if topic_filter == s.id %} sidebar-link--active{% endif %}"
+       aria-current="{% if topic_filter == s.id %}page{% else %}false{% endif %}">
+      {{ _(s.label) }}
+    </a>
+    {% endfor %}
+  </aside>
+  {% endif %}
+  <div class="main-content">
+    <div class="feed-header">
+      <h1>{{ _("Today's feed") }}{% if topic_filter %}{% for s in sections %}{% if s.id == topic_filter %} · {{ _(s.label) }}{% endif %}{% endfor %}{% endif %}{% if feed %} <span class="feed-count">{{ ngettext('%(num)d article', '%(num)d articles', feed|length)|format(num=feed|length) }}</span>{% endif %}</h1>
+    </div>
+    {% if sections %}
+    <nav class="section-nav" aria-label="{{ _('News sections') }}" id="section-nav">
+      <a href="{{ url_for('reader.index') }}" class="section-link{% if not topic_filter %} section-active{% endif %}">{% with icon='newspaper' %}{% include "partials/topic_icon.html" %}{% endwith %}{{ _('All') }}</a>
+      {% for s in sections %}
+      <a href="{{ url_for('reader.index', topic=s.id) }}" class="section-link{% if topic_filter == s.id %} section-active{% endif %}">{% with icon=s.icon %}{% include "partials/topic_icon.html" %}{% endwith %}{{ _(s.label) }}</a>
+      {% endfor %}
+    </nav>
+    {% endif %}
+    <div id="feed-container">
+      {% include "partials/feed_content.html" %}
+    </div>
+  </div>
 </div>
 {% endblock %}
