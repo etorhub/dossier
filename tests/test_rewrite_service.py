@@ -148,7 +148,7 @@ Simplified article here."""
 def test_rewrite_story_uses_config_max_tokens() -> None:
     """rewrite_story uses rewrite_max_tokens from config."""
     with (
-        patch("app.services.rewrite_service.db_stories") as mock_db,
+        patch("app.services.rewrite_service.db_stories"),
         patch("app.services.rewrite_service.get_provider") as mock_get,
     ):
         mock_provider = MagicMock()
@@ -178,7 +178,7 @@ Full text."""
 def test_rewrite_story_skips_proofread_when_disabled() -> None:
     """rewrite_proofread_enabled False skips the second LLM call."""
     with (
-        patch("app.services.rewrite_service.db_stories") as mock_db,
+        patch("app.services.rewrite_service.db_stories"),
         patch("app.services.rewrite_service.get_provider") as mock_get,
     ):
         mock_provider = MagicMock()
@@ -237,7 +237,8 @@ Body."""
 def test_llm_task_temperature_defaults_and_override() -> None:
     """_llm_task_temperature uses llm config or built-in fallbacks."""
     assert _llm_task_temperature({}, "translate") == 0.15
-    assert _llm_task_temperature({"llm": {"translate_temperature": 0.05}}, "translate") == 0.05
+    cfg = {"llm": {"translate_temperature": 0.05}}
+    assert _llm_task_temperature(cfg, "translate") == 0.05
 
 
 def test_writing_note_for_spanish_in_translate_section() -> None:
@@ -245,7 +246,11 @@ def test_writing_note_for_spanish_in_translate_section() -> None:
     config = {
         "rewriting": {
             "languages": [
-                {"id": "es", "label": "Spanish", "writing_note": "Use peninsular Spanish."},
+                {
+                    "id": "es",
+                    "label": "Spanish",
+                    "writing_note": "Use peninsular Spanish.",
+                },
             ],
         },
     }

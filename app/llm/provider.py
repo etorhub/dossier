@@ -51,7 +51,9 @@ class OllamaProvider(LLMProvider):
         self._host = host
         self._max_retries = max_retries
 
-    def _complete_once(self, prompt: str, max_tokens: int, temperature: float | None) -> str:
+    def _complete_once(
+        self, prompt: str, max_tokens: int, temperature: float | None
+    ) -> str:
         import ollama
 
         try:

@@ -7,8 +7,6 @@ from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
-from app.config import load_config
-
 logger = logging.getLogger(__name__)
 from app.db import stories as db_stories
 from app.llm.prompts import load_prompt

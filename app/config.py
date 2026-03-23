@@ -78,8 +78,9 @@ DEFAULTS: dict[str, Any] = {
                 "id": "es",
                 "label": "Spanish",
                 "writing_note": (
-                    "European Spanish. Correct gender/number agreement; natural Spanish syntax "
-                    "(not English calques). Prefer standard financial vocabulary (e.g. valoración). "
+                    "European Spanish. Correct gender/number agreement; "
+                    "natural Spanish syntax (not English calques). Prefer "
+                    "standard financial vocabulary (e.g. valoración). "
                     "Use suscriptores for paying followers, not subscriptores."
                 ),
             },
