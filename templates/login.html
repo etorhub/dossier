@@ -1,22 +1,24 @@
 {% extends "base.html" %}
 {% block title %}{{ _('Log in') }} — {{ _('Dossier') }}{% endblock %}
 {% block content %}
-<h1>{{ _('Log in') }}</h1>
-{% if error %}
-<p style="color: #c00;">{{ error }}</p>
-{% endif %}
-<form method="post" action="{{ url_for('auth.login') }}">
-  <p>
-    <label for="email">{{ _('Email') }}</label><br>
-    <input type="email" id="email" name="email" value="{{ email or '' }}" required autocomplete="email">
-  </p>
-  <p>
-    <label for="password">{{ _('Password') }}</label><br>
-    <input type="password" id="password" name="password" required autocomplete="current-password">
-  </p>
-  <p>
-    <button type="submit">{{ _('Log in') }}</button>
-  </p>
-</form>
-<p>{{ _("Don't have an account?") }} <a href="{{ url_for('auth.register') }}">{{ _('Register') }}</a></p>
+<div class="auth-card">
+  <h1>{{ _('Log in') }}</h1>
+  {% if error %}
+  <p class="flash-error">{{ error }}</p>
+  {% endif %}
+  <form method="post" action="{{ url_for('auth.login') }}">
+    <div class="form-group">
+      <label for="email">{{ _('Email') }}</label>
+      <input type="email" id="email" name="email" value="{{ email or '' }}" required autocomplete="email">
+    </div>
+    <div class="form-group">
+      <label for="password">{{ _('Password') }}</label>
+      <input type="password" id="password" name="password" required autocomplete="current-password">
+    </div>
+    <div class="form-actions">
+      <button type="submit" class="btn btn-primary" style="min-height: var(--touch-min);">{{ _('Log in') }}</button>
+    </div>
+  </form>
+  <p class="form-link">{{ _("Don't have an account?") }} <a href="{{ url_for('auth.register') }}">{{ _('Register') }}</a></p>
+</div>
 {% endblock %}

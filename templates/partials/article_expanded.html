@@ -1,52 +1,66 @@
 {% if error %}
-<p style="color: #c00;">{{ error }}</p>
+<p style="color: var(--accent); font-family: var(--font-ui); font-size: 0.875rem;">{{ error }}</p>
 {% elif article %}
-<article>
+<article class="article-card article-card--expanded">
   {% if article.image_url %}
-  <div class="article-cover">
-    <img src="{{ article.image_url }}" alt="" loading="lazy" onerror="this.parentElement.classList.add('no-image')">
+  <div class="article-card-image-wrap">
+    <img class="article-card-image"
+         src="{{ article.image_url }}"
+         alt=""
+         loading="lazy"
+         onerror="this.parentElement.style.display='none'">
     {% if article.image_source_name %}
-    <span class="article-cover-credit" aria-label="{{ _('Image source:') }} {{ article.image_source_name }}">© {{
-      article.image_source_name }}</span>
+    <span class="article-cover-credit" aria-label="{{ _('Image source:') }} {{ article.image_source_name }}">© {{ article.image_source_name }}</span>
     {% endif %}
   </div>
   {% endif %}
-  <h2>{{ article.title }}</h2>
-  {% if article.published_at or article.sources_count %}
-  <p class="article-meta">
-    {% if article.sources_count %}{% if article.published_at %}{% endif %}<span class="source-badge"
-      title="{{ ngettext('%(num)d source aggregated', '%(num)d sources aggregated', article.sources_count)|format(num=article.sources_count) }}">{{
-      ngettext('%(num)d source', '%(num)d sources', article.sources_count)|format(num=article.sources_count) }}</span>{%
-    endif %}
-    {% if article.published_at %}<time datetime="{{ article.published_at.isoformat() }}">{{
-      article.published_at|naturaltime }}</time>{% endif %}
-  </p>
-  {% endif %}
-  <div class="tts-player tts-only">
-    <button type="button" class="btn" id="tts-btn-{{ article.id }}" aria-pressed="false"
-      aria-label="{{ _('Read article aloud') }}"
-      onclick='ttsToggle({{ article.id|tojson }}, {{ (article.title + ". " + (article.full_text or "")) | tojson }})'>🎧
-      {{ _('Listen') }}</button>
-    <div class="tts-controls" id="tts-controls-{{ article.id }}">
-      <div class="tts-track" aria-hidden="true">
-        <div class="tts-bar" id="tts-bar-{{ article.id }}"></div>
-      </div>
-      <label class="tts-vol-label" aria-label="{{ _('Volume') }}">
-        <span aria-hidden="true">🔈</span>
-        <input type="range" id="tts-vol-{{ article.id }}" class="tts-vol" min="0" max="1" step="0.1" value="1"
-          aria-label="{{ _('Volume') }}" oninput="ttsSetVolume({{ article.id|tojson }})">
-        <span aria-hidden="true">🔊</span>
-      </label>
+  <div class="article-card-body">
+    <div class="card-category">
+      {% if article.categories %}{{ _(article.categories[0])|capitalize }}{% endif %}
+      {% if article.published_at %}<time datetime="{{ article.published_at.isoformat() }}"> · {{ article.published_at|naturaltime }}</time>{% endif %}
+      {% if article.sources_count %} · {{ ngettext('%(num)d source', '%(num)d sources', article.sources_count)|format(num=article.sources_count) }}{% endif %}
     </div>
-  </div>
-  <div class="article-body">
-    {% for para in article.full_text.split('\n\n') %}
-    {% if para.strip() %}<p>{{ para.strip() }}</p>{% endif %}
-    {% endfor %}
-  </div>
-  <div class="article-actions">
-    <button type="button" class="btn btn-primary" hx-get="{{ url_for('reader.collapse_story', story_id=article.id) }}"
-      hx-target="#article-{{ article.id }}" hx-swap="innerHTML" onclick="ttsStop()">{{ _('Show less') }}</button>
+    <h2 class="article-title">{{ article.title }}</h2>
+    <div class="tts-player tts-only">
+      <button type="button"
+              class="btn btn-ghost"
+              id="tts-btn-{{ article.id }}"
+              aria-pressed="false"
+              aria-label="{{ _('Read article aloud') }}"
+              onclick='ttsToggle({{ article.id|tojson }}, {{ (article.title + ". " + (article.full_text or "")) | tojson }})'>🎧 {{ _('Listen') }}</button>
+      <div class="tts-controls" id="tts-controls-{{ article.id }}">
+        <div class="tts-track" aria-hidden="true">
+          <div class="tts-bar" id="tts-bar-{{ article.id }}"></div>
+        </div>
+        <label class="tts-vol-label" aria-label="{{ _('Volume') }}">
+          <span aria-hidden="true">🔈</span>
+          <input type="range" id="tts-vol-{{ article.id }}" class="tts-vol"
+                 min="0" max="1" step="0.1" value="1"
+                 aria-label="{{ _('Volume') }}"
+                 oninput="ttsSetVolume({{ article.id|tojson }})">
+          <span aria-hidden="true">🔊</span>
+        </label>
+      </div>
+    </div>
+    <div class="article-body">
+      {% for para in (article.full_text or '').split('\n\n') %}
+      {% if para.strip() %}<p>{{ para.strip() }}</p>{% endif %}
+      {% endfor %}
+    </div>
+    <div class="article-actions">
+      {% if article.source_urls %}
+      <a href="{{ article.source_urls[0] }}" target="_blank" rel="noopener noreferrer"
+         class="btn btn-ghost" style="font-size:0.875rem;"
+         aria-label="{{ _('View original article, opens in new tab') }}">{{ _('View original') }} <span aria-hidden="true">↗</span></a>
+      {% endif %}
+      <button type="button"
+              class="btn"
+              hx-get="{{ url_for('reader.collapse_story', story_id=article.id) }}"
+              hx-target="#article-{{ article.id }}"
+              hx-swap="innerHTML"
+              onclick="ttsStop()"
+              aria-label="{{ _('Show less:') }} {{ article.title }}">{{ _('Show less') }}</button>
+    </div>
   </div>
 </article>
 {% endif %}

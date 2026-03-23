@@ -87,6 +87,7 @@ def save_setup(
         "rewrite_tone": form_data.get("rewrite_tone") or tone_map.get(style, tone_map["neutral"]),
         "high_contrast": form_data.get("high_contrast", False),
         "preferred_style": style,
+        "color_scheme": form_data.get("color_scheme") or None,
     }
     existing = users.get_profile(user_id)
     if existing:

@@ -1,28 +1,33 @@
-<article>
+<article class="article-card">
   {% if article.image_url %}
-  <div class="article-cover">
-    <img src="{{ article.image_url }}" alt="" loading="lazy" onerror="this.parentElement.classList.add('no-image')">
+  <div class="article-card-image-wrap">
+    <img class="article-card-image"
+         src="{{ article.image_url }}"
+         alt=""
+         loading="lazy"
+         onerror="this.parentElement.style.display='none'">
     {% if article.image_source_name %}
-    <span class="article-cover-credit" aria-label="{{ _('Image source:') }} {{ article.image_source_name }}">© {{
-      article.image_source_name }}</span>
+    <span class="article-cover-credit" aria-label="{{ _('Image source:') }} {{ article.image_source_name }}">© {{ article.image_source_name }}</span>
     {% endif %}
   </div>
   {% endif %}
-  <h2>
-    <a href="{{ url_for('reader.article_page', story_id=article.id) }}"
-      style="color: inherit; text-decoration: none;">{{ article.title }}</a>
-  </h2>
-  {% if article.published_at or article.sources_count %}
-  <p class="article-meta">
-    {% if article.sources_count %}{% if article.published_at %}{% endif %}<span class="source-badge"
-      title="{{ ngettext('%(num)d source aggregated', '%(num)d sources aggregated', article.sources_count)|format(num=article.sources_count) }}">{{
-      ngettext('%(num)d source', '%(num)d sources', article.sources_count)|format(num=article.sources_count) }}</span>{%
-    endif %}
-    {% if article.published_at %}<time datetime="{{ article.published_at.isoformat() }}">{{
-      article.published_at|naturaltime }}</time>{% endif %}
-  </p>
-  {% endif %}
-  {% if article.summary %}
-  <p class="article-summary">{{ article.summary }}</p>
-  {% endif %}
+  <div class="article-card-body">
+    <div class="card-category">
+      {% if article.categories %}{{ _(article.categories[0])|capitalize }}{% endif %}
+      {% if article.published_at %}<time datetime="{{ article.published_at.isoformat() }}"> · {{ article.published_at|naturaltime }}</time>{% endif %}
+      {% if article.sources_count %} · {{ ngettext('%(num)d source', '%(num)d sources', article.sources_count)|format(num=article.sources_count) }}{% endif %}
+    </div>
+    <h2 class="article-title">
+      <a href="{{ url_for('reader.article_page', story_id=article.id) }}"
+         style="color:inherit;text-decoration:none;">{{ article.title }}</a>
+    </h2>
+    {% if article.summary %}
+    <p class="article-summary">{{ article.summary }}</p>
+    {% endif %}
+    <button class="btn-link"
+            hx-get="{{ url_for('reader.expand_story', story_id=article.id) }}"
+            hx-target="#article-{{ article.id }}"
+            hx-swap="innerHTML"
+            aria-label="{{ _('Read full story:') }} {{ article.title }}">{{ _('Read full story') }} →</button>
+  </div>
 </article>

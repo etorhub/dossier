@@ -72,9 +72,10 @@ def create_profile(user_id: int, data: dict[str, Any]) -> None:
                 """
                 INSERT INTO user_profiles (
                     user_id, location, language,
-                    rewrite_tone, high_contrast, preferred_style
+                    rewrite_tone, high_contrast, preferred_style,
+                    color_scheme
                 )
-                VALUES (%s, %s, %s, %s, %s, %s)
+                VALUES (%s, %s, %s, %s, %s, %s, %s)
                 """,
                 (
                     user_id,
@@ -86,6 +87,7 @@ def create_profile(user_id: int, data: dict[str, Any]) -> None:
                     ),
                     data.get("high_contrast", False),
                     data.get("preferred_style", "neutral"),
+                    data.get("color_scheme") or None,
                 ),
             )
         conn.commit()
@@ -107,6 +109,7 @@ def update_profile(user_id: int, data: dict[str, Any]) -> None:
                     rewrite_tone = COALESCE(%s, rewrite_tone),
                     high_contrast = COALESCE(%s, high_contrast),
                     preferred_style = COALESCE(%s, preferred_style),
+                    color_scheme = %s,  -- intentionally bare (not COALESCE): NULL means "follow system"
                     updated_at = now()
                 WHERE user_id = %s
                 """,
@@ -116,6 +119,7 @@ def update_profile(user_id: int, data: dict[str, Any]) -> None:
                     data.get("rewrite_tone"),
                     data.get("high_contrast"),
                     data.get("preferred_style"),
+                    data.get("color_scheme") or None,
                     user_id,
                 ),
             )
@@ -133,7 +137,7 @@ def get_profile(user_id: int) -> dict[str, Any] | None:
                 """
                 SELECT user_id, location, language,
                        rewrite_tone, high_contrast, preferred_style,
-                       created_at, updated_at
+                       color_scheme, created_at, updated_at
                 FROM user_profiles WHERE user_id = %s
                 """,
                 (user_id,),
