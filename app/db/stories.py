@@ -1,19 +1,44 @@
 """CRUD operations for stories, story_articles, story_rewrites."""
 
 import json
+import logging
 import uuid
 from datetime import datetime
 from typing import Any
 
 import psycopg2.extras
+from psycopg2.errors import UniqueViolation
 
 from app.db.connection import get_connection, return_connection
 
+logger = logging.getLogger(__name__)
+
 
 def insert_story(article_ids: list[str]) -> str:
-    """Create a story with the given articles. Returns story_id (UUID string)."""
+    """Create a story with the given articles. Returns story_id (UUID string).
+
+    Idempotent: if the same article set already forms a story, returns that story_id.
+    """
     if not article_ids:
         raise ValueError("Cannot create story with no articles")
+    wanted = set(article_ids)
+    existing_map = get_story_ids_for_articles(article_ids)
+    if existing_map:
+        if set(existing_map.keys()) != wanted:
+            raise ValueError(
+                "insert_story: article group mixes assigned and unassigned articles"
+            )
+        story_ids_set = set(existing_map.values())
+        if len(story_ids_set) != 1:
+            raise ValueError(
+                f"insert_story: articles belong to different stories: {story_ids_set!r}"
+            )
+        sid = next(iter(story_ids_set))
+        members = {a["id"] for a in get_articles_in_story(sid)}
+        if members == wanted:
+            return sid
+        raise ValueError("insert_story: story membership does not match article group")
+
     story_id = str(uuid.uuid4())
     conn = get_connection()
     try:
@@ -32,32 +57,61 @@ def insert_story(article_ids: list[str]) -> str:
                 )
         conn.commit()
         return story_id
+    except UniqueViolation:
+        conn.rollback()
+        again = get_story_ids_for_articles(article_ids)
+        if (
+            set(again.keys()) == wanted
+            and len(set(again.values())) == 1
+            and {a["id"] for a in get_articles_in_story(next(iter(set(again.values()))))}
+            == wanted
+        ):
+            return next(iter(set(again.values())))
+        logger.warning(
+            "insert_story: unique violation on story_articles; could not resolve idempotently"
+        )
+        raise
     finally:
         return_connection(conn)
 
 
 def add_article_to_story(story_id: str, article_id: str) -> None:
-    """Append an article to an existing story."""
+    """Append an article to an existing story. No-op if already linked to this story."""
+    existing = get_story_ids_for_articles([article_id])
+    sid = existing.get(article_id)
+    if sid is not None:
+        if sid == story_id:
+            return
+        logger.warning(
+            "add_article_to_story: article %s already in story %s; skip add to %s",
+            article_id,
+            sid,
+            story_id,
+        )
+        return
     conn = get_connection()
     try:
-        with conn.cursor() as cur:
-            cur.execute(
-                """
-                SELECT COALESCE(MAX(position), -1) + 1 AS next_pos
-                FROM story_articles WHERE story_id = %s::uuid
-                """,
-                (story_id,),
-            )
-            row = cur.fetchone()
-            pos = row[0] if row else 0
-            cur.execute(
-                """
-                INSERT INTO story_articles (story_id, article_id, position)
-                VALUES (%s::uuid, %s, %s)
-                """,
-                (story_id, article_id, pos),
-            )
-        conn.commit()
+        try:
+            with conn.cursor() as cur:
+                cur.execute(
+                    """
+                    SELECT COALESCE(MAX(position), -1) + 1 AS next_pos
+                    FROM story_articles WHERE story_id = %s::uuid
+                    """,
+                    (story_id,),
+                )
+                row = cur.fetchone()
+                pos = row[0] if row else 0
+                cur.execute(
+                    """
+                    INSERT INTO story_articles (story_id, article_id, position)
+                    VALUES (%s::uuid, %s, %s)
+                    """,
+                    (story_id, article_id, pos),
+                )
+            conn.commit()
+        except UniqueViolation:
+            conn.rollback()
     finally:
         return_connection(conn)
 

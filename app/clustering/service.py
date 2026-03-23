@@ -31,6 +31,8 @@ def _embedding_from_article(article: dict[str, Any]) -> list[float] | None:
     if emb is None:
         return None
     if isinstance(emb, list):
+        if len(emb) == 0:
+            return None
         return emb
     if isinstance(emb, str):
         try:

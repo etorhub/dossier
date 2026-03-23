@@ -10,6 +10,14 @@ import psycopg2.extras
 from app.db.connection import get_connection, return_connection
 
 
+def _sql_article_has_valid_embedding(column: str = "embedding") -> str:
+    """SQL fragment: true when column holds a non-empty JSON array (embedding vector)."""
+    return (
+        f"({column} IS NOT NULL AND jsonb_typeof({column}) = 'array' "
+        f"AND jsonb_array_length({column}) > 0)"
+    )
+
+
 def _article_id(source_id: str, url: str) -> str:
     """Generate deterministic article id from source_id and url."""
     return hashlib.sha256(f"{source_id}:{url}".encode()).hexdigest()[:16]
@@ -119,20 +127,21 @@ def get_recent_articles_without_embedding(
     conn = get_connection()
     try:
         with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
+            need = f"NOT ({_sql_article_has_valid_embedding('embedding')})"
             if since is not None:
                 cur.execute(
-                    """
+                    f"""
                     SELECT * FROM articles
-                    WHERE published_at >= %s AND embedding IS NULL
+                    WHERE published_at >= %s AND {need}
                     ORDER BY published_at DESC
                     """,
                     (since,),
                 )
             else:
                 cur.execute(
-                    """
+                    f"""
                     SELECT * FROM articles
-                    WHERE embedding IS NULL
+                    WHERE {need}
                     ORDER BY published_at DESC NULLS LAST
                     """
                 )
@@ -151,10 +160,11 @@ def get_recent_articles_with_embedding(
     conn = get_connection()
     try:
         with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
+            has_emb = _sql_article_has_valid_embedding("embedding")
             cur.execute(
-                """
+                f"""
                 SELECT * FROM articles
-                WHERE published_at >= %s AND embedding IS NOT NULL
+                WHERE published_at >= %s AND {has_emb}
                 ORDER BY published_at DESC
                 """,
                 (since,),
@@ -187,12 +197,13 @@ def _get_articles_not_in_story(
         with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
             time_clause = " AND a.published_at >= %s" if since is not None else ""
             params: tuple[Any, ...] = (since,) if since is not None else ()
+            has_emb = _sql_article_has_valid_embedding("a.embedding")
             if require_embedding:
                 cur.execute(
                     f"""
                     SELECT a.* FROM articles a
                     LEFT JOIN story_articles sa ON sa.article_id = a.id
-                    WHERE a.embedding IS NOT NULL
+                    WHERE {has_emb}
                       AND sa.article_id IS NULL
                       {time_clause}
                     ORDER BY a.published_at DESC NULLS LAST
