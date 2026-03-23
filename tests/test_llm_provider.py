@@ -87,6 +87,26 @@ def test_ollama_provider_raises_on_error() -> None:
             provider.complete("Hello")
 
 
+def test_ollama_provider_unreachable_fails_fast_without_retries() -> None:
+    """Unreachable Ollama does not burn multiple retries per call."""
+    mock_client = MagicMock()
+    mock_client.chat.side_effect = Exception(
+        "Failed to connect to Ollama. Please check that Ollama is downloaded"
+    )
+
+    with (
+        patch("ollama.Client") as mock_client_class,
+        patch("app.llm.http_utils.time.sleep") as mock_sleep,
+    ):
+        mock_client_class.return_value = mock_client
+        provider = OllamaProvider(model="qwen2.5:7b", max_retries=3)
+        with pytest.raises(LLMProviderError):
+            provider.complete("Hello")
+
+    mock_client.chat.assert_called_once()
+    mock_sleep.assert_not_called()
+
+
 def test_ollama_provider_retries_then_succeeds() -> None:
     """OllamaProvider.complete retries transient failures up to max_retries."""
     mock_response = {

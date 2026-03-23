@@ -14,6 +14,34 @@ T = TypeVar("T")
 logger = logging.getLogger(__name__)
 
 
+def is_ollama_connection_failure(exc: BaseException) -> bool:
+    """True when the error indicates Ollama cannot be reached (retries won't help)."""
+    needles = (
+        "failed to connect",
+        "connection refused",
+        "could not connect",
+        "name or service not known",
+        "no route to host",
+        "network is unreachable",
+        "getaddrinfo failed",
+    )
+    seen: set[int] = set()
+    parts: list[str] = []
+    stack: list[BaseException | None] = [exc]
+
+    while stack:
+        e = stack.pop()
+        while e is not None and id(e) not in seen:
+            seen.add(id(e))
+            parts.append(str(e).lower())
+            if e.__cause__ is not None:
+                stack.append(e.__cause__)
+            e = e.__context__
+
+    blob = " ".join(parts)
+    return any(n in blob for n in needles)
+
+
 def request_json_with_retries(
     method: str,
     url: str,
@@ -79,8 +107,13 @@ def run_with_retries(
     *,
     max_retries: int = 3,
     label: str = "LLM call",
+    retry_if: Callable[[Exception], bool] | None = None,
 ) -> T:
-    """Run a callable with exponential backoff (same cap as HTTP retries)."""
+    """Run a callable with exponential backoff (same cap as HTTP retries).
+
+    If retry_if is set and returns False for an exception, that exception is
+    raised immediately (no further attempts, no sleep).
+    """
     last_error: Exception | None = None
     n = max(max_retries, 1)
     for attempt in range(n):
@@ -88,6 +121,8 @@ def run_with_retries(
             return fn()
         except Exception as e:
             last_error = e
+            if retry_if is not None and not retry_if(e):
+                raise e
             if attempt + 1 >= n:
                 break
             wait = min(2.0**attempt, 30.0)

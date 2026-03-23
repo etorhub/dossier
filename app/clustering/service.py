@@ -2,6 +2,7 @@
 
 import json
 import logging
+import os
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from typing import Any
@@ -10,6 +11,7 @@ from app.config import load_config
 from app.db import articles as db_articles
 from app.db import stories as db_stories
 from app.llm.embeddings import EmbeddingProviderError, get_embedding_provider
+from app.llm.http_utils import is_ollama_connection_failure
 
 logger = logging.getLogger(__name__)
 
@@ -211,8 +213,14 @@ def run_cluster_and_embed(config: dict[str, Any] | None = None) -> StoryReport:
         logger.warning("Embedding provider unavailable: %s. Using singleton stories.", e)
         has_embedding_provider = False
     else:
+        emb_cfg = cfg.get("embeddings", {})
+        ollama_host = (
+            emb_cfg.get("host")
+            or os.environ.get("OLLAMA_HOST")
+            or "http://ollama:11434"
+        )
         to_embed = db_articles.get_recent_articles_without_embedding(since, limit=embed_limit)
-        for article in to_embed:
+        for i, article in enumerate(to_embed):
             text = _text_to_embed(article)
             if not text:
                 continue
@@ -221,6 +229,16 @@ def run_cluster_and_embed(config: dict[str, Any] | None = None) -> StoryReport:
                 db_articles.update_article_embedding(article["id"], embedding)
                 report.articles_embedded += 1
             except EmbeddingProviderError as e:
+                if is_ollama_connection_failure(e):
+                    deferred = max(0, len(to_embed) - i)
+                    logger.warning(
+                        "Ollama unreachable at %s (%s); stopping this embed run "
+                        "(%d article(s) deferred). Start Ollama or set embeddings.host / OLLAMA_HOST.",
+                        ollama_host,
+                        e,
+                        deferred,
+                    )
+                    break
                 logger.warning("Embed failed for article %s: %s", article["id"], e)
 
     # 2. Get articles not yet in a story

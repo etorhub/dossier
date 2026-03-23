@@ -1,15 +1,21 @@
 """Embedding provider abstraction. Used for article clustering."""
 
+from __future__ import annotations
+
 import os
 from abc import ABC, abstractmethod
 from typing import Any
 
 from app.config import load_config
-from app.llm.http_utils import run_with_retries
+from app.llm.http_utils import is_ollama_connection_failure, run_with_retries
 
 
 class EmbeddingProviderError(Exception):
     """Raised when an embedding API call fails."""
+
+
+def _ollama_embed_error_is_retryable(exc: Exception) -> bool:
+    return not is_ollama_connection_failure(exc)
 
 
 class EmbeddingProvider(ABC):
@@ -127,6 +133,7 @@ class OllamaEmbeddingProvider(EmbeddingProvider):
             lambda: self._embed_once(text),
             max_retries=self._max_retries,
             label=f"Ollama embed ({self._model})",
+            retry_if=_ollama_embed_error_is_retryable,
         )
 
 

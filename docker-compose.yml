@@ -1,4 +1,6 @@
 services:
+  # Start with: docker compose --profile local-llm … up
+  # (or COMPOSE_PROFILES=local-llm in .env). Otherwise the worker cannot reach ollama:11434.
   ollama:
     profiles: ["local-llm"]
     image: ollama/ollama

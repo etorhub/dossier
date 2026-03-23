@@ -6,7 +6,7 @@ from abc import ABC, abstractmethod
 from typing import Any
 
 from app.config import load_config
-from app.llm.http_utils import run_with_retries
+from app.llm.http_utils import is_ollama_connection_failure, run_with_retries
 
 logger = logging.getLogger(__name__)
 
@@ -77,6 +77,7 @@ class OllamaProvider(LLMProvider):
             lambda: self._complete_once(prompt, max_tokens),
             max_retries=self._max_retries,
             label=f"Ollama chat ({self._model})",
+            retry_if=lambda exc: not is_ollama_connection_failure(exc),
         )
 
 

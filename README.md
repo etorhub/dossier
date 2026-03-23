@@ -42,14 +42,27 @@ Neither the end user nor anyone acting on their behalf ever touches the codebase
 
 ### Setup
 
+The **Ollama** service is optional in Compose (profile `local-llm`). Clustering, embeddings, and rewrites need it. Without that profile, the worker cannot reach `http://ollama:11434`.
+
+**With Ollama in Docker** (typical; pulls models on first start):
+
 ```bash
 git clone https://github.com/etorhub/dossier.git
 cd dossier
 
-docker-compose up
+# GPU (default ollama image expects NVIDIA). Also merge local-llm so the worker
+# starts after model pull (ollama-init).
+docker compose --profile local-llm -f docker-compose.yml -f docker-compose.local-llm.yml up -d
+
+# No NVIDIA GPU: add the CPU override for the ollama service
+# docker compose --profile local-llm -f docker-compose.yml -f docker-compose.cpu.yml -f docker-compose.local-llm.yml up -d
 ```
 
-Wait for services to be healthy (web at `http://localhost:5000`, worker running). Then populate with news:
+Or enable the profile by default in `.env`: `COMPOSE_PROFILES=local-llm`, then `docker compose -f docker-compose.local-llm.yml up -d`.
+
+**Ollama on the host instead** (e.g. Windows app or `ollama serve` in WSL): keep Compose as above *without* the `local-llm` profile, and set `OLLAMA_HOST` for the worker to reach the host from the container, for example `http://host.docker.internal:11434` (Docker Desktop / WSL). See comments in [`.env.example`](.env.example).
+
+Wait for services to be healthy (web at `http://localhost:5000`, worker running, **ollama** healthy if you use the profile). Then populate with news:
 
 ```bash
 ./scripts/fetch-news.sh
