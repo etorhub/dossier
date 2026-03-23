@@ -17,6 +17,7 @@ def index() -> Response:
     pipeline_stats = admin_db.get_article_pipeline_stats()
     clustering_stats = admin_db.get_clustering_stats()
     rewrite_failures = admin_db.get_recent_rewrite_failures(hours=24, limit=20)
+    rewrite_failure_diagnostics = admin_db.get_rewrite_failure_diagnostics_24h()
     incidents = admin_db.get_incidents(config)
     job_runs = admin_db.get_recent_job_runs(limit=10)
 
@@ -27,6 +28,7 @@ def index() -> Response:
         pipeline_stats=pipeline_stats,
         clustering_stats=clustering_stats,
         rewrite_failures=rewrite_failures,
+        rewrite_failure_diagnostics=rewrite_failure_diagnostics,
         incidents=incidents,
         job_runs=job_runs,
     )

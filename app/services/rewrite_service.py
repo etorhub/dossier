@@ -157,7 +157,7 @@ def _proofread_if_enabled(
     proc = config.get("processing") or {}
     if proc.get("rewrite_proofread_enabled") is False:
         return title, summary, full_text
-    max_tokens = int(proc.get("rewrite_max_tokens") or 2000)
+    max_tokens = int(proc.get("rewrite_max_tokens") or 4096)
     temp = _llm_task_temperature(config, "proofread")
     prompt_template = load_prompt("proofread_article")
     prompt = prompt_template.format(
@@ -208,6 +208,12 @@ def rewrite_story(
     )
     articles_text = _build_articles_text(articles)
     if not articles_text:
+        logger.warning(
+            "rewrite_story skipped story_id=%s style=%s language=%s: no article text",
+            story_id,
+            style,
+            language,
+        )
         db_stories.insert_story_rewrite(
             story_id=story_id,
             style=style,
@@ -225,7 +231,7 @@ def rewrite_story(
     prompt_name = styles_cfg.get(style, {}).get("prompt", "rewrite_cluster_neutral")
     processing = config.get("processing", {})
     summary_sentences = processing.get("summary_sentences", 3)
-    max_tokens = processing.get("rewrite_max_tokens", 2000)
+    max_tokens = processing.get("rewrite_max_tokens", 4096)
     prompt_language = _get_language_label(config, language)
 
     prompt_template = load_prompt(prompt_name)
@@ -280,9 +286,11 @@ def rewrite_story(
             rewrite_failed=True,
             error_message=err_msg,
         )
-        logger.debug(
-            "rewrite_story: done story_id=%s ok=False error=%s",
+        logger.warning(
+            "rewrite_story failed story_id=%s style=%s language=%s: %s",
             story_id,
+            style,
+            language,
             err_msg,
         )
         return False
@@ -299,7 +307,7 @@ def _simplify_rewrite(
     article_text = _build_article_text_from_rewrite(neutral_rewrite)
     processing = config.get("processing", {})
     summary_sentences = processing.get("summary_sentences", 3)
-    max_tokens = processing.get("rewrite_max_tokens", 2000)
+    max_tokens = processing.get("rewrite_max_tokens", 4096)
     prompt_language = _get_language_label(config, base_language)
 
     prompt_template = load_prompt("simplify_article")
@@ -343,7 +351,7 @@ def _simplify_rewrite(
             rewrite_failed=True,
             error_message=err_msg,
         )
-        logger.debug("_simplify_rewrite: story_id=%s failed: %s", story_id, err_msg)
+        logger.warning("simplify_rewrite failed story_id=%s: %s", story_id, err_msg)
         return False
 
 
@@ -361,7 +369,7 @@ def _translate_rewrite(
     style_description = _get_style_description(config, style)
     processing = config.get("processing", {})
     summary_sentences = processing.get("summary_sentences", 3)
-    max_tokens = processing.get("rewrite_max_tokens", 2000)
+    max_tokens = processing.get("rewrite_max_tokens", 4096)
 
     writing_note_section = _writing_note_section_for_translate(config, target_lang_id)
     prompt_template = load_prompt("translate_article")
@@ -407,8 +415,8 @@ def _translate_rewrite(
             rewrite_failed=True,
             error_message=err_msg,
         )
-        logger.debug(
-            "_translate_rewrite: story_id=%s style=%s lang=%s failed: %s",
+        logger.warning(
+            "translate_rewrite failed story_id=%s style=%s language=%s: %s",
             story_id,
             style,
             target_lang_id,

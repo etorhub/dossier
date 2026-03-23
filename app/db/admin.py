@@ -147,6 +147,28 @@ def get_last_job_run() -> dict[str, Any] | None:
         return_connection(conn)
 
 
+def get_unfinished_job_run(job_name: str) -> dict[str, Any] | None:
+    """Return the latest job run for this name that has not finished (still running or stuck)."""
+    conn = get_connection()
+    try:
+        with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
+            cur.execute(
+                """
+                SELECT id, job_name, started_at, finished_at, duration_ms,
+                       status, result, error_message, trigger
+                FROM job_runs
+                WHERE job_name = %s AND finished_at IS NULL
+                ORDER BY started_at DESC
+                LIMIT 1
+                """,
+                (job_name,),
+            )
+            row = cur.fetchone()
+            return dict(row) if row else None
+    finally:
+        return_connection(conn)
+
+
 def get_overview_stats() -> dict[str, Any]:
     """Return overview counts for the dashboard."""
     conn = get_connection()
@@ -317,6 +339,59 @@ def get_recent_rewrite_failures(hours: int = 24, limit: int = 50) -> list[dict[s
                 (hours, limit),
             )
             return [dict(row) for row in cur.fetchall()]
+    finally:
+        return_connection(conn)
+
+
+def get_rewrite_failure_diagnostics_24h() -> dict[str, Any]:
+    """Failed rewrites in the last 24h: counts per variant and top error prefixes."""
+    conn = get_connection()
+    try:
+        with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
+            cur.execute(
+                """
+                SELECT style, language, COUNT(*) AS cnt
+                FROM story_rewrites
+                WHERE rewrite_failed = true
+                  AND created_at >= NOW() - INTERVAL '24 hours'
+                GROUP BY style, language
+                ORDER BY cnt DESC, style, language
+                """
+            )
+            by_variant = [
+                {
+                    "style": row["style"],
+                    "language": row["language"],
+                    "count": row["cnt"],
+                }
+                for row in cur.fetchall()
+            ]
+
+            cur.execute(
+                """
+                SELECT
+                    SUBSTRING(
+                        COALESCE(error_message, '(no message)')
+                        FROM 1 FOR 120
+                    ) AS error_prefix,
+                    COUNT(*) AS cnt
+                FROM story_rewrites
+                WHERE rewrite_failed = true
+                  AND created_at >= NOW() - INTERVAL '24 hours'
+                GROUP BY 1
+                ORDER BY cnt DESC
+                LIMIT 15
+                """
+            )
+            top_errors = [
+                {
+                    "error_prefix": row["error_prefix"],
+                    "count": row["cnt"],
+                }
+                for row in cur.fetchall()
+            ]
+
+            return {"by_variant": by_variant, "top_errors": top_errors}
     finally:
         return_connection(conn)
 
@@ -624,12 +699,18 @@ def get_admin_stories(limit: int, offset: int) -> list[dict[str, Any]]:
         return_connection(conn)
 
 
-def get_admin_stories_count() -> int:
-    """Return total story count for admin pagination."""
+def get_admin_stories_count(story_id: str | None = None) -> int:
+    """Return total story count for admin pagination (optionally one story by UUID)."""
     conn = get_connection()
     try:
         with conn.cursor() as cur:
-            cur.execute("SELECT COUNT(*) FROM stories")
+            if story_id:
+                cur.execute(
+                    "SELECT COUNT(*) FROM stories WHERE id = %s::uuid",
+                    (story_id,),
+                )
+            else:
+                cur.execute("SELECT COUNT(*) FROM stories")
             row = cur.fetchone()
             return row[0] if row else 0
     finally:
@@ -662,6 +743,7 @@ def get_stories_with_rewrite_status(
     limit: int,
     offset: int,
     config: dict[str, Any],
+    story_id: str | None = None,
 ) -> list[dict[str, Any]]:
     """Return stories with article_count, sample_titles, and rewrite status matrix.
 
@@ -677,8 +759,13 @@ def get_stories_with_rewrite_status(
     conn = get_connection()
     try:
         with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
+            where_story = "WHERE s.id = %s::uuid" if story_id else ""
+            params: list[Any] = []
+            if story_id:
+                params.append(story_id)
+            params.extend([limit, offset])
             cur.execute(
-                """
+                f"""
                 SELECT s.id::text AS story_id, s.created_at,
                        COUNT(sa.article_id) AS article_count,
                        (
@@ -694,11 +781,12 @@ def get_stories_with_rewrite_status(
                        ) AS sample_titles
                 FROM stories s
                 LEFT JOIN story_articles sa ON sa.story_id = s.id
+                {where_story}
                 GROUP BY s.id
                 ORDER BY s.created_at DESC
                 LIMIT %s OFFSET %s
                 """,
-                (limit, offset),
+                tuple(params),
             )
             stories = [dict(row) for row in cur.fetchall()]
 

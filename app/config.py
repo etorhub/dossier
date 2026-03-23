@@ -54,7 +54,7 @@ DEFAULTS: dict[str, Any] = {
     "processing": {
         "articles_per_day": 10,
         "summary_sentences": 3,
-        "rewrite_max_tokens": 2000,
+        "rewrite_max_tokens": 4096,
         # Second LLM pass: spelling, grammar, agreement only (after each draft rewrite).
         "rewrite_proofread_enabled": True,
         "cluster_window_hours": 24,

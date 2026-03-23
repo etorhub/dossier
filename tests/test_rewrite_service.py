@@ -139,7 +139,7 @@ Simplified article here."""
         )
         assert mock_provider.complete.call_count == 2  # draft + proofread
         draft_kwargs = mock_provider.complete.call_args_list[0][1]
-        assert draft_kwargs["max_tokens"] == 2000  # default when not in config
+        assert draft_kwargs["max_tokens"] == 4096  # default when not in config
         assert draft_kwargs["temperature"] == 0.2
         proof_kwargs = mock_provider.complete.call_args_list[1][1]
         assert proof_kwargs["temperature"] == 0.1
