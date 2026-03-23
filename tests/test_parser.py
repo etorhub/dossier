@@ -171,6 +171,31 @@ def test_parse_feed_extracts_img_from_content() -> None:
     assert articles[0]["image_source"] == "content_html"
 
 
+RSS_THUMB_AND_CONTENT_IMG = b"""<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0" xmlns:media="http://search.yahoo.com/mrss/"
+     xmlns:content="http://purl.org/rss/1.0/modules/content/">
+<channel>
+    <title>Mixed</title>
+    <item>
+        <title>Story</title>
+        <link>https://example.com/story</link>
+        <description>Summary</description>
+        <media:thumbnail url="https://example.com/generic-thumb.jpg" width="120"/>
+        <content:encoded><![CDATA[<p>Lead</p><img src="https://example.com/article-lead.jpg" />]]></content:encoded>
+        <pubDate>Mon, 01 Jan 2024 12:00:00 GMT</pubDate>
+    </item>
+</channel>
+</rss>"""
+
+
+def test_parse_feed_prefers_content_img_over_media_thumbnail() -> None:
+    """In-item img in content beats media:thumbnail (often unrelated)."""
+    articles = parse_feed(RSS_THUMB_AND_CONTENT_IMG)
+    assert len(articles) == 1
+    assert articles[0]["image_url"] == "https://example.com/article-lead.jpg"
+    assert articles[0]["image_source"] == "content_html"
+
+
 RSS_WITH_CATEGORIES = b"""<?xml version="1.0" encoding="UTF-8"?>
 <rss version="2.0">
 <channel>

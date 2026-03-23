@@ -40,51 +40,66 @@ def test_domain_from_url() -> None:
     assert _domain_from_url("https://example.com") == "example.com"
 
 
+def _mock_extract_txt_only(txt: str | None) -> object:
+    """Side-effect: xml pass returns empty main, txt pass returns ``txt``."""
+
+    def _side_effect(_html: str, **kwargs: object) -> str | None:
+        if kwargs.get("output_format") == "xml":
+            return "<doc><main></main></doc>"
+        return txt
+
+    return _side_effect
+
+
 @patch("app.extraction.trafilatura.trafilatura.fetch_url")
 @patch("app.extraction.trafilatura.trafilatura.extract")
 def test_extract_article_success(mock_extract, mock_fetch) -> None:
-    """extract_article returns (text, og_image_url) when extraction succeeds."""
+    """extract_article returns (text, body_image, og_image) when extraction succeeds."""
     mock_fetch.return_value = "<html><body><article>Hello world</article></body></html>"
-    mock_extract.return_value = "Hello world"
+    mock_extract.side_effect = _mock_extract_txt_only("Hello world")
 
-    text, og_image = extract_article("https://example.com/article")
+    text, body_img, og_image = extract_article("https://example.com/article")
     assert text == "Hello world"
+    assert body_img is None
     assert og_image is None
     mock_fetch.assert_called_once()
-    mock_extract.assert_called_once()
+    assert mock_extract.call_count == 2
 
 
 @patch("app.extraction.trafilatura.trafilatura.fetch_url")
 def test_extract_article_fetch_fails(mock_fetch) -> None:
-    """extract_article returns (None, None) when fetch fails."""
+    """extract_article returns (None, None, None) when fetch fails."""
     mock_fetch.return_value = None
 
-    text, og_image = extract_article("https://example.com/article")
+    text, body_img, og_image = extract_article("https://example.com/article")
     assert text is None
+    assert body_img is None
     assert og_image is None
 
 
 @patch("app.extraction.trafilatura.trafilatura.fetch_url")
 @patch("app.extraction.trafilatura.trafilatura.extract")
 def test_extract_article_extract_returns_empty(mock_extract, mock_fetch) -> None:
-    """extract_article returns (None, og_image) when extract returns empty."""
+    """extract_article returns (None, None, None) when txt extract returns empty."""
     mock_fetch.return_value = "<html></html>"
-    mock_extract.return_value = None
+    mock_extract.side_effect = _mock_extract_txt_only(None)
 
-    text, og_image = extract_article("https://example.com/article")
+    text, body_img, og_image = extract_article("https://example.com/article")
     assert text is None
+    assert body_img is None
     assert og_image is None
 
 
 @patch("app.extraction.trafilatura.trafilatura.fetch_url")
 @patch("app.extraction.trafilatura.trafilatura.extract")
 def test_extract_article_extract_returns_whitespace(mock_extract, mock_fetch) -> None:
-    """extract_article returns (None, None) when extract returns only whitespace."""
+    """extract_article returns (None, None, None) when extract returns only whitespace."""
     mock_fetch.return_value = "<html></html>"
-    mock_extract.return_value = "   \n  "
+    mock_extract.side_effect = _mock_extract_txt_only("   \n  ")
 
-    text, og_image = extract_article("https://example.com/article")
+    text, body_img, og_image = extract_article("https://example.com/article")
     assert text is None
+    assert body_img is None
     assert og_image is None
 
 
@@ -97,10 +112,37 @@ def test_extract_article_extracts_og_image(mock_extract, mock_fetch) -> None:
         "</head><body></body></html>"
     )
     mock_fetch.return_value = html_with_og
-    mock_extract.return_value = "Article text"
+    mock_extract.side_effect = _mock_extract_txt_only("Article text")
 
-    text, og_image = extract_article("https://example.com/article")
+    text, body_img, og_image = extract_article("https://example.com/article")
     assert text == "Article text"
+    assert body_img is None
+    assert og_image == "https://example.com/og.jpg"
+
+
+@patch("app.extraction.trafilatura.trafilatura.fetch_url")
+@patch("app.extraction.trafilatura.trafilatura.extract")
+def test_extract_article_prefers_body_graphic_over_og(mock_extract, mock_fetch) -> None:
+    """First <graphic> in extracted main wins over og:image."""
+    html_with_og = (
+        '<html><head><meta property="og:image" content="https://example.com/og.jpg" />'
+        "</head><body></body></html>"
+    )
+    mock_fetch.return_value = html_with_og
+
+    def _side_effect(_html: str, **kwargs: object) -> str | None:
+        if kwargs.get("output_format") == "xml":
+            return (
+                '<doc><main><graphic src="https://example.com/in-article.jpg"/>'
+                "<p>Body</p></main></doc>"
+            )
+        return "Article text"
+
+    mock_extract.side_effect = _side_effect
+
+    text, body_img, og_image = extract_article("https://example.com/article")
+    assert text == "Article text"
+    assert body_img == "https://example.com/in-article.jpg"
     assert og_image == "https://example.com/og.jpg"
 
 
@@ -148,9 +190,10 @@ def test_update_article_extraction() -> None:
     try:
         inserted = articles_db.insert_article(article)
         assert inserted is True
-        art = articles_db.get_articles_needing_extraction(limit=1)
-        assert len(art) >= 1
-        article_id = art[0]["id"]
+        art = articles_db.get_articles_needing_extraction(limit=50)
+        row = next((a for a in art if a["url"] == "https://test.example.com/update"), None)
+        assert row is not None
+        article_id = row["id"]
 
         articles_db.update_article_extraction(
             article_id, "Extracted full text.", "extracted", "trafilatura"
@@ -162,5 +205,40 @@ def test_update_article_extraction() -> None:
         assert updated["extraction_status"] == "extracted"
         assert updated["extraction_method"] == "trafilatura"
         assert updated["extracted_at"] is not None
+    finally:
+        _cleanup_test_extraction_articles()
+
+
+@pytest.mark.skipif(not _has_db(), reason="Database not available")
+def test_update_article_extraction_replace_image_overwrites() -> None:
+    """replace_image=True overwrites an existing image_url."""
+    _cleanup_test_extraction_articles()
+    article = {
+        "source_id": "test_extraction_src",
+        "title": "Img Replace",
+        "url": "https://test.example.com/img-replace",
+        "image_url": "https://old.example.com/old.jpg",
+        "image_source": "media_thumbnail",
+    }
+    try:
+        assert articles_db.insert_article(article) is True
+        art = articles_db.get_articles_needing_extraction(limit=50)
+        row = next((a for a in art if a["url"] == "https://test.example.com/img-replace"), None)
+        assert row is not None
+        article_id = row["id"]
+
+        articles_db.update_article_extraction(
+            article_id,
+            "Text.",
+            "extracted",
+            "trafilatura",
+            image_url="https://new.example.com/new.jpg",
+            image_source="article_body",
+            replace_image=True,
+        )
+        updated = articles_db.get_article_by_id(article_id)
+        assert updated is not None
+        assert updated["image_url"] == "https://new.example.com/new.jpg"
+        assert updated["image_source"] == "article_body"
     finally:
         _cleanup_test_extraction_articles()

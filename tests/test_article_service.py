@@ -249,6 +249,30 @@ def test_select_story_image_prefers_media_content_over_og_image() -> None:
     assert url == "https://s2.com/media.jpg"
 
 
+def test_select_story_image_prefers_article_body_over_media_content() -> None:
+    """article_body (Trafilatura main) beats feed media_content."""
+    now = datetime.now(UTC)
+    articles = [
+        {
+            "id": "a1",
+            "source_id": "s1",
+            "image_url": "https://s1.com/feed.jpg",
+            "image_source": "media_content",
+            "published_at": now,
+        },
+        {
+            "id": "a2",
+            "source_id": "s2",
+            "image_url": "https://s2.com/body.jpg",
+            "image_source": "article_body",
+            "published_at": now,
+        },
+    ]
+    sources = {"s1": {}, "s2": {}}
+    url, _ = select_story_image(articles, sources)
+    assert url == "https://s2.com/body.jpg"
+
+
 def test_select_story_image_uses_earliest_published_as_tiebreaker() -> None:
     """When image_source scores are equal, earliest published_at wins."""
     earlier = datetime(2024, 1, 1, 10, 0, 0, tzinfo=UTC)

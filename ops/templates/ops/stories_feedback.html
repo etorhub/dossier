@@ -1,0 +1,69 @@
+{% extends "ops/base.html" %}
+{% block title %}Clustering feedback — Ops{% endblock %}
+{% block content %}
+<h1>Clustering feedback</h1>
+<p class="text-muted small">Articles marked <strong>Not in story</strong> from the Stories page. Run
+  <code>python -m app.worker_cli review-clustering</code> in the worker to process <strong>pending</strong> and <strong>failed</strong> rows, generate exclusion rules, and re-apply <code>article_pair</code> rules to existing stories.
+  <code>python -m app.worker_cli apply-clustering-exclusion-rules</code> runs only the retroactive step.</p>
+
+<div class="table-responsive">
+  <table class="table table-sm table-striped">
+    <thead>
+      <tr>
+        <th>Flagged</th>
+        <th>Article</th>
+        <th>Story</th>
+        <th>Sim @ flag</th>
+        <th>Status</th>
+        <th>Analysis (excerpt)</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for r in feedback_rows %}
+      <tr>
+        <td><small>{{ r.flagged_at.strftime('%Y-%m-%d %H:%M') if r.flagged_at else '—' }}</small></td>
+        <td><small>{{ (r.article_title or '')[:60] }}{% if r.article_title and r.article_title|length > 60 %}…{% endif %}</small><br><code class="small">{{ r.article_id[:12] }}…</code></td>
+        <td><a href="{{ url_for('stories.index', story=r.story_id) }}"><code>{{ r.story_id[:8] }}…</code></a></td>
+        <td>{% if r.similarity_at_flag is not none %}{{ "%.3f"|format(r.similarity_at_flag) }}{% else %}—{% endif %}</td>
+        <td><span class="badge {% if r.status == 'pending' %}bg-warning text-dark{% elif r.status == 'failed' %}bg-danger{% elif r.status == 'reviewed' %}bg-info{% else %}bg-secondary{% endif %}">{{ r.status }}</span></td>
+        <td><small class="text-muted">{{ (r.agent_analysis or '—')[:120] }}{% if r.agent_analysis and r.agent_analysis|length > 120 %}…{% endif %}</small></td>
+        <td>
+          <button type="button" class="btn btn-sm btn-outline-secondary"
+            data-bs-toggle="collapse"
+            data-bs-target="#feedback-detail-{{ r.id }}"
+            aria-expanded="false"
+            aria-controls="feedback-detail-{{ r.id }}">
+            Detail
+          </button>
+        </td>
+      </tr>
+      <tr>
+        <td colspan="7" class="p-0 border-0">
+          <div class="collapse" id="feedback-detail-{{ r.id }}">
+            <div class="p-3 bg-light border-top small">
+              <p class="fw-bold mb-1 text-muted text-uppercase" style="font-size: 0.7rem;">Full analysis</p>
+              {% if r.agent_analysis %}
+              <div class="text-break mb-3" style="white-space: pre-wrap;">{{ r.agent_analysis }}</div>
+              {% else %}
+              <p class="text-muted mb-3">—</p>
+              {% endif %}
+              {% if r.agent_recommendation %}
+              <p class="fw-bold mb-1 text-muted text-uppercase" style="font-size: 0.7rem;">Recommendation</p>
+              <div class="text-break" style="white-space: pre-wrap;">{{ r.agent_recommendation }}</div>
+              {% endif %}
+              {% if r.reviewed_at %}
+              <p class="text-muted mt-3 mb-0"><small>Reviewed at {{ r.reviewed_at.strftime('%Y-%m-%d %H:%M') if r.reviewed_at else '—' }}</small></p>
+              {% endif %}
+            </div>
+          </div>
+        </td>
+      </tr>
+      {% else %}
+      <tr><td colspan="7">No feedback rows yet.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+<p class="mt-2"><a href="{{ url_for('stories.index') }}">← Back to Stories</a></p>
+{% endblock %}

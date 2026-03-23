@@ -114,6 +114,27 @@ def cluster_articles_cmd() -> None:
     click.echo("Cluster job completed. Check ops dashboard for details.")
 
 
+@worker_cli.command("review-clustering")
+def review_clustering_cmd() -> None:
+    """Run the clustering feedback review agent on pending flags (LLM + exclusion rules)."""
+    from app.clustering.feedback_agent import run_feedback_review
+
+    result = run_feedback_review()
+    click.echo(
+        f"Processed {result.rows_processed} feedback row(s), created {result.rules_created} exclusion rule(s), "
+        f"retroactive article_pair removals: {result.retroactive_removals}."
+    )
+
+
+@worker_cli.command("apply-clustering-exclusion-rules")
+def apply_clustering_exclusion_rules_cmd() -> None:
+    """Re-apply active article_pair rules to existing stories (no LLM)."""
+    from app.clustering.retroactive_rules import apply_article_pair_rules_retroactively
+
+    n = apply_article_pair_rules_retroactively()
+    click.echo(f"Retroactive article_pair enforcement: {n} membership removal(s).")
+
+
 @worker_cli.command("embedding-status")
 @click.option(
     "--compact",

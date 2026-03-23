@@ -356,27 +356,43 @@ def update_article_extraction(
     method: str,
     image_url: str | None = None,
     image_source: str | None = None,
+    *,
+    replace_image: bool = False,
 ) -> None:
     """Update article with extraction result.
 
-    If image_url and image_source are provided and the article has no image yet,
-    they are stored as fallback (e.g. from og:image).
+    If image_url and image_source are provided, they are written when ``replace_image``
+    is true, or merged with ``COALESCE`` so an existing image is kept when
+    ``replace_image`` is false (e.g. first-time og:image fallback).
     """
     conn = get_connection()
     try:
         with conn.cursor() as cur:
             if image_url is not None and image_source is not None:
-                cur.execute(
-                    """
-                    UPDATE articles
-                    SET full_text = %s, extraction_status = %s, extraction_method = %s,
-                        extracted_at = now(),
-                        image_url = COALESCE(image_url, %s),
-                        image_source = COALESCE(image_source, %s)
-                    WHERE id = %s
-                    """,
-                    (full_text, status, method, image_url, image_source, article_id),
-                )
+                if replace_image:
+                    cur.execute(
+                        """
+                        UPDATE articles
+                        SET full_text = %s, extraction_status = %s, extraction_method = %s,
+                            extracted_at = now(),
+                            image_url = %s,
+                            image_source = %s
+                        WHERE id = %s
+                        """,
+                        (full_text, status, method, image_url, image_source, article_id),
+                    )
+                else:
+                    cur.execute(
+                        """
+                        UPDATE articles
+                        SET full_text = %s, extraction_status = %s, extraction_method = %s,
+                            extracted_at = now(),
+                            image_url = COALESCE(image_url, %s),
+                            image_source = COALESCE(image_source, %s)
+                        WHERE id = %s
+                        """,
+                        (full_text, status, method, image_url, image_source, article_id),
+                    )
             else:
                 cur.execute(
                     """

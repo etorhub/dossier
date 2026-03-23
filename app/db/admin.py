@@ -1,5 +1,7 @@
 """Admin dashboard queries: job runs, overview stats, feed health, incidents."""
 
+import json
+from datetime import UTC, datetime
 from typing import Any
 
 import psycopg2.extras
@@ -735,6 +737,292 @@ def get_admin_story_articles(story_id: str) -> list[dict[str, Any]]:
                 (story_id,),
             )
             return [dict(row) for row in cur.fetchall()]
+    finally:
+        return_connection(conn)
+
+
+def flag_article_not_in_story(article_id: str, story_id: str) -> dict[str, Any] | None:
+    """Remove article from story, record clustering_feedback, recompute story centroid.
+
+    Sets stories.needs_rewrite so the next rewrite batch regenerates this story from the
+    remaining sources (full cascade). Stories with needs_rewrite bypass the rewrite time
+    window so they are not skipped when all member articles are older than cluster_window.
+
+    Returns the new feedback row (with string UUID id), or None if the article was not in the story.
+    """
+    from app.clustering.vectors import (
+        cosine_similarity,
+        embedding_from_article,
+        recompute_story_centroid,
+    )
+    from app.db import articles as articles_db
+    from app.db import stories as stories_db
+
+    conn = get_connection()
+    try:
+        with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
+            cur.execute(
+                """
+                SELECT 1 FROM story_articles
+                WHERE story_id = %s::uuid AND article_id = %s
+                """,
+                (story_id, article_id),
+            )
+            if cur.fetchone() is None:
+                return None
+
+            article = articles_db.get_article_by_id(article_id)
+            if not article:
+                return None
+
+            cur.execute(
+                "SELECT centroid_embedding FROM stories WHERE id = %s::uuid",
+                (story_id,),
+            )
+            row = cur.fetchone()
+            centroid_raw = row["centroid_embedding"] if row else None
+            centroid_list: list[float] | None = None
+            if centroid_raw is not None:
+                if isinstance(centroid_raw, list):
+                    centroid_list = centroid_raw
+                elif isinstance(centroid_raw, str):
+                    try:
+                        centroid_list = json.loads(centroid_raw)
+                    except json.JSONDecodeError:
+                        centroid_list = None
+
+            emb = embedding_from_article(article)
+            sim: float | None = None
+            if emb and centroid_list:
+                sim = float(cosine_similarity(emb, centroid_list))
+
+            art_snap = emb
+            cen_snap = centroid_list
+
+            cur.execute(
+                """
+                INSERT INTO clustering_feedback (
+                    article_id, story_id, similarity_at_flag,
+                    article_embedding_snapshot, story_centroid_snapshot, status
+                )
+                VALUES (%s, %s::uuid, %s, %s::jsonb, %s::jsonb, 'pending')
+                RETURNING id, article_id, story_id::text, similarity_at_flag, status, flagged_at
+                """,
+                (
+                    article_id,
+                    story_id,
+                    sim,
+                    psycopg2.extras.Json(art_snap) if art_snap is not None else None,
+                    psycopg2.extras.Json(cen_snap) if cen_snap is not None else None,
+                ),
+            )
+            fb_row = cur.fetchone()
+            if fb_row is None:
+                return None
+
+            cur.execute(
+                """
+                DELETE FROM story_articles
+                WHERE story_id = %s::uuid AND article_id = %s
+                """,
+                (story_id, article_id),
+            )
+        conn.commit()
+        out = dict(fb_row)
+        out["id"] = str(out["id"])
+        out["story_id"] = str(out["story_id"])
+    finally:
+        return_connection(conn)
+
+    recompute_story_centroid(story_id)
+    stories_db.set_story_needs_rewrite(story_id, True)
+    return out
+
+
+def get_clustering_feedback(
+    *,
+    status: str | None = None,
+    statuses: list[str] | None = None,
+    limit: int = 100,
+    offset: int = 0,
+    order: str = "flagged_desc",
+) -> list[dict[str, Any]]:
+    """List clustering feedback rows with article title for ops UI.
+
+    order: ``flagged_desc`` (newest first, default for ops table) or
+    ``retry_asc`` (pending then failed, oldest flagged first — for the agent).
+    """
+    conn = get_connection()
+    try:
+        with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
+            if statuses:
+                where = "WHERE cf.status = ANY(%s)"
+                params_head: list[Any] = [statuses]
+            elif status:
+                where = "WHERE cf.status = %s"
+                params_head = [status]
+            else:
+                where = ""
+                params_head = []
+
+            if order == "retry_asc":
+                order_clause = (
+                    "ORDER BY CASE cf.status WHEN 'pending' THEN 0 WHEN 'failed' THEN 1 "
+                    "ELSE 2 END, cf.flagged_at ASC"
+                )
+            else:
+                order_clause = "ORDER BY cf.flagged_at DESC"
+
+            params = params_head + [limit, offset]
+            cur.execute(
+                f"""
+                SELECT cf.id, cf.article_id, cf.story_id::text AS story_id,
+                       cf.similarity_at_flag, cf.status,
+                       cf.agent_analysis, cf.agent_recommendation,
+                       cf.flagged_at, cf.reviewed_at,
+                       a.title AS article_title
+                FROM clustering_feedback cf
+                JOIN articles a ON a.id = cf.article_id
+                {where}
+                {order_clause}
+                LIMIT %s OFFSET %s
+                """,
+                tuple(params),
+            )
+            rows = []
+            for row in cur.fetchall():
+                d = dict(row)
+                d["id"] = str(d["id"])
+                rows.append(d)
+            return rows
+    finally:
+        return_connection(conn)
+
+
+def get_pending_clustering_feedback() -> list[dict[str, Any]]:
+    """Return feedback rows for the review agent (pending or failed, retryable)."""
+    return get_clustering_feedback(
+        statuses=["pending", "failed"],
+        limit=500,
+        offset=0,
+        order="retry_asc",
+    )
+
+
+def get_clustering_feedback_flagged_article_id(feedback_id: str) -> str | None:
+    """Return the flagged article_id for a clustering_feedback row, if it exists."""
+    conn = get_connection()
+    try:
+        with conn.cursor() as cur:
+            cur.execute(
+                "SELECT article_id FROM clustering_feedback WHERE id = %s::uuid",
+                (feedback_id,),
+            )
+            row = cur.fetchone()
+            if not row or row[0] is None:
+                return None
+            return str(row[0])
+    finally:
+        return_connection(conn)
+
+
+def get_active_exclusion_rules() -> list[dict[str, Any]]:
+    """Return active clustering exclusion rules for the clustering service."""
+    conn = get_connection()
+    try:
+        with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
+            cur.execute(
+                """
+                SELECT id, rule_type, rule_data, description, feedback_id
+                FROM clustering_exclusion_rules
+                WHERE active = true
+                ORDER BY created_at ASC
+                """
+            )
+            rows = []
+            for row in cur.fetchall():
+                d = dict(row)
+                d["id"] = str(d["id"])
+                fid = d.get("feedback_id")
+                d["feedback_id"] = str(fid) if fid is not None else None
+                rd = d.get("rule_data")
+                if isinstance(rd, str):
+                    try:
+                        d["rule_data"] = json.loads(rd)
+                    except json.JSONDecodeError:
+                        d["rule_data"] = {}
+                rows.append(d)
+            return rows
+    finally:
+        return_connection(conn)
+
+
+def update_clustering_feedback_review(
+    feedback_id: str,
+    *,
+    status: str,
+    agent_analysis: str | None,
+    agent_recommendation: str | None,
+) -> None:
+    """Set feedback status after agent run (reviewed, failed, dismissed, etc.).
+
+    Use ``failed`` for errors so ``review-clustering`` can retry the row.
+    """
+    conn = get_connection()
+    try:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                UPDATE clustering_feedback
+                SET status = %s,
+                    agent_analysis = %s,
+                    agent_recommendation = %s,
+                    reviewed_at = %s
+                WHERE id = %s::uuid
+                """,
+                (
+                    status,
+                    agent_analysis,
+                    agent_recommendation,
+                    datetime.now(UTC),
+                    feedback_id,
+                ),
+            )
+        conn.commit()
+    finally:
+        return_connection(conn)
+
+
+def insert_clustering_exclusion_rule(
+    feedback_id: str | None,
+    rule_type: str,
+    rule_data: dict[str, Any],
+    description: str | None,
+) -> str:
+    """Insert an exclusion rule. Returns new rule id as string."""
+    conn = get_connection()
+    try:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                INSERT INTO clustering_exclusion_rules (
+                    feedback_id, rule_type, rule_data, description, active
+                )
+                VALUES (%s, %s, %s::jsonb, %s, true)
+                RETURNING id
+                """,
+                (
+                    feedback_id,
+                    rule_type,
+                    psycopg2.extras.Json(rule_data),
+                    description,
+                ),
+            )
+            row = cur.fetchone()
+            assert row is not None
+            rid = str(row[0])
+        conn.commit()
+        return rid
     finally:
         return_connection(conn)
 

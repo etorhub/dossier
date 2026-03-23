@@ -13,6 +13,9 @@ from app.llm.http_utils import quiet_http_library_info_logs
 
 logger = logging.getLogger(__name__)
 
+# Feed-derived sources often point at unrelated promos or section thumbs.
+_UNTRUSTED_FEED_IMAGE_SOURCES = frozenset({"media_thumbnail", "content_html"})
+
 
 def _render_enrich_progress(
     done: int,
@@ -117,15 +120,29 @@ def enrich_articles(config: dict) -> EnrichmentReport:
                         )
                         continue
 
-                    # Extract with trafilatura
-                    extracted, og_image_url = extract_article(url, timeout=timeout)
+                    # Extract with trafilatura (body image from main content; og as fallback)
+                    extracted, body_image_url, og_image_url = extract_article(
+                        url, timeout=timeout
+                    )
 
-                    # Use og:image as fallback only if article has no image from RSS
+                    existing_src = (art.get("image_source") or "").strip()
+                    existing_url = art.get("image_url")
+
                     image_url: str | None = None
                     image_source: str | None = None
-                    if not art.get("image_url") and og_image_url:
+                    replace_image = False
+
+                    if body_image_url:
+                        image_url = body_image_url
+                        image_source = "article_body"
+                        replace_image = True
+                    elif not existing_url and og_image_url:
                         image_url = og_image_url
                         image_source = "og_image"
+                    elif existing_src in _UNTRUSTED_FEED_IMAGE_SOURCES and og_image_url:
+                        image_url = og_image_url
+                        image_source = "og_image"
+                        replace_image = True
 
                     if extracted and len(extracted) >= min_content_length:
                         db_articles.update_article_extraction(
@@ -135,6 +152,7 @@ def enrich_articles(config: dict) -> EnrichmentReport:
                             "trafilatura",
                             image_url=image_url,
                             image_source=image_source,
+                            replace_image=replace_image,
                         )
                         report.articles_extracted += 1
                     else:
@@ -147,6 +165,7 @@ def enrich_articles(config: dict) -> EnrichmentReport:
                             "trafilatura",
                             image_url=image_url,
                             image_source=image_source,
+                            replace_image=replace_image,
                         )
                         report.articles_failed += 1
                         logger.debug(

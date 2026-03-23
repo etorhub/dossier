@@ -9,11 +9,12 @@ from app.services import profile_service
 from app.services.scoring_service import score_story
 
 _IMAGE_SOURCE_SCORES: dict[str, float] = {
+    "article_body": 5.0,
     "media_content": 3.0,
+    "enclosure": 2.5,
     "media_thumbnail": 2.0,
-    "enclosure": 2.0,
+    "content_html": 1.5,
     "og_image": 1.0,
-    "content_html": 1.0,
 }
 # Fallback for newly incorporated images with unknown or missing image_source
 _IMAGE_SOURCE_FALLBACK = 0.5
@@ -28,8 +29,8 @@ def select_story_image(
     Returns (image_url, image_source_name). image_source_name is the publisher name
     for legal attribution; None when no image or source unknown.
 
-    Scoring: image_source priority (media_content=3, media_thumbnail=2, enclosure=2,
-    og_image=1, content_html=1), then source quality_score as bonus, then earliest
+    Scoring: image_source priority (article_body highest, then media_content, enclosure,
+    media_thumbnail, content_html, og_image), then source quality_score as bonus, then earliest
     published_at as tiebreaker. Images with unknown image_source use fallback score
     so newly incorporated images are still displayed.
     """

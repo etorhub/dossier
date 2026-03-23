@@ -7,6 +7,7 @@
         <th>Title</th>
         <th>Source</th>
         <th>URL</th>
+        <th>Action</th>
       </tr>
     </thead>
     <tbody>
@@ -16,9 +17,23 @@
         <td><small>{{ a.title[:50] if a.title else '—' }}{% if a.title and a.title|length > 50 %}…{% endif %}</small></td>
         <td>{{ a.source_name or a.source_id }}</td>
         <td><a href="{{ a.url }}" target="_blank" rel="noopener">link</a></td>
+        <td>
+          {# Use a real form so article_id/story_id are not broken by HTML-escaping in hx-vals JSON.
+             The ops app overrides |tojson for display, which escapes quotes inside attributes. #}
+          <form class="d-inline"
+                method="post"
+                action="{{ url_for('stories.flag_not_in_story') }}"
+                hx-post="{{ url_for('stories.flag_not_in_story') }}"
+                hx-target="#story-detail-{{ story_id }}"
+                hx-swap="innerHTML">
+            <input type="hidden" name="article_id" value="{{ a.id }}">
+            <input type="hidden" name="story_id" value="{{ story_id }}">
+            <button type="submit" class="btn btn-sm btn-outline-danger">Not in story</button>
+          </form>
+        </td>
       </tr>
       {% else %}
-      <tr><td colspan="4">No articles</td></tr>
+      <tr><td colspan="5">No articles</td></tr>
       {% endfor %}
     </tbody>
   </table>

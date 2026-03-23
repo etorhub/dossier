@@ -116,6 +116,25 @@ def add_article_to_story(story_id: str, article_id: str) -> None:
         return_connection(conn)
 
 
+def remove_article_from_story(story_id: str, article_id: str) -> bool:
+    """Remove an article from a story. Returns True if a membership row was deleted."""
+    conn = get_connection()
+    try:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                DELETE FROM story_articles
+                WHERE story_id = %s::uuid AND article_id = %s
+                """,
+                (story_id, article_id),
+            )
+            deleted = cur.rowcount > 0
+        conn.commit()
+        return deleted
+    finally:
+        return_connection(conn)
+
+
 def get_articles_in_story(story_id: str) -> list[dict[str, Any]]:
     """Return articles in a story, ordered by position."""
     conn = get_connection()
@@ -366,6 +385,20 @@ def update_story_centroid(story_id: str, embedding: list[float]) -> None:
         return_connection(conn)
 
 
+def clear_story_centroid(story_id: str) -> None:
+    """Set story centroid to NULL (e.g. after all articles were removed)."""
+    conn = get_connection()
+    try:
+        with conn.cursor() as cur:
+            cur.execute(
+                "UPDATE stories SET centroid_embedding = NULL WHERE id = %s::uuid",
+                (story_id,),
+            )
+        conn.commit()
+    finally:
+        return_connection(conn)
+
+
 def set_story_needs_rewrite(story_id: str, needs: bool = True) -> None:
     """Mark story as needing rewrite (or clear the flag)."""
     conn = get_connection()
@@ -458,7 +491,9 @@ def get_stories_needing_any_rewrite(
     """Return stories missing at least one variant, or with needs_rewrite=true.
 
     variants: list of (style, language) tuples that must exist.
-    If since is not None, only stories with articles published since that time.
+    If since is not None, prefer stories with articles published since that time;
+    stories with needs_rewrite=true are always included so ops edits (e.g. removing
+    an article) still get a full cascade rewrite on the next batch.
     """
     if not variants:
         return []
@@ -490,7 +525,7 @@ def get_stories_needing_any_rewrite(
                         FROM stories s
                         JOIN story_articles sa ON sa.story_id = s.id
                         JOIN articles a ON a.id = sa.article_id
-                        WHERE a.published_at >= %s
+                        WHERE (a.published_at >= %s OR s.needs_rewrite = true)
                         GROUP BY s.id
                     )
                     SELECT sc.id::text AS story_id, sc.needs_rewrite
@@ -551,7 +586,7 @@ def get_stories_needing_rewrite(style: str, language: str, since: datetime | Non
                     JOIN articles a ON a.id = sa.article_id
                     LEFT JOIN story_rewrites sr ON sr.story_id = s.id
                         AND sr.style = %s AND sr.language = %s
-                    WHERE a.published_at >= %s
+                    WHERE (a.published_at >= %s OR s.needs_rewrite = true)
                       AND (sr.story_id IS NULL OR s.needs_rewrite = true)
                     GROUP BY s.id
                     ORDER BY MAX(a.published_at) DESC

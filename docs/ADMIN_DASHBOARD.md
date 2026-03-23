@@ -80,6 +80,22 @@ Paginated table of story clusters:
 - Story ID, created, article count, sample titles
 - **Rewrite matrix** — per (style × language): done / failed / missing
 - **Detail** button — expandable article list
+- **Not in story** — per article in the detail row; removes the article from the cluster, records it in `clustering_feedback` for review, and sets **`needs_rewrite`** on that story so the next rewrite job runs the **full cascade** (neutral → simple → translations) from the remaining sources. Flagged stories are included in the rewrite batch even when all member articles are older than `processing.cluster_window_hours`.
+- **Clustering feedback** (sidebar) — table of flagged rows, similarity-at-flag, status (`pending` → agent queue, `failed` → retryable error, `reviewed` → done). Agent analysis after review.
+
+Run the feedback agent on **pending** and **failed** rows (worker container, requires LLM/Ollama as for rewrites):
+
+```bash
+docker compose exec worker python -m app.worker_cli review-clustering
+```
+
+The agent writes `agent_analysis` / `agent_recommendation`, sets **`failed`** (retryable) on LLM/parse/validation/internal errors, **`reviewed`** on success, and may insert rows into `clustering_exclusion_rules`. After each run it **re-applies** active `article_pair` rules to existing memberships (detaches co-located pairs). Re-run only that step:
+
+```bash
+docker compose exec worker python -m app.worker_cli apply-clustering-exclusion-rules
+```
+
+The hourly cluster job loads active rules and applies them when merging new articles. Migration `022` backfills older error rows from `reviewed` → `failed` where the analysis text matches known failure patterns.
 
 ### 6. Users
 

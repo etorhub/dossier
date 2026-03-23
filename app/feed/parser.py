@@ -254,7 +254,9 @@ def _is_image_url(url: str) -> bool:
 def _get_image_url(entry: FeedParserDict) -> tuple[str | None, str | None]:
     """Extract best image URL from feed entry.
 
-    Checks in order: media_content, media_thumbnail, enclosures, content HTML.
+    Checks in order: media_content, enclosures, first <img> in item content HTML,
+    then media_thumbnail (often a generic or unrelated promo thumb).
+
     Returns (image_url, image_source) or (None, None).
     """
     # 1. media_content — list of dicts with url, medium, type, width, height
@@ -280,7 +282,29 @@ def _get_image_url(entry: FeedParserDict) -> tuple[str | None, str | None]:
             candidates.sort(key=lambda x: x[1], reverse=True)
             return (candidates[0][0], "media_content")
 
-    # 2. media_thumbnail
+    # 2. enclosures — href, type
+    enclosures = entry.get("enclosures")
+    if enclosures and isinstance(enclosures, list):
+        for enc in enclosures:
+            if not isinstance(enc, dict):
+                continue
+            url = enc.get("href") or enc.get("url")
+            mime = (enc.get("type") or "").lower()
+            if url and (mime.startswith("image/") or _is_image_url(str(url))):
+                return (str(url), "enclosure")
+
+    # 3. First <img src="..."> in content HTML (usually the article lead in fulltext feeds)
+    content = entry.get("content")
+    if content and isinstance(content, list):
+        for block in content:
+            if isinstance(block, dict) and "value" in block:
+                val = block["value"]
+                if isinstance(val, str):
+                    match = re.search(r'<img[^>]+src=["\']([^"\']+)["\']', val, re.I)
+                    if match:
+                        return (match.group(1).strip(), "content_html")
+
+    # 4. media_thumbnail — last: frequently unrelated to the linked story
     media_thumbnail = entry.get("media_thumbnail")
     if media_thumbnail and isinstance(media_thumbnail, list):
         thumb_candidates: list[tuple[str, int]] = []
@@ -299,28 +323,6 @@ def _get_image_url(entry: FeedParserDict) -> tuple[str | None, str | None]:
         if thumb_candidates:
             thumb_candidates.sort(key=lambda x: x[1], reverse=True)
             return (thumb_candidates[0][0], "media_thumbnail")
-
-    # 3. enclosures — href, type
-    enclosures = entry.get("enclosures")
-    if enclosures and isinstance(enclosures, list):
-        for enc in enclosures:
-            if not isinstance(enc, dict):
-                continue
-            url = enc.get("href") or enc.get("url")
-            mime = (enc.get("type") or "").lower()
-            if url and (mime.startswith("image/") or _is_image_url(str(url))):
-                return (str(url), "enclosure")
-
-    # 4. First <img src="..."> in content HTML
-    content = entry.get("content")
-    if content and isinstance(content, list):
-        for block in content:
-            if isinstance(block, dict) and "value" in block:
-                val = block["value"]
-                if isinstance(val, str):
-                    match = re.search(r'<img[^>]+src=["\']([^"\']+)["\']', val, re.I)
-                    if match:
-                        return (match.group(1).strip(), "content_html")
 
     return (None, None)
 

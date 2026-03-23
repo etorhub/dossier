@@ -60,3 +60,31 @@ def story_detail_partial(story_id: str) -> Response:
         story_id=story_id,
         articles=articles,
     )
+
+
+@stories_bp.route("/feedback")
+def feedback_index() -> Response:
+    """Clustering feedback queue (articles marked not-in-story)."""
+    rows = admin_db.get_clustering_feedback(limit=200, offset=0)
+    return render_template(
+        "ops/stories_feedback.html",
+        feedback_rows=rows,
+    )
+
+
+@stories_bp.route("/flag-not-in-story", methods=["POST"])
+def flag_not_in_story() -> Response:
+    """Remove article from story and enqueue clustering_feedback (HTMX)."""
+    article_id = (request.form.get("article_id") or "").strip()
+    story_id = (request.form.get("story_id") or "").strip()
+    if not article_id or not story_id:
+        return Response("Missing article_id or story_id", status=400)
+    row = admin_db.flag_article_not_in_story(article_id, story_id)
+    if row is None:
+        return Response("Article not in that story", status=400)
+    articles = admin_db.get_admin_story_articles(story_id)
+    return render_template(
+        "ops/partials/story_detail.html",
+        story_id=story_id,
+        articles=articles,
+    )

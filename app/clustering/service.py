@@ -1,6 +1,5 @@
 """Assign articles to stories by embedding similarity. Global grouping, same for all users."""
 
-import json
 import logging
 import os
 import shutil
@@ -9,6 +8,12 @@ from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
+from app.clustering.vectors import (
+    compute_centroid as _compute_centroid,
+    cosine_similarity as _cosine_similarity,
+    embedding_from_article as _embedding_from_article,
+    recompute_story_centroid as _update_story_centroid,
+)
 from app.config import load_config
 from app.db import articles as db_articles
 from app.db import stories as db_stories
@@ -54,21 +59,66 @@ class StoryReport:
     stories_created: int
 
 
-def _embedding_from_article(article: dict[str, Any]) -> list[float] | None:
-    """Extract embedding from article. Returns None if invalid."""
-    emb = article.get("embedding")
-    if emb is None:
-        return None
-    if isinstance(emb, list):
-        if len(emb) == 0:
-            return None
-        return emb
-    if isinstance(emb, str):
-        try:
-            return json.loads(emb)
-        except json.JSONDecodeError:
-            return None
-    return None
+@dataclass(frozen=True)
+class ExclusionRules:
+    """Constraints from clustering_exclusion_rules (article pairs, source-pair thresholds)."""
+
+    article_pairs: frozenset[frozenset[str]]
+    source_pair_thresholds: dict[tuple[str, str], float]
+
+
+def _load_exclusion_rules() -> ExclusionRules:
+    """Load active exclusion rules from the database (ops / feedback agent)."""
+    from app.db import admin as admin_db
+
+    rows = admin_db.get_active_exclusion_rules()
+    pairs: set[frozenset[str]] = set()
+    source_thresholds: dict[tuple[str, str], float] = {}
+    for r in rows:
+        rt = r.get("rule_type")
+        rd = r.get("rule_data")
+        if not isinstance(rd, dict):
+            continue
+        if rt == "article_pair":
+            a, b = rd.get("article_id_a"), rd.get("article_id_b")
+            if isinstance(a, str) and isinstance(b, str) and a and b:
+                pairs.add(frozenset((a, b)))
+        elif rt == "source_pair":
+            sa, sb = rd.get("source_a"), rd.get("source_b")
+            if isinstance(sa, str) and isinstance(sb, str) and sa and sb:
+                k = tuple(sorted((sa.strip(), sb.strip())))
+                try:
+                    ms = float(rd.get("min_similarity", 0.93))
+                except (TypeError, ValueError):
+                    ms = 0.93
+                source_thresholds[k] = max(source_thresholds.get(k, 0.0), ms)
+        # keyword: reserved for future heuristics
+    return ExclusionRules(
+        article_pairs=frozenset(pairs),
+        source_pair_thresholds=source_thresholds,
+    )
+
+
+def _effective_pair_threshold(
+    art_a: dict[str, Any],
+    art_b: dict[str, Any],
+    global_threshold: float,
+    rules: ExclusionRules,
+) -> float:
+    """Minimum cosine similarity required for this article pair to merge."""
+    t = global_threshold
+    sa = (art_a.get("source_id") or "").strip()
+    sb = (art_b.get("source_id") or "").strip()
+    if sa and sb and rules.source_pair_thresholds:
+        key = tuple(sorted((sa, sb)))
+        override = rules.source_pair_thresholds.get(key)
+        if override is not None:
+            t = max(t, override)
+    return t
+
+
+def _article_pair_blocked(rules: ExclusionRules, id_a: str, id_b: str) -> bool:
+    return frozenset((id_a, id_b)) in rules.article_pairs
 
 
 def _text_to_embed(article: dict[str, Any]) -> str:
@@ -81,41 +131,19 @@ def _text_to_embed(article: dict[str, Any]) -> str:
     return f"{title} {content}".strip() or ""
 
 
-def _cosine_similarity(a: list[float], b: list[float]) -> float:
-    """Cosine similarity between two vectors."""
-    if len(a) != len(b) or len(a) == 0:
-        return 0.0
-    dot = sum(x * y for x, y in zip(a, b))
-    norm_a = sum(x * x for x in a) ** 0.5
-    norm_b = sum(x * x for x in b) ** 0.5
-    if norm_a == 0 or norm_b == 0:
-        return 0.0
-    return dot / (norm_a * norm_b)
-
-
-def _compute_centroid(embeddings: list[list[float]]) -> list[float] | None:
-    """Compute mean of embeddings. Returns None if empty or invalid."""
-    valid = [e for e in embeddings if e and len(e) > 0]
-    if not valid or not all(len(emb) == len(valid[0]) for emb in valid):
-        return None
-    n = len(valid)
-    dim = len(valid[0])
-    centroid = [sum(emb[i] for emb in valid) / n for i in range(dim)]
-    return centroid
-
-
 def _assign_to_existing_stories(
     articles: list[dict[str, Any]],
     existing_stories: list[dict[str, Any]],
     threshold: float,
-) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    story_member_ids: dict[str, list[str]],
+    rules: ExclusionRules,
+) -> tuple[list[tuple[str, str]], list[dict[str, Any]]]:
     """Try to assign articles to existing stories by centroid similarity.
 
-    Returns (assigned_count, remaining_articles). assigned_count is number of
-    articles successfully assigned. remaining_articles are those not assigned.
+    Returns (assigned list of (article_id, story_id), remaining articles).
     """
-    assigned: list[tuple[str, str]] = []  # (article_id, story_id)
-    remaining = []
+    assigned: list[tuple[str, str]] = []
+    remaining: list[dict[str, Any]] = []
     story_centroids: dict[str, list[float]] = {}
     for s in existing_stories:
         emb = s.get("centroid_embedding")
@@ -132,6 +160,14 @@ def _assign_to_existing_stories(
         for sid, centroid in story_centroids.items():
             if not centroid:
                 continue
+            if rules.article_pairs:
+                blocked = False
+                for mid in story_member_ids.get(sid, []):
+                    if _article_pair_blocked(rules, art["id"], mid):
+                        blocked = True
+                        break
+                if blocked:
+                    continue
             sim = _cosine_similarity(emb, centroid)
             if sim >= threshold and sim > best_sim:
                 best_sim = sim
@@ -144,20 +180,10 @@ def _assign_to_existing_stories(
     return assigned, remaining
 
 
-def _update_story_centroid(story_id: str) -> None:
-    """Recompute and store centroid for story from its articles' embeddings."""
-    articles = db_stories.get_articles_in_story(story_id)
-    embeddings_raw = [_embedding_from_article(a) for a in articles]
-    embeddings: list[list[float]] = [e for e in embeddings_raw if e is not None]
-    if embeddings:
-        centroid = _compute_centroid(embeddings)
-        if centroid:
-            db_stories.update_story_centroid(story_id, centroid)
-
-
 def _cluster_articles(
     articles: list[dict[str, Any]],
     threshold: float,
+    rules: ExclusionRules,
 ) -> list[list[str]]:
     """Group articles by embedding similarity using complete-linkage clustering.
 
@@ -194,12 +220,26 @@ def _cluster_articles(
         for gi in range(len(groups)):
             for gj in range(gi + 1, len(groups)):
                 g1, g2 = groups[gi], groups[gj]
+                cross_ok = True
                 min_sim = 1.0
                 for a in g1:
                     for b in g2:
                         key = (a, b) if a < b else (b, a)
-                        min_sim = min(min_sim, sim.get(key, 0.0))
-                if min_sim >= threshold and min_sim > best_min_sim:
+                        raw = sim.get(key, 0.0)
+                        art_a, art_b = articles[a], articles[b]
+                        if rules.article_pairs and _article_pair_blocked(
+                            rules, art_a["id"], art_b["id"]
+                        ):
+                            cross_ok = False
+                            break
+                        tneed = _effective_pair_threshold(art_a, art_b, threshold, rules)
+                        if raw < tneed:
+                            cross_ok = False
+                            break
+                        min_sim = min(min_sim, raw)
+                    if not cross_ok:
+                        break
+                if cross_ok and min_sim >= threshold and min_sim > best_min_sim:
                     best_min_sim = min_sim
                     best_pair = (gi, gj)
 
@@ -235,6 +275,7 @@ def run_cluster_and_embed(config: dict[str, Any] | None = None) -> StoryReport:
         datetime.now(UTC) - timedelta(hours=window_hours) if window_hours else None
     )
     report = StoryReport(articles_embedded=0, articles_clustered=0, stories_created=0)
+    exclusion_rules = _load_exclusion_rules()
 
     # 1. Embed articles without embeddings
     has_embedding_provider = True
@@ -309,7 +350,13 @@ def run_cluster_and_embed(config: dict[str, Any] | None = None) -> StoryReport:
     # 3. Incremental assignment: try to assign to existing stories with centroids
     if has_embedding_provider:
         existing = db_stories.get_stories_with_centroid_in_window(since)
-        assigned, to_cluster = _assign_to_existing_stories(to_cluster, existing, threshold)
+        story_member_ids: dict[str, list[str]] = {
+            row["story_id"]: [a["id"] for a in db_stories.get_articles_in_story(row["story_id"])]
+            for row in existing
+        }
+        assigned, to_cluster = _assign_to_existing_stories(
+            to_cluster, existing, threshold, story_member_ids, exclusion_rules
+        )
         for article_id, story_id in assigned:
             db_stories.add_article_to_story(story_id, article_id)
             articles_in_story = db_stories.get_articles_in_story(story_id)
@@ -321,7 +368,7 @@ def run_cluster_and_embed(config: dict[str, Any] | None = None) -> StoryReport:
             report.stories_created += 0  # no new story, but article assigned
 
     # 4. Batch cluster remaining articles
-    groups = _cluster_articles(to_cluster, threshold) if to_cluster else []
+    groups = _cluster_articles(to_cluster, threshold, exclusion_rules) if to_cluster else []
 
     # 5. Create story records only for groups with >= min_sources distinct sources
     for article_ids in groups:

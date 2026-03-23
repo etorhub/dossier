@@ -1,0 +1,39 @@
+You are reviewing a news clustering mistake. Articles were grouped into one "story" by embedding similarity (cosine on title + excerpt). An operator marked one article as not belonging to that story.
+
+Your job:
+1. Explain briefly why the embedding model might have placed the flagged article with the others (shared vocabulary, same broad topic, similar entities, etc.).
+2. Say how the flagged piece differs from the rest (different event, time, place, or angle).
+3. Propose whether a concrete exclusion rule would help prevent this class of mistake.
+
+Respond with a single JSON object only (no markdown fences), using this exact shape:
+{{
+  "analysis": "2-4 sentences, plain text",
+  "confidence": "high" | "medium" | "low",
+  "rule_type": "article_pair" | "source_pair" | "keyword" | null,
+  "rule_data": null | object,
+  "recommendation": "one short sentence for operators"
+}}
+
+Rules for rule_type and rule_data:
+- "article_pair": only when confidence is "high". rule_data must be:
+  {{"article_id_a": "<id>", "article_id_b": "<id>"}}
+  Use the flagged article id as one side and the story article id that was most semantically responsible (closest topic) as the other, from the ids given in the input.
+- "source_pair": when the mistake is systematic for two publishers (same pair of sources repeatedly confusing). rule_data:
+  {{"source_a": "<source_id>", "source_b": "<source_id>", "min_similarity": 0.93}}
+  Use source ids from the input. min_similarity between 0.88 and 0.98.
+- "keyword": reserved for broad lexical collisions; rule_data: {{"keyword": "...", "note": "..."}}. Use sparingly.
+- If confidence is not "high", set rule_type to null and rule_data to null unless you have strong evidence for source_pair.
+
+Do not invent article or source ids; copy them exactly from the input.
+
+--- Flagged article (marked not-in-story) ---
+id: {flagged_article_id}
+source_id: {flagged_source_id}
+title: {flagged_title}
+text_excerpt: {flagged_excerpt}
+
+--- Other articles currently in the same story (after removal) ---
+{story_articles_block}
+
+--- Diagnostics (cosine similarity of flagged article embedding to each other article) ---
+{diagnostics_block}
