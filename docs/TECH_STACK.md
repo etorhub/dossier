@@ -81,6 +81,7 @@ Technology choices for Dossier, with rationale.
 │   ├── ca/LC_MESSAGES/      # Catalan .po and .mo
 │   ├── es/LC_MESSAGES/      # Spanish .po and .mo
 │   └── en/LC_MESSAGES/      # English .po and .mo
+├── scripts/                 # Dev helpers — seed_docker_db.sh, seed_dev_data.py
 ├── tests/                   # pytest test suite
 ├── docs/                    # Project documentation
 ├── .cursor/rules/           # Cursor IDE rules (project-context.mdc = full CLAUDE.md equivalent)
@@ -204,7 +205,30 @@ services:
     # ...
 ```
 
-`docker-compose.override.yml` provides dev overrides: bind mounts for live reload, `flask run --debug` for the web service, exposed ports. The `.env` file contains the database password. No LLM API keys required. An `.env.example` template is provided in the repo.
+`docker-compose.override.yml` provides dev overrides: bind mounts for live reload, `flask run --debug` for the web service, exposed ports, and **Postgres published on `localhost:5432`** so you can run `flask run` on the host or connect with `psql`. The `.env` file contains the database password. No LLM API keys required. An `.env.example` template is provided in the repo.
+
+### Local feed without the pipeline
+
+The reader UI needs Flask (HTMX); you can skip **worker** and **Ollama** and still develop against a populated database.
+
+1. **Seed via Docker (recommended)** — applies migrations and inserts catalog, a dev user, two articles, one story, and a `story_rewrites` row (see [`scripts/seed_dev_data.py`](../scripts/seed_dev_data.py)). From the repo root, with dev overrides so `scripts/` is mounted into the web container:
+
+   ```bash
+   ./scripts/seed_docker_db.sh
+   # Optional: ./scripts/seed_docker_db.sh --skip-sources
+   ```
+
+   Docker Compose environment variables (`COMPOSE_FILE`, etc.) are honored. Optional seed env vars: `DEV_EMAIL`, `DEV_PASSWORD` (export them before running so they are passed into the container).
+
+2. **Default login** after seeding: `dev@localhost` / `devpassword` (unless overridden).
+
+3. **Host-side Flask + Docker Postgres only** — with `db` exposing `5432`, set `DATABASE_URL` in `.env`, e.g. `postgresql://dossier:devpassword@localhost:5432/dossier` (see [`.env.example`](../.env.example)). Then:
+
+   ```bash
+   alembic upgrade head
+   python scripts/seed_dev_data.py
+   flask run
+   ```
 
 **Dev tools:** Lefthook (git hooks) is a standalone binary; install via your package manager or from [lefthook.dev](https://lefthook.dev). Run `lefthook install` after cloning.
 

@@ -1,5 +1,9 @@
 # Dev overrides: bind mounts for live reload, flask run --debug
 services:
+  db:
+    ports:
+      - "5432:5432"
+
   ops:
     volumes:
       - .:/app
