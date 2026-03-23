@@ -329,6 +329,41 @@
     }
     .article-cover.no-image { display: none; }
 
+    /* Article card */
+    .article-card {
+      border-bottom: 1px solid var(--border);
+    }
+    .article-card:last-child {
+      border-bottom: none;
+    }
+    .article-card-image-wrap {
+      position: relative;
+      width: 100%;
+      overflow: hidden;
+      background: var(--surface);
+    }
+    .article-card-image {
+      width: 100%;
+      aspect-ratio: 16 / 7;
+      object-fit: cover;
+      display: block;
+    }
+    .article-card-body {
+      padding: 1rem 0;
+    }
+    @media (min-width: 768px) {
+      .article-card { padding: 1.5rem 0; }
+      .article-card-body { padding: 0; }
+      .article-card-image-wrap { margin-bottom: 1rem; border-radius: var(--radius); overflow: hidden; }
+    }
+    .article-card--expanded .article-title {
+      font-size: 1.375rem;
+      margin-bottom: 0.75rem;
+    }
+    .article-card--expanded .card-category {
+      margin-bottom: 0.5rem;
+    }
+
     /* Article typography */
     .article-meta {
       font-family: var(--font-ui);

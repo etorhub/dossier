@@ -3,7 +3,7 @@
 {% if feed %}
   <div id="article-list" aria-live="polite">
     {% for article in feed %}
-    <div id="article-{{ article.id }}" class="article-card">
+    <div id="article-{{ article.id }}">
       {% include "partials/article_card.html" with context %}
     </div>
     {% endfor %}
@@ -17,15 +17,15 @@
     aria-live="polite"
     role="status"
     aria-label="{{ _('Articles being prepared') }}">
-    <p class="feed-loading-message">
-      <span class="feed-loading-dots" aria-hidden="true"></span>
-      {{ _('Preparing your articles…') }}
-    </p>
-    <p>{{ _('This usually takes a minute. The page will update automatically.') }}</p>
+    <div style="padding: 3rem 0; text-align: center; color: var(--fg-faint); font-family: var(--font-ui);">
+      <p>{{ _('Preparing your articles') }}<span class="feed-loading-dots" aria-hidden="true"></span></p>
+      <p style="font-size: 0.8rem; margin-top: 0.5rem;">{{ _('This may take a minute on first run.') }}</p>
+    </div>
   </div>
 {% else %}
   <div id="feed-empty" aria-live="polite">
-    <p>{{ _('No articles yet. Your articles are being prepared, or there are no articles matching your sources and topics for today.') }}</p>
-    <p>{{ _('You can adjust your') }} <a href="{{ url_for('settings.settings_page') }}">{{ _('settings') }}</a> {{ _('to change which sources and topics you follow.') }}</p>
+    <div style="padding: 3rem 0; text-align: center; color: var(--fg-faint); font-family: var(--font-ui);">
+      <p>{{ _('No articles yet.') }} <a href="{{ url_for('settings.settings_page') }}">{{ _('Check your settings') }}</a></p>
+    </div>
   </div>
 {% endif %}
