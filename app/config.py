@@ -35,7 +35,7 @@ DEFAULTS: dict[str, Any] = {
         "enrichment_cron": "*/5 * * * *",
         "cluster_cron": "*/5 * * * *",
         "rewrite_cron": "*/5 * * * *",
-        "rewrite_batch_size": 10,
+        "rewrite_batch_size": 0,
         "rewrite_parallel_workers": 1,
         "fetcher": {
             "circuit_breaker_threshold": 5,
@@ -51,7 +51,7 @@ DEFAULTS: dict[str, Any] = {
         "story_similarity_threshold": 0.90,
         "story_min_sources": 2,
         "story_value_delta": 0.05,
-        "embed_batch_size": 50,
+        "embed_batch_size": 0,
     },
     "server": {
         "port": 5000,

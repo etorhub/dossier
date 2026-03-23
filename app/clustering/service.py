@@ -193,12 +193,14 @@ def run_cluster_and_embed(config: dict[str, Any] | None = None) -> StoryReport:
     processing = cfg.get("processing", {})
     window_hours = processing.get("cluster_window_hours", 24)
     threshold = processing.get("story_similarity_threshold", processing.get("cluster_similarity_threshold", 0.90))
-    embed_limit = processing.get("embed_batch_size", 50)
+    embed_n = int(processing.get("embed_batch_size") or 0)
+    embed_limit: int | None = None if embed_n <= 0 else embed_n
     min_sources = processing.get("story_min_sources", 2)
 
-    # Use 168h (1 week) when window_hours=0 to avoid clustering all articles ever
-    effective_hours = window_hours if window_hours else 168
-    since = datetime.now(UTC) - timedelta(hours=effective_hours)
+    # window_hours=0 means no time filter (same semantics as rewrite when window is 0)
+    since: datetime | None = (
+        datetime.now(UTC) - timedelta(hours=window_hours) if window_hours else None
+    )
     report = StoryReport(articles_embedded=0, articles_clustered=0, stories_created=0)
 
     # 1. Embed articles without embeddings

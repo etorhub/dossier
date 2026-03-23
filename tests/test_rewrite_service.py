@@ -197,6 +197,25 @@ def test_rewrite_story_provider_error_stores_failed() -> None:
         )
 
 
+def test_run_rewrite_batch_unlimited_passes_no_sql_limit() -> None:
+    """rewrite_batch_size 0 passes limit=None so all pending stories are selected."""
+    with patch("app.services.rewrite_service.db_stories") as mock_stories:
+        mock_stories.get_stories_needing_any_rewrite.return_value = []
+        config = {
+            "schedule": {"rewrite_batch_size": 0},
+            "processing": {"cluster_window_hours": 24},
+            "rewriting": {
+                "base_language": "en",
+                "styles": [{"id": "neutral"}, {"id": "simple"}],
+                "languages": [{"id": "ca"}, {"id": "en"}],
+            },
+        }
+        run_rewrite_batch(config)
+        mock_stories.get_stories_needing_any_rewrite.assert_called_once()
+        call_kw = mock_stories.get_stories_needing_any_rewrite.call_args.kwargs
+        assert call_kw["limit"] is None
+
+
 def test_run_rewrite_batch_empty_variants() -> None:
     """run_rewrite_batch returns zero counts when no stories need rewrite."""
     with patch("app.services.rewrite_service.db_stories") as mock_stories:

@@ -209,6 +209,7 @@ llm:
   provider: ollama
   model: qwen2.5:7b
   host: http://ollama:11434
+  max_retries: 3
 
 rewriting:
   styles:
@@ -232,6 +233,8 @@ embeddings:
   provider: ollama
   model: nomic-embed-text
   host: http://ollama:11434
+  max_retries: 3
+  max_input_chars: 8000
 
 schedule:
   fetch_interval_minutes: 60
@@ -239,7 +242,7 @@ schedule:
   cluster_cron: "15 * * * *"
   rewrite_cron: "0 6 * * *"
   availability_check_interval_minutes: 10
-  rewrite_batch_size: 50
+  rewrite_batch_size: 0
   rewrite_parallel_workers: 1
   fetcher:
     circuit_breaker_threshold: 5
@@ -260,7 +263,7 @@ processing:
   cluster_window_hours: 0
   story_similarity_threshold: 0.90
   story_min_sources: 2
-  embed_batch_size: 50
+  embed_batch_size: 0
 
 relevance:
   weights:
@@ -289,7 +292,7 @@ topics:
   sports: { label: Sports, icon: trophy, emoji: "⚽" }
 ```
 
-> **Note:** `SECRET_KEY` is loaded directly from the environment (`.env`) by the Flask app factory — not via `app.yaml`. YAML is for non-secret config only.
+> **Note:** `SECRET_KEY` is loaded directly from the environment (`.env`) by the Flask app factory — not via `app.yaml`. YAML is for non-secret config only. `rewrite_batch_size` and `embed_batch_size` of `0` remove per-run caps; Ollama uses `llm.max_retries` / `embeddings.max_retries` (default 3) with backoff on transient errors.
 
 **Topics config:** The `topics` block maps topic IDs (from `sources.yaml`) to display labels and icons used in the feed section navigation. Add entries for any topic ID used by sources; `app.config.get_topic_info()` falls back to a generic label/icon for unknown IDs.
 

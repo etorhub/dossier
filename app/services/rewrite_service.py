@@ -414,10 +414,11 @@ def _gather_rewrite_work(
     batch_size: int,
 ) -> list[tuple[str, list[dict[str, Any]], bool]]:
     """Return list of (story_id, articles, needs_full_regen) needing rewrite."""
+    limit = None if batch_size <= 0 else batch_size
     stories = db_stories.get_stories_needing_any_rewrite(
         variants=variants,
         since=since,
-        limit=batch_size,
+        limit=limit,
     )
     work: list[tuple[str, list[dict[str, Any]], bool]] = []
     for row in stories:
@@ -481,7 +482,7 @@ def run_rewrite_batch(config: dict[str, Any]) -> RewriteReport:
         else None
     )
     schedule_cfg = config.get("schedule", {})
-    batch_size = schedule_cfg.get("rewrite_batch_size", 10)
+    batch_size = int(schedule_cfg.get("rewrite_batch_size") or 0)
 
     variants = _get_rewriting_variants(config)
     base_language = config.get("rewriting", {}).get("base_language", "en")
@@ -492,10 +493,11 @@ def run_rewrite_batch(config: dict[str, Any]) -> RewriteReport:
     ]
 
     variant_str = ", ".join(f"{s}/{l}" for s, l in variants)
+    batch_desc = "unlimited" if batch_size <= 0 else str(batch_size)
     logger.info(
-        "  Variants: %s (batch_size=%d, base=%s)",
+        "  Variants: %s (batch_size=%s, base=%s)",
         variant_str or "none",
-        batch_size,
+        batch_desc,
         base_language,
     )
 

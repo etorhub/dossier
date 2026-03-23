@@ -326,22 +326,38 @@ def set_story_needs_rewrite(story_id: str, needs: bool = True) -> None:
         return_connection(conn)
 
 
-def get_stories_with_centroid_in_window(since: datetime) -> list[dict[str, Any]]:
-    """Return stories that have centroid_embedding and articles in window, for incremental assignment."""
+def get_stories_with_centroid_in_window(since: datetime | None) -> list[dict[str, Any]]:
+    """Return stories with centroid_embedding for incremental assignment.
+
+    If since is not None, only stories that have an article with published_at >= since.
+    If since is None, all stories with a centroid.
+    """
     conn = get_connection()
     try:
         with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
-            cur.execute(
-                """
-                SELECT s.id::text as story_id, s.centroid_embedding
-                FROM stories s
-                JOIN story_articles sa ON sa.story_id = s.id
-                JOIN articles a ON a.id = sa.article_id
-                WHERE a.published_at >= %s AND s.centroid_embedding IS NOT NULL
-                GROUP BY s.id
-                """,
-                (since,),
-            )
+            if since is not None:
+                cur.execute(
+                    """
+                    SELECT s.id::text as story_id, s.centroid_embedding
+                    FROM stories s
+                    JOIN story_articles sa ON sa.story_id = s.id
+                    JOIN articles a ON a.id = sa.article_id
+                    WHERE a.published_at >= %s AND s.centroid_embedding IS NOT NULL
+                    GROUP BY s.id
+                    """,
+                    (since,),
+                )
+            else:
+                cur.execute(
+                    """
+                    SELECT s.id::text as story_id, s.centroid_embedding
+                    FROM stories s
+                    JOIN story_articles sa ON sa.story_id = s.id
+                    JOIN articles a ON a.id = sa.article_id
+                    WHERE s.centroid_embedding IS NOT NULL
+                    GROUP BY s.id
+                    """
+                )
             rows = cur.fetchall()
             result: list[dict[str, Any]] = []
             for row in rows:
@@ -427,8 +443,11 @@ def get_stories_needing_any_rewrite(
                     FROM story_counts sc
                     WHERE sc.needs_rewrite = true OR sc.have_count < %s
                     ORDER BY sc.max_pub DESC
-                    """ + (" LIMIT %s" if limit is not None else ""),
-                    flat_variants + [since, required_count] + ([limit] if limit else []),
+                    """
+                    + (" LIMIT %s" if limit is not None and limit > 0 else ""),
+                    flat_variants
+                    + [since, required_count]
+                    + ([limit] if limit is not None and limit > 0 else []),
                 )
             else:
                 cur.execute(
@@ -452,8 +471,11 @@ def get_stories_needing_any_rewrite(
                     FROM story_counts sc
                     WHERE sc.needs_rewrite = true OR sc.have_count < %s
                     ORDER BY sc.max_pub DESC
-                    """ + (" LIMIT %s" if limit is not None else ""),
-                    flat_variants + [required_count] + ([limit] if limit else []),
+                    """
+                    + (" LIMIT %s" if limit is not None and limit > 0 else ""),
+                    flat_variants
+                    + [required_count]
+                    + ([limit] if limit is not None and limit > 0 else []),
                 )
             rows = cur.fetchall()
             return [dict(row) for row in rows]

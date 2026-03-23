@@ -108,21 +108,34 @@ def update_article_embedding(article_id: str, embedding: list[float]) -> None:
 
 
 def get_recent_articles_without_embedding(
-    since: datetime,
+    since: datetime | None,
     limit: int | None = None,
 ) -> list[dict[str, Any]]:
-    """Return articles since given time that have no embedding yet."""
+    """Return articles with no embedding yet.
+
+    If since is not None, only articles with published_at >= since.
+    If since is None, all articles without an embedding.
+    """
     conn = get_connection()
     try:
         with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
-            cur.execute(
-                """
-                SELECT * FROM articles
-                WHERE published_at >= %s AND embedding IS NULL
-                ORDER BY published_at DESC
-                """,
-                (since,),
-            )
+            if since is not None:
+                cur.execute(
+                    """
+                    SELECT * FROM articles
+                    WHERE published_at >= %s AND embedding IS NULL
+                    ORDER BY published_at DESC
+                    """,
+                    (since,),
+                )
+            else:
+                cur.execute(
+                    """
+                    SELECT * FROM articles
+                    WHERE embedding IS NULL
+                    ORDER BY published_at DESC NULLS LAST
+                    """
+                )
             rows = cur.fetchall()
             if limit is not None:
                 rows = rows[:limit]
@@ -151,46 +164,51 @@ def get_recent_articles_with_embedding(
         return_connection(conn)
 
 
-def get_articles_with_embedding_not_in_story(since: datetime) -> list[dict[str, Any]]:
-    """Return articles in window with embeddings that are not yet in any story."""
+def get_articles_with_embedding_not_in_story(since: datetime | None) -> list[dict[str, Any]]:
+    """Return articles with embeddings not yet in any story, optionally filtered by published_at."""
     return _get_articles_not_in_story(since, require_embedding=True)
 
 
-def get_articles_not_in_story(since: datetime) -> list[dict[str, Any]]:
-    """Return articles in window that are not yet in any story (with or without embedding)."""
+def get_articles_not_in_story(since: datetime | None) -> list[dict[str, Any]]:
+    """Return articles not in any story (with or without embedding), optionally by published_at."""
     return _get_articles_not_in_story(since, require_embedding=False)
 
 
 def _get_articles_not_in_story(
-    since: datetime,
+    since: datetime | None,
     require_embedding: bool = True,
 ) -> list[dict[str, Any]]:
-    """Return articles in window not in a story. Optionally require embedding."""
+    """Return articles not in a story. Optionally require embedding.
+
+    If since is not None, only articles with published_at >= since.
+    """
     conn = get_connection()
     try:
         with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
+            time_clause = " AND a.published_at >= %s" if since is not None else ""
+            params: tuple[Any, ...] = (since,) if since is not None else ()
             if require_embedding:
                 cur.execute(
-                    """
+                    f"""
                     SELECT a.* FROM articles a
                     LEFT JOIN story_articles sa ON sa.article_id = a.id
-                    WHERE a.published_at >= %s
-                      AND a.embedding IS NOT NULL
+                    WHERE a.embedding IS NOT NULL
                       AND sa.article_id IS NULL
-                    ORDER BY a.published_at DESC
+                      {time_clause}
+                    ORDER BY a.published_at DESC NULLS LAST
                     """,
-                    (since,),
+                    params,
                 )
             else:
                 cur.execute(
-                    """
+                    f"""
                     SELECT a.* FROM articles a
                     LEFT JOIN story_articles sa ON sa.article_id = a.id
-                    WHERE a.published_at >= %s
-                      AND sa.article_id IS NULL
-                    ORDER BY a.published_at DESC
+                    WHERE sa.article_id IS NULL
+                      {time_clause}
+                    ORDER BY a.published_at DESC NULLS LAST
                     """,
-                    (since,),
+                    params,
                 )
             return [dict(row) for row in cur.fetchall()]
     finally:

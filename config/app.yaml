@@ -6,6 +6,8 @@ llm:
   simplify_model: qwen2.5:7b # neutral EN → simple EN (moderate complexity)
   translate_model: qwen2.5:7b # translate to other languages (simpler, can use faster model)
   host: http://ollama:11434
+  # Per-call retries for Ollama chat (transient errors)
+  max_retries: 3
 
 # Story-level rewriting: one rewrite per (story, style, language).
 # Styles and languages are extensible via config.
@@ -34,6 +36,8 @@ embeddings:
   provider: ollama
   model: nomic-embed-text
   host: http://ollama:11434
+  max_retries: 3
+  max_input_chars: 8000
 
 schedule:
   fetch_interval_minutes: 60
@@ -45,8 +49,8 @@ schedule:
   rewrite_cron: '0 6 * * *' # Daily at 6am
   # Source feed availability check (HTTP HEAD/GET) — visible in ops dashboard
   availability_check_interval_minutes: 10
-  # Higher batch when showing all stories; more rewrites per run
-  rewrite_batch_size: 50
+  # 0 = process every story needing rewrite in one run; >0 caps stories per run
+  rewrite_batch_size: 0
   # Parallel workers for rewrite. Ollama serializes internally; 1 avoids overloading.
   rewrite_parallel_workers: 1
   fetcher:
@@ -75,7 +79,8 @@ processing:
   # Recommended range: 0.88–0.95. Default: 0.90.
   story_similarity_threshold: 0.80
   story_min_sources: 2
-  embed_batch_size: 50
+  # 0 = embed every pending article in the window each cluster run; >0 caps per run
+  embed_batch_size: 0
 
 relevance:
   weights:

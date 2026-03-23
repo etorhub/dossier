@@ -6,6 +6,7 @@ from abc import ABC, abstractmethod
 from typing import Any
 
 from app.config import load_config
+from app.llm.http_utils import run_with_retries
 
 logger = logging.getLogger(__name__)
 
@@ -30,11 +31,18 @@ class LLMProvider(ABC):
 class OllamaProvider(LLMProvider):
     """LLM via Ollama. No API key required. Runs locally or in a dedicated container."""
 
-    def __init__(self, model: str, host: str = "http://ollama:11434") -> None:
+    def __init__(
+        self,
+        model: str,
+        host: str = "http://ollama:11434",
+        *,
+        max_retries: int = 3,
+    ) -> None:
         self._model = model
         self._host = host
+        self._max_retries = max_retries
 
-    def complete(self, prompt: str, max_tokens: int = 1000) -> str:
+    def _complete_once(self, prompt: str, max_tokens: int) -> str:
         import ollama
 
         try:
@@ -64,6 +72,13 @@ class OllamaProvider(LLMProvider):
                 raise
             raise LLMProviderError(str(e)) from e
 
+    def complete(self, prompt: str, max_tokens: int = 1000) -> str:
+        return run_with_retries(
+            lambda: self._complete_once(prompt, max_tokens),
+            max_retries=self._max_retries,
+            label=f"Ollama chat ({self._model})",
+        )
+
 
 def get_provider(
     config: dict[str, Any] | None = None,
@@ -86,7 +101,8 @@ def get_provider(
 
     if provider_name == "ollama":
         host = llm.get("host") or os.environ.get("OLLAMA_HOST") or "http://ollama:11434"
-        return OllamaProvider(model=model, host=host)
+        retries = int(llm.get("max_retries") or 3)
+        return OllamaProvider(model=model, host=host, max_retries=retries)
     if provider_name == "gemini":
         from app.llm.gemini import GeminiLLMProvider
 

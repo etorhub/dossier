@@ -5,6 +5,7 @@ from abc import ABC, abstractmethod
 from typing import Any
 
 from app.config import load_config
+from app.llm.http_utils import run_with_retries
 
 
 class EmbeddingProviderError(Exception):
@@ -88,17 +89,26 @@ class OllamaEmbeddingProvider(EmbeddingProvider):
     """Embeddings via Ollama. No API key. Runs locally or in a dedicated container."""
 
     def __init__(
-        self, model: str = "nomic-embed-text", host: str = "http://ollama:11434"
+        self,
+        model: str = "nomic-embed-text",
+        host: str = "http://ollama:11434",
+        *,
+        max_retries: int = 3,
+        max_input_chars: int = 8000,
     ) -> None:
         self._model = model
         self._host = host
+        self._max_retries = max_retries
+        self._max_input_chars = max_input_chars
 
-    def embed(self, text: str) -> list[float]:
+    def _embed_once(self, text: str) -> list[float]:
         import ollama
 
         try:
             client = ollama.Client(host=self._host)
-            response = client.embed(model=self._model, input=text[:8000])
+            response = client.embed(
+                model=self._model, input=text[: self._max_input_chars]
+            )
             embeddings = (
                 response.get("embeddings")
                 if isinstance(response, dict)
@@ -111,6 +121,13 @@ class OllamaEmbeddingProvider(EmbeddingProvider):
             if isinstance(e, EmbeddingProviderError):
                 raise
             raise EmbeddingProviderError(str(e)) from e
+
+    def embed(self, text: str) -> list[float]:
+        return run_with_retries(
+            lambda: self._embed_once(text),
+            max_retries=self._max_retries,
+            label=f"Ollama embed ({self._model})",
+        )
 
 
 def get_embedding_provider(config: dict[str, Any] | None = None) -> EmbeddingProvider:
@@ -125,7 +142,14 @@ def get_embedding_provider(config: dict[str, Any] | None = None) -> EmbeddingPro
             or os.environ.get("OLLAMA_HOST")
             or "http://ollama:11434"
         )
-        return OllamaEmbeddingProvider(model=model, host=host)
+        retries = int(embeddings_cfg.get("max_retries") or 3)
+        max_chars = int(embeddings_cfg.get("max_input_chars") or 8000)
+        return OllamaEmbeddingProvider(
+            model=model,
+            host=host,
+            max_retries=retries,
+            max_input_chars=max_chars,
+        )
     if provider_name == "gemini":
         return GeminiEmbeddingProvider.from_embeddings_config(embeddings_cfg)
     raise EmbeddingProviderError(f"Unknown embeddings.provider: {provider_name!r}")

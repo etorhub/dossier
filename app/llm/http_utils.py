@@ -4,9 +4,12 @@ from __future__ import annotations
 
 import logging
 import time
-from typing import Any
+from collections.abc import Callable
+from typing import Any, TypeVar
 
 import httpx
+
+T = TypeVar("T")
 
 logger = logging.getLogger(__name__)
 
@@ -69,3 +72,33 @@ def request_json_with_retries(
     if last_error:
         raise last_error
     raise RuntimeError("request_json_with_retries: no attempts made")
+
+
+def run_with_retries(
+    fn: Callable[[], T],
+    *,
+    max_retries: int = 3,
+    label: str = "LLM call",
+) -> T:
+    """Run a callable with exponential backoff (same cap as HTTP retries)."""
+    last_error: Exception | None = None
+    n = max(max_retries, 1)
+    for attempt in range(n):
+        try:
+            return fn()
+        except Exception as e:
+            last_error = e
+            if attempt + 1 >= n:
+                break
+            wait = min(2.0**attempt, 30.0)
+            logger.warning(
+                "%s failed (attempt %s/%s): %s; retrying in %.1fs",
+                label,
+                attempt + 1,
+                n,
+                e,
+                wait,
+            )
+            time.sleep(wait)
+    assert last_error is not None
+    raise last_error

@@ -18,6 +18,7 @@ def test_get_provider_ollama() -> None:
     assert isinstance(provider, OllamaProvider)
     assert provider._model == "qwen2.5:7b"
     assert provider._host == "http://ollama:11434"
+    assert provider._max_retries == 3
 
 
 def test_get_provider_ollama_with_host() -> None:
@@ -47,7 +48,11 @@ def test_ollama_provider_complete() -> None:
 
     with patch("ollama.Client") as mock_client_class:
         mock_client_class.return_value = mock_client
-        provider = OllamaProvider(model="qwen2.5:7b", host="http://localhost:11434")
+        provider = OllamaProvider(
+            model="qwen2.5:7b",
+            host="http://localhost:11434",
+            max_retries=1,
+        )
         result = provider.complete("Rewrite this", max_tokens=100)
 
     assert result == "TITLE:\nTest\n\nSUMMARY:\nOne. Two.\n\nFULL:\nText."
@@ -65,7 +70,7 @@ def test_ollama_provider_raises_on_empty_response() -> None:
 
     with patch("ollama.Client") as mock_client_class:
         mock_client_class.return_value = mock_client
-        provider = OllamaProvider(model="qwen2.5:7b")
+        provider = OllamaProvider(model="qwen2.5:7b", max_retries=1)
         with pytest.raises(LLMProviderError, match="Empty response"):
             provider.complete("Hello")
 
@@ -77,9 +82,32 @@ def test_ollama_provider_raises_on_error() -> None:
 
     with patch("ollama.Client") as mock_client_class:
         mock_client_class.return_value = mock_client
-        provider = OllamaProvider(model="qwen2.5:7b")
+        provider = OllamaProvider(model="qwen2.5:7b", max_retries=1)
         with pytest.raises(LLMProviderError, match="Connection refused"):
             provider.complete("Hello")
+
+
+def test_ollama_provider_retries_then_succeeds() -> None:
+    """OllamaProvider.complete retries transient failures up to max_retries."""
+    mock_response = {
+        "message": {"content": "TITLE:\nOk\n\nSUMMARY:\nS.\n\nFULL:\nF."}
+    }
+    mock_client = MagicMock()
+    mock_client.chat.side_effect = [
+        Exception("busy"),
+        mock_response,
+    ]
+
+    with (
+        patch("ollama.Client") as mock_client_class,
+        patch("app.llm.http_utils.time.sleep"),
+    ):
+        mock_client_class.return_value = mock_client
+        provider = OllamaProvider(model="qwen2.5:7b", max_retries=3)
+        result = provider.complete("Hi", max_tokens=50)
+
+    assert "Ok" in result
+    assert mock_client.chat.call_count == 2
 
 
 def test_ollama_provider_warm_up_noop() -> None:
