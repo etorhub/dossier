@@ -16,7 +16,7 @@ Do **not** add LLM/embedding dependencies to the web stage or `requirements-web.
 
 | Service      | Role |
 | ------------ | ---- |
-| `db`         | PostgreSQL 16 |
+| `db`         | PostgreSQL 18 |
 | `web`        | Reader app, port **5000** |
 | `worker`     | Scheduled pipeline |
 | `ollama`     | Model runtime |

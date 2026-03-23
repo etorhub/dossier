@@ -31,7 +31,7 @@ Both hosts need the same `config/` directory (or deploy the repo on both). Run *
 
 ### 1.2 PostgreSQL
 
-Install PostgreSQL 16 (or the version your distro ships; align with project expectations).
+Install PostgreSQL 18 (or the version your distro ships; align with project expectations).
 
 ```bash
 sudo apt update
@@ -45,7 +45,7 @@ sudo -u postgres psql -c "CREATE USER dossier WITH PASSWORD 'your-secure-passwor
 sudo -u postgres psql -c "CREATE DATABASE dossier OWNER dossier;"
 ```
 
-**Listen on the LAN** so the PC can connect. Edit `postgresql.conf` (location varies, e.g. `/etc/postgresql/16/main/postgresql.conf`):
+**Listen on the LAN** so the PC can connect. Edit `postgresql.conf` (location varies, e.g. `/etc/postgresql/18/main/postgresql.conf`):
 
 ```ini
 listen_addresses = '*'

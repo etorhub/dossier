@@ -9,7 +9,7 @@ Technology choices for Dossier, with rationale.
 | Layer | Technology | Why |
 | --- | --- | --- |
 | Backend | Python 3.12+ with Flask | Lightweight, well-understood, Jinja2 built-in |
-| Database | PostgreSQL 16 | Robust, multi-user, JSONB support, wide hosting availability |
+| Database | PostgreSQL 18 | Robust, multi-user, JSONB support, wide hosting availability |
 | LLM | Ollama (local) via provider interface | Local inference, no API key; text generation (qwen2.5:7b) and embeddings (nomic-embed-text) |
 | Frontend | Plain HTML + CSS + HTMX | No build step, no JS framework, server-rendered throughout |
 | Templating | Jinja2 (Flask built-in) | Tight Flask integration, partial rendering for HTMX |
@@ -172,7 +172,7 @@ services:
     # ...
 
   db:
-    image: postgres:16-alpine
+    image: postgres:18-alpine
     # ...
 
   web:
@@ -206,6 +206,22 @@ services:
 ```
 
 `docker-compose.override.yml` provides dev overrides: bind mounts for live reload, `flask run --debug` for the web service, exposed ports, and **Postgres published on `localhost:5432`** so you can run `flask run` on the host or connect with `psql`. The `.env` file contains the database password. No LLM API keys required. An `.env.example` template is provided in the repo.
+
+### PostgreSQL major upgrades (Docker)
+
+The compose file pins a **PostgreSQL major** (see `db.image`). PostgreSQL does not support in-place upgrades by swapping the image tag on an existing data directory. After bumping the major version, **recreate the database volume** (only when you can discard or have dumped the old data):
+
+```bash
+docker compose down
+docker volume rm "$(basename "$(pwd)")_pgdata"   # or: docker volume ls, then rm the …_pgdata volume
+docker compose up -d
+```
+
+The `web` service runs `alembic upgrade head` on startup and will apply migrations to the new cluster.
+
+### Optional PostgreSQL 18 tuning
+
+Planner and executor improvements in newer releases apply without app changes. For very large databases or heavy sequential I/O, PostgreSQL 18’s asynchronous I/O may help on Linux hosts that support io_uring; operators can adjust `io_method` and related settings in `postgresql.conf` if benchmarks justify it. Defaults are fine for typical Dossier deployments. See the [PostgreSQL 18 release notes](https://www.postgresql.org/docs/release/18/).
 
 ### Local feed without the pipeline
 

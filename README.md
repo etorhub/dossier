@@ -3,7 +3,7 @@
 [![License: AGPL-3.0](https://img.shields.io/badge/License-AGPL--3.0-blue.svg)](https://opensource.org/licenses/AGPL-3.0)
 [![Python 3.12+](https://img.shields.io/badge/python-3.12+-3776ab?logo=python&logoColor=white)](https://www.python.org/)
 [![Flask](https://img.shields.io/badge/Flask-3.x-000000?logo=flask&logoColor=white)](https://flask.palletsprojects.com/)
-[![PostgreSQL 16](https://img.shields.io/badge/PostgreSQL-16-336791?logo=postgresql&logoColor=white)](https://www.postgresql.org/)
+[![PostgreSQL 18](https://img.shields.io/badge/PostgreSQL-18-336791?logo=postgresql&logoColor=white)](https://www.postgresql.org/)
 [![Docker](https://img.shields.io/badge/Docker-Ready-2496ed?logo=docker&logoColor=white)](https://www.docker.com/)
 [![HTMX](https://img.shields.io/badge/HTMX-2.x-3d7fcf?logo=htmx&logoColor=white)](https://htmx.org/)
 [![Ollama](https://img.shields.io/badge/LLM-Ollama_local-000000)](https://ollama.ai/)
@@ -113,7 +113,7 @@ flask run
 | Layer      | Technology                                  |
 | ---------- | ------------------------------------------- |
 | Backend    | Python 3.12+ / Flask                        |
-| Database   | PostgreSQL 16                               |
+| Database   | PostgreSQL 18                               |
 | LLM        | Ollama (local, no API key)                  |
 | Frontend   | HTML + CSS + HTMX (no JavaScript frameworks) |
 | Scheduling | APScheduler (worker container)               |

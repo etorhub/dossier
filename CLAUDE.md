@@ -66,7 +66,7 @@ Refer to `docs/MVP_PLAN.md` for the canonical phased plan: discovery, fetching, 
 See `docs/TECH_STACK.md` for full details, project structure, dependencies, Docker setup, and key commands.
 
 - **Backend:** Python 3.12+ with Flask
-- **Database:** PostgreSQL 16
+- **Database:** PostgreSQL 18
 - **LLM:** Ollama (local, no API key) via provider interface — text generation and embeddings
 - **Embeddings:** Ollama (nomic-embed-text) for article clustering
 - **Frontend:** Plain HTML + CSS + HTMX

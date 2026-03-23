@@ -23,7 +23,7 @@ Canonical phased plan for the minimum viable product. This document replaces sca
 ### Tasks
 
 1. **Dockerization**
-   - `db` — PostgreSQL 16 (Alpine). Persistent volume, health check via `pg_isready`.
+   - `db` — PostgreSQL 18 (Alpine). Persistent volume, health check via `pg_isready`.
    - `web` — Flask app serving HTTP only. No background jobs in this process. Runs via `gunicorn` in production, `flask run --debug` in dev.
    - `scheduler` — APScheduler process. Triggers fetch and rewrite jobs on configured intervals. Same Docker image as `web`, different entrypoint (`python -m app.scheduler`).
    - `Dockerfile` — Multi-stage build (builder + runtime). Python 3.12-slim base.
