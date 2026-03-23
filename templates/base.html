@@ -696,6 +696,34 @@
       /* Hide mobile pill nav on desktop — sidebar takes over */
       .section-nav { display: none; }
     }
+
+    /* Auth / centered form layout */
+    .auth-card {
+      max-width: 400px;
+      margin: 3rem auto;
+      padding: 2rem;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+    }
+    .auth-card h1 { text-align: center; margin-bottom: 1.5rem; font-size: 1.5rem; }
+    .form-group { margin-bottom: 1rem; }
+    .form-group label, .form-label {
+      display: block;
+      font-family: var(--font-ui);
+      font-size: 0.875rem;
+      font-weight: 600;
+      color: var(--fg-muted);
+      margin-bottom: 0.35rem;
+    }
+    .form-group input, .form-group select, .form-group textarea {
+      width: 100%;
+    }
+    .form-actions { margin-top: 1.5rem; display: flex; flex-direction: column; gap: 0.75rem; }
+    .form-actions .btn { width: 100%; justify-content: center; }
+    .form-link { text-align: center; font-family: var(--font-ui); font-size: 0.875rem; color: var(--fg-muted); }
+    .flash-success { color: var(--accent); font-family: var(--font-ui); font-size: 0.875rem; padding: 0.5rem 0; }
+    .flash-error { color: #dc2626; font-family: var(--font-ui); font-size: 0.875rem; padding: 0.5rem 0; }
   </style>
   {% block head %}{% endblock %}
 </head>
