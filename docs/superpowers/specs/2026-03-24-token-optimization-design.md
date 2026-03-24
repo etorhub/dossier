@@ -17,6 +17,20 @@ Analysis of the Mar 23 session (3.9 MB, ~1,400 records) identified five root cau
 
 ---
 
+## Root Cause to Change Mapping
+
+| Root Cause | Change(s) That Address It |
+|---|---|
+| 1. Agent context fragmentation | Change 1, Change 2 |
+| 2. Redundant file reads | Change 1, Change 2 |
+| 3. Branch-switching cache loss | Change 3 (+ Change 1 branch budget section) |
+| 4. No pre-flight coordination | Change 4 (new skill) + CLAUDE.md |
+| 5. Post-edit re-reads | Change 4 (step 4 of skill) + CLAUDE.md |
+
+All five causes are covered. Root causes 4 and 5 are addressed via the pre-flight skill and CLAUDE.md rather than the skill patches, because they are habits that apply to the main thread, not agent dispatch specifically.
+
+---
+
 ## Goals
 
 - Eliminate redundant file reads across agent dispatches.
@@ -34,108 +48,195 @@ Analysis of the Mar 23 session (3.9 MB, ~1,400 records) identified five root cau
 
 ---
 
-## Solution: Four Changes
+## Solution: Four Changes + CLAUDE.md
 
 ### 1. Patch `subagent-driven-development/SKILL.md`
 
+**File:** `~/.claude/plugins/cache/claude-plugins-official/superpowers/5.0.5/skills/subagent-driven-development/SKILL.md`
+
 Add a **Context Injection Protocol** section before "Prompt Templates". This is a required checklist: before dispatching any implementer subagent, the controller must identify all files the agent will need, read them all in one parallel batch, and embed them inline in the prompt.
 
-**Prompt template to add:**
+**New section to add:**
 
-```
-<file path="path/to/file.ext">
-[full file contents]
+```markdown
+## Context Injection Protocol
+
+**REQUIRED before every agent dispatch.** Agents must never read files themselves — the controller reads all needed files upfront and passes them inline.
+
+### Steps
+1. Identify every file the agent will read or edit
+2. Read all of them now, in one parallel batch (multiple Read tool calls in one message)
+3. Embed contents inline in the agent prompt:
+
+### Prompt template
+
+<file path="app/templates/base.html">
+[full file contents here]
 </file>
 
-Your task: [description]
+<file path="app/templates/partials/article_card.html">
+[full file contents here]
+</file>
+
+Your task: [task description]
 Constraint: Do NOT read files — all context is provided above.
 ```
 
-Add to "Red Flags / Never" list:
-- `Make the agent read files — inject all contents upfront`
+**Red Flags change (line 241):** Replace the existing entry:
+```
+- Make subagent read plan file (provide full text instead)
+```
+with the broader:
+```
+- Make agents read any files themselves — read all needed files upfront and inject contents inline
+```
+The old entry is too narrow (plan file only). The new entry replaces it entirely.
 
-**Why this is the highest-impact change:** agents reading files themselves was the single largest contributor to token waste. The skill already has a note about this in the Advantages section ("No file reading overhead — controller provides full text") but it is not enforced.
+**Also add branch switch budget here** (not only in `using-git-worktrees`, since this skill governs the whole session):
+```
+- Switch branches more than twice in a session — complete all worktree work before switching to main
+```
 
 ---
 
 ### 2. Patch `dispatching-parallel-agents/SKILL.md`
 
-Add a **Context injection (required)** subsection to "Agent Prompt Structure":
+**File:** `~/.claude/plugins/cache/claude-plugins-official/superpowers/5.0.5/skills/dispatching-parallel-agents/SKILL.md`
 
+Two changes in this file:
+
+**A. Update the example prompt at line 100**, which currently reads:
 ```
-Read all files the agent will need before dispatch. Embed them inline.
-Never instruct the agent to read files — they lose the benefit of your context.
+1. Read the test file and understand what each test verifies
+```
+Replace with:
+```
+1. Review the test file (provided above) and understand what each test verifies
 ```
 
-Same principle as patch 1, applied to the parallel dispatch workflow.
+**B. Add a "Context Injection Protocol" subsection** to "Agent Prompt Structure". This mirrors the protocol in Change 1 — the controller side is identical. Rather than duplicating the full text, add a cross-reference and a condensed version:
+
+```markdown
+### Context injection (required)
+
+Apply the same Context Injection Protocol as in `subagent-driven-development`:
+1. Identify every file the agent will need
+2. Read them all now in one parallel batch
+3. Embed contents inline using `<file path="...">` blocks
+4. Include "Do NOT read files — all context is provided above" in the prompt
+
+The agent prompt in this skill's "Real Example from Session" section does not demonstrate file injection (it predates this rule). Treat the updated template above as the canonical pattern, not the existing example.
+```
 
 ---
 
 ### 3. Patch `using-git-worktrees/SKILL.md`
 
-Add a **Branch Switch Budget** section:
+**File:** `~/.claude/plugins/cache/claude-plugins-official/superpowers/5.0.5/skills/using-git-worktrees/SKILL.md`
 
-- A session budget of **2 branch switches**: worktree → main for integration, and one emergency return.
-- Before switching to main, complete a checklist: all tasks done, tests passing, no half-finished edits.
-- If a third switch is needed, stop and evaluate: was integration incomplete, or is this new scope?
-- Surface the cost explicitly: each switch causes a full context reload (~40–70K tokens).
+Add a **Branch Switch Budget** section after "Creation Steps":
+
+```markdown
+## Branch Switch Budget
+
+Each branch switch costs a full context reload (~40–70K tokens). A session has a budget of **2 switches**:
+- Switch 1: worktree → main for integration
+- Switch 2: one emergency return only
+
+Before switching to main, complete this checklist:
+- [ ] All planned tasks complete
+- [ ] Tests passing
+- [ ] No half-finished edits
+
+If you need a third switch, stop and assess: was integration incomplete, or is this new scope? Either way, do not proceed without a clear plan.
+```
 
 ---
 
-### 4. New local skill: `token-efficiency`
+### 4. New skill: `superpowers:token-efficiency`
 
-A global pre-flight skill at `~/.claude/skills/token-efficiency/SKILL.md`.
+**File:** `~/.claude/plugins/cache/claude-plugins-official/superpowers/5.0.5/skills/token-efficiency/SKILL.md`
 
-Invoked at the start of any session involving multiple agents or worktrees. Contains four steps:
+Skills in Claude Code live inside plugins — there is no standalone `~/.claude/skills/` path. This skill is added directly to the superpowers plugin cache. It will be accessible as `superpowers:token-efficiency`.
 
-1. **File Audit** — identify all files that will be touched; read them all now in one parallel batch.
-2. **Agent Budget** — ≤3 agents: proceed; 4–7: confirm isolation; >7: split into two sessions.
-3. **Branch Plan** — write down the branch, the one integration switch, and when it happens.
-4. **No Re-reads** — after editing, do not re-read the full file. Use grep for targeted verification only.
+**Risk:** The superpowers plugin cache may be overwritten on plugin update. Mitigation: the CLAUDE.md addition (below) contains a condensed version of the same rules, which is always in context and survives any plugin update. After a plugin update, reapply this skill file.
 
-This skill survives plugin updates and serves as the safety net when the patched skills are overwritten.
+**Skill content:**
+
+```markdown
+---
+name: token-efficiency
+description: Pre-flight checklist before any multi-agent session or worktree-based feature work — batch reads, agent budget, branch plan
+---
+
+# Token Efficiency Pre-flight
+
+Run this before any session involving multiple agent dispatches or worktrees.
+
+## 1. File Audit
+Identify all files that will be touched this session.
+Read them ALL now in a single parallel batch (one message with multiple Read tool calls).
+Do not read them again later — these reads are the only reads.
+
+## 2. Agent Budget
+Count planned agent dispatches. These thresholds are heuristic, based on observed context costs:
+- ≤3 agents: proceed
+- 4–7 agents: verify each is truly isolated; tasks with shared file state belong on the main thread
+- >7 agents: this is likely two sessions; decompose before starting
+
+## 3. Branch Plan
+State now: which branch, one integration switch, when.
+Do not switch branches mid-session unless worktree work is fully complete (all tasks done, tests passing).
+
+## 4. No Re-reads
+After editing a file, do not re-read it in full. If verification is needed, grep for the specific change.
+Full re-reads after edits are the second most common source of redundant tokens.
+```
+
+---
+
+### 5. CLAUDE.md Addition
+
+Add a **Token Efficiency** section to `CLAUDE.md`. This is the durable safety net — always in context, survives plugin updates:
+
+```markdown
+## Token Efficiency
+
+- Before any multi-agent session or worktree feature, invoke the `token-efficiency` skill.
+- When dispatching agents (subagent-driven-development or dispatching-parallel-agents): read all files the agent will need upfront and inject them inline. Agents must never read files themselves.
+- Branch switches cost a full context reload (~40–70K tokens). Budget: ≤2 per session. Complete all worktree work before switching to main.
+- After editing a file, do not re-read it in full. Use grep for targeted verification only.
+```
 
 ---
 
 ## Risk: Plugin Updates Overwriting Patches
 
-Plugin cache files at `~/.claude/plugins/cache/` are managed by the plugin system and may be overwritten on update. Mitigations:
-
-- The local `token-efficiency` skill is outside the plugin cache and always survives.
-- The CLAUDE.md addition (see below) points to the skill, ensuring it stays in context.
-- Patches should be reapplied after plugin updates. This is low-frequency (plugin updates are rare).
-
----
-
-## CLAUDE.md Addition
-
-Add a short "Token Efficiency" section to `CLAUDE.md`:
-
-```markdown
-## Token Efficiency
-
-- Before any multi-agent session, invoke the `token-efficiency` skill.
-- When dispatching agents (subagent-driven-development or dispatching-parallel-agents): read all files the agent will need upfront and inject them inline into the prompt. Agents must never read files themselves.
-- Branch switches cost a full context reload. Complete worktree work fully before switching to main.
-- After editing a file, do not re-read it. If verification is needed, grep for the specific change.
-```
+Plugin cache files at `~/.claude/plugins/cache/` may be overwritten on `claude plugin update`. Mitigations:
+- CLAUDE.md addition is always in context and survives any update.
+- Plugin updates are infrequent. After an update, reapply skill file Changes 1–4.
+- The new `token-efficiency` skill (Change 4) is the one most likely to be lost; the CLAUDE.md rules cover the same ground.
 
 ---
 
 ## Implementation Order
 
-1. Create local skill `~/.claude/skills/token-efficiency/SKILL.md`
-2. Patch `subagent-driven-development/SKILL.md`
-3. Patch `dispatching-parallel-agents/SKILL.md`
-4. Patch `using-git-worktrees/SKILL.md`
-5. Add Token Efficiency section to `CLAUDE.md`
-6. Commit all changes
+Steps 1–4 must complete before step 5. The CLAUDE.md addition (step 5) references the `token-efficiency` skill by name — if that skill does not exist when CLAUDE.md is updated, every invocation will fail. Steps 1–4 and step 5 must be committed atomically (single commit) or step 5 must be committed only after step 4.
+
+1. Patch `subagent-driven-development/SKILL.md` (highest impact)
+2. Patch `dispatching-parallel-agents/SKILL.md`
+3. Patch `using-git-worktrees/SKILL.md`
+4. Create `token-efficiency/SKILL.md` inside superpowers plugin
+5. Add Token Efficiency section to `CLAUDE.md` **(must follow step 4)**
+6. Commit all changes in a single commit
 
 ---
 
 ## Success Criteria
 
-- Agents dispatched with all needed file contents inline; zero "read the file yourself" instructions.
-- Sessions involving worktrees complete with ≤2 branch switches.
-- No full file re-reads after edits.
-- Estimated token reduction: 50–65% on comparable multi-agent sessions.
+| Criterion | How to Verify |
+|---|---|
+| Agents receive files inline | In session `.jsonl` log: no `tool_use` records with `name: Read` from subagent contexts |
+| ≤2 branch switches per session | Session log: count `worktree` branch change events |
+| No full re-reads after edits | Session log: no `Read` tool call on the same path after an `Edit` on that path in the same turn sequence |
+| Token reduction 50–65% | Session `.jsonl` file size as proxy (Mar 23 baseline: 3.9 MB); a comparable multi-agent frontend session should be ≤2 MB |
