@@ -60,10 +60,10 @@ schedule:
   availability_check_interval_minutes: 10
   # 0 = process every story needing rewrite in one run; >0 caps stories per run
   rewrite_batch_size: 0
-  # Parallel stories + intra-story translations (ThreadPoolExecutor). Keep aligned with
-  # OLLAMA_NUM_PARALLEL in docker-compose.yml (ollama service) when using profile local-llm;
-  # exceeding Ollama concurrency causes timeouts and empty responses.
-  rewrite_parallel_workers: 4
+  # Story-level thread pool. Use 1 with a single-GPU Ollama host: two concurrent rewrites
+  # often blow VRAM and the GPU goes idle after a short spike. Raise only if Ollama has
+  # headroom (see docker-compose OLLAMA_NUM_PARALLEL / GPU memory).
+  rewrite_parallel_workers: 1
   fetcher:
     circuit_breaker_threshold: 5
     request_timeout_seconds: 30
@@ -95,9 +95,13 @@ feed:
 processing:
   # 0 = no limit; show every story with a rewrite
   articles_per_day: 0
-  summary_sentences: 3
+  summary_sentences: 2
   # Max tokens for rewrite output (TITLE/SUMMARY/FULL). Too low truncates FULL: and breaks parsing.
   rewrite_max_tokens: 4096
+  # Keep merged-source prompts inside local LLM context (avoids hangs / empty replies). 0 = no limit.
+  rewrite_max_sources_per_story: 18
+  rewrite_max_chars_per_article: 8000
+  rewrite_max_articles_text_chars: 52000
   # Extra LLM call per variant to fix spelling/grammar only; disable to reduce load/timeouts under parallel rewrite.
   rewrite_proofread_enabled: true
   # 0 = all stories regardless of freshness

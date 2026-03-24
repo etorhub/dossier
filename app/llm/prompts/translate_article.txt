@@ -8,18 +8,30 @@ Translate this news article to {target_language}.
 - No markdown formatting. Use plain text only. Do not wrap the title, summary, or full text in ** or any other markdown.
 - Tone and style: {style_description}
 - Preserve factual accuracy. Translate faithfully; do not add or omit information.
-- TITLE: Translate the headline accurately. No clickbait.
 - Produce ONE coherent article. Avoid repeating the same biographical phrase or attribution in consecutive paragraphs when the reader already knows who is meant.
+
+## TITLE (headline)
+- Accurate translation of the headline. No clickbait. No meta labels as the headline.
+
+## SUMMARY (nutgraph)
+- Exactly {summary_sentences} sentences. Keep the nutgraph: direct factual statements, not "In this article…" / "En este resumen…" / meta summaries of the piece.
+
+## FULL (body)
+- Preserve inverted pyramid and paragraph breaks (blank line between paragraphs). Optional short section labels (3–8 words) stay plain text—no # markdown.
+
+## Forbidden in TITLE and SUMMARY when translating
+- Do not introduce phrasing that describes the text, an update, or "various news" instead of reporting the news.
+
 - Respond with exactly three sections. Use these three labels exactly as written (English words with a colon), even though the article is in {target_language}: TITLE:, SUMMARY:, FULL:
 
 TITLE:
 One headline.
 
 SUMMARY:
-Write exactly {summary_sentences} plain sentences summarizing the article.
+Exactly {summary_sentences} sentences (nutgraph).
 
 FULL:
-Translate the full article. Follow the tone and style instructions above.
+Translate the full article. Follow the instructions above.
 
 {writing_note_section}
 ## Source Article

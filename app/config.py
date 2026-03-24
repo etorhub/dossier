@@ -47,7 +47,7 @@ DEFAULTS: dict[str, Any] = {
         "cluster_cron": "*/5 * * * *",
         "rewrite_cron": "*/5 * * * *",
         "rewrite_batch_size": 0,
-        "rewrite_parallel_workers": 4,
+        "rewrite_parallel_workers": 1,
         "fetcher": {
             "circuit_breaker_threshold": 5,
             "request_timeout_seconds": 30,
@@ -56,8 +56,11 @@ DEFAULTS: dict[str, Any] = {
     },
     "processing": {
         "articles_per_day": 10,
-        "summary_sentences": 3,
+        "summary_sentences": 2,
         "rewrite_max_tokens": 4096,
+        "rewrite_max_sources_per_story": 18,
+        "rewrite_max_chars_per_article": 8000,
+        "rewrite_max_articles_text_chars": 52000,
         # Second LLM pass: spelling, grammar, agreement only (after each draft rewrite).
         "rewrite_proofread_enabled": True,
         "cluster_window_hours": 24,

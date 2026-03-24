@@ -36,7 +36,9 @@ _rewrite_progress_lock = threading.Lock()
 _REWRITE_OUTPUT_CONTRACT_PREFIX = (
     "[Output contract — highest priority]\n"
     "Line 1 of your reply must be TITLE: (character T first). No preamble, markdown headings, "
-    "or numbered summaries per source. Use TITLE:, SUMMARY:, FULL: then write only in {language}.\n\n"
+    "or numbered summaries per source. Use TITLE:, SUMMARY:, FULL: then write only in {language}.\n"
+    "TITLE, SUMMARY, and FULL must read as published news: report facts directly. "
+    "Do not describe the text, an 'update', a 'summary', or 'multiple news items'—no meta framing.\n\n"
 )
 
 
@@ -321,8 +323,14 @@ def _get_language_label(config: dict[str, Any], lang_id: str) -> str:
 def _get_style_description(config: dict[str, Any], style_id: str) -> str:
     """Return a brief style description for the translate prompt."""
     descriptions = {
-        "neutral": "Journalistic. Formal and well-written. Preserve original complexity and nuance.",
-        "simple": "Short sentences. Simple vocabulary. No jargon. Remain factual and complete.",
+        "neutral": (
+            "Wire-style journalism: formal, neutral, inverted pyramid; direct facts; "
+            "no meta framing ('this article', 'this update', 'various news')."
+        ),
+        "simple": (
+            "Short sentences, simple words, same journalistic standards: lead with the news, "
+            "no meta framing."
+        ),
     }
     return descriptions.get(style_id, "Preserve the tone of the source.")
 
@@ -457,7 +465,7 @@ def rewrite_story(
     rewriting = config.get("rewriting", {})
     styles_cfg = {s["id"]: s for s in rewriting.get("styles", [])}
     prompt_name = styles_cfg.get(style, {}).get("prompt", "rewrite_cluster_neutral")
-    summary_sentences = processing.get("summary_sentences", 3)
+    summary_sentences = processing.get("summary_sentences", 2)
     max_tokens = processing.get("rewrite_max_tokens", 4096)
     prompt_language = _get_language_label(config, language)
 
@@ -557,7 +565,7 @@ def _simplify_rewrite(
     """Simplify a neutral rewrite in base_language to simple language in the same locale."""
     article_text = _build_article_text_from_rewrite(neutral_rewrite)
     processing = config.get("processing", {})
-    summary_sentences = processing.get("summary_sentences", 3)
+    summary_sentences = processing.get("summary_sentences", 2)
     max_tokens = processing.get("rewrite_max_tokens", 4096)
     prompt_language = _get_language_label(config, base_language)
 
@@ -621,7 +629,7 @@ def _translate_rewrite(
     target_language = _get_language_label(config, target_lang_id)
     style_description = _get_style_description(config, style)
     processing = config.get("processing", {})
-    summary_sentences = processing.get("summary_sentences", 3)
+    summary_sentences = processing.get("summary_sentences", 2)
     max_tokens = processing.get("rewrite_max_tokens", 4096)
 
     writing_note_section = _writing_note_section_for_translate(config, target_lang_id)

@@ -1,24 +1,54 @@
+[MANDATORY — read before the articles]
+Your entire reply must be plain text. The first character you output must be "T" (the first letter of TITLE:).
+Do not write a preamble: no "Here is", no "Summary of", no markdown headings (# or ###), no numbered per-source digests, no bullet lists of documents.
+Do not label sources as "Document 1" or similar. Merge every fact into ONE continuous article under FULL:.
+The section labels TITLE:, SUMMARY:, and FULL: must appear exactly (ASCII, with a colon). All prose under them must be in {language} only.
+
+Write as if this were published news wire copy: direct reporting of facts, not a description of the text you are writing.
+
 Merge and rewrite these news articles about the same event for a general audience.
 
 ## Instructions
 - Output exclusively in {language}. The title, summary (short version), and full text must all be written in {language}. Do not use words, phrases, or expressions from any other language.
 - Write with correct spelling and grammar. No typos or spelling errors are acceptable.
 - No markdown formatting. Use plain text only. Do not wrap the title, summary, or full text in ** or any other markdown.
-- Tone and style: Short sentences. Simple vocabulary. No jargon. Remain factual and complete; avoid infantilising tone.
+- Tone and style: Short sentences. Simple vocabulary. No jargon. Remain factual and complete; avoid infantilising tone. Same journalistic standards as wire copy: lead with the news, neutral and objective, prefer active voice, no filler.
 - Preserve factual accuracy. Never add information not present in the sources.
 - Produce ONE unified article. Combine facts from all sources. Avoid repetition.
-- TITLE: Write a single, journalistically accurate headline. No clickbait.
+
+## TITLE (headline)
+- One line: a clear headline that states the main news (concrete subject + strong verb).
+- Do not use meta labels: no "Actualización", "Resumen", "Informe", or English "Update:", "Summary:", "Roundup:".
+- Do not write a teaser that describes the piece instead of the event.
+
+## SUMMARY (nutgraph)
+- Exactly {summary_sentences} short sentences. Each must state facts (who, what, when, where, why)—the heart of the story.
+- Do not describe the article or say you are giving a summary. Start with the most important fact.
+
+## FULL (body)
+- Inverted pyramid: first paragraph = main news; next paragraphs add context and detail.
+- Separate paragraphs with a blank line (double newline).
+- Optional: at most a few very short labels (3–8 words, Title Case), each alone between blank lines—no # markdown.
+
+## Forbidden in TITLE and SUMMARY (do not use this kind of phrasing in any language)
+- Spanish examples: "En este artículo…", "En esta actualización…", "En este resumen…", "En esta noticia…", "se presentan…", "diversas noticias", "se abordan diversos temas".
+- English examples: "This article…", "In this update…", "This story discusses…", "Several topics…".
+- Report the news directly; do not announce that you are summarizing or listing items.
+
 - Respond with exactly three sections. Use these three labels exactly as written (English words with a colon), even though the article is in {language}: TITLE:, SUMMARY:, FULL:
 
 TITLE:
 One headline.
 
 SUMMARY:
-Write exactly {summary_sentences} plain sentences summarizing the combined article.
+Exactly {summary_sentences} sentences (nutgraph).
 
 FULL:
-Write the full article. Follow the tone and style instructions above.
+The full article. Follow the structure and style instructions above.
 
 ## Articles
 
 {articles_text}
+
+## Required closing (after you have read the sources)
+Write the merged story now. Start your answer with the line TITLE: — nothing may appear before it. Use SUMMARY: and FULL: next. Language for all body text: {language}.

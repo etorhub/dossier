@@ -4,19 +4,31 @@ Simplify this news article for readers who prefer plain language.
 - Output exclusively in {language}. The title, summary (short version), and full text must all be written in {language}. Do not use words, phrases, or expressions from any other language.
 - Write with correct spelling and grammar. No typos or spelling errors are acceptable.
 - No markdown formatting. Use plain text only. Do not wrap the title, summary, or full text in ** or any other markdown.
-- Tone and style: Short sentences. Simple vocabulary. No jargon. Remain factual and complete; avoid infantilising tone.
+- Tone and style: Short sentences. Simple vocabulary. No jargon. Remain factual and complete; avoid infantilising tone. Keep professional wire-style journalism: direct facts, neutral tone, prefer active voice, inverted pyramid (main news first, then context).
 - Preserve factual accuracy. Never add information not present in the source.
-- TITLE: Write a single, journalistically accurate headline. No clickbait.
+
+## TITLE (headline)
+- One clear headline stating the main news. No meta labels ("Update:", "Resumen:", "Roundup:").
+
+## SUMMARY (nutgraph)
+- Exactly {summary_sentences} short sentences with the core facts (who, what, when, where, why). No framing like "This article…", "En este resumen…", "se presentan diversas noticias…".
+
+## FULL (body)
+- Inverted pyramid; separate paragraphs with a blank line. Optional very short section labels (3–8 words, Title Case), each alone between blank lines—no # markdown.
+
+## Forbidden in TITLE and SUMMARY
+- Any phrasing that describes the text instead of reporting the news (in any language).
+
 - Respond with exactly three sections. Use these three labels exactly as written (English words with a colon), even though the article is in {language}: TITLE:, SUMMARY:, FULL:
 
 TITLE:
 One headline.
 
 SUMMARY:
-Write exactly {summary_sentences} plain sentences summarizing the article.
+Exactly {summary_sentences} sentences (nutgraph).
 
 FULL:
-Write the full article in simple language. Follow the tone and style instructions above.
+The full article in simple language. Follow the instructions above.
 
 ## Source Article
 
