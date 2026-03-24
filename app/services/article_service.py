@@ -268,16 +268,19 @@ def get_expanded_story(
         title = rw.get("title") or "Article"
         summary = rw.get("summary") or ""
         full_text = rw["full_text"]
+        highlighted_full_text = rw.get("highlighted_full_text")
     else:
         title = "Article"
         summary = ""
         full_text = "This article is being prepared. Please try again shortly."
+        highlighted_full_text = None
 
     return {
         "id": story_id,
         "title": title,
         "summary": summary,
         "full_text": full_text,
+        "highlighted_full_text": highlighted_full_text,
         "image_url": image_url,
         "image_source_name": image_source_name,
         "published_at": published_at,
