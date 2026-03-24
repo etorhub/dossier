@@ -71,6 +71,7 @@ See `docs/TECH_STACK.md` for full details, project structure, dependencies, Dock
 - **Embeddings:** Ollama (nomic-embed-text) for article clustering
 - **Frontend:** Plain HTML + CSS + HTMX
 - **Scheduling:** APScheduler runs a five-stage pipeline in the worker: fetch feeds → enrich (extract full text) → embed → cluster → rewrite. The rewrite stage uses a cascade: generate neutral EN from sources, simplify to simple EN, translate both to other languages. Content is ready when the user opens the app.
+- **Content filtering:** `app/feed/classifier.py` classifies articles as `news` or `non_news` using keyword heuristics (recipes, horoscopes, classifieds, promotions). Applied at fetch time (title + raw_text) and again at enrich time (full text). Non-news articles are stored with `article_type = 'non_news'` and excluded from enrichment, embedding, and clustering. Operators review and override via the ops dashboard.
 - **Packaging:** Docker + docker-compose (db, web, worker, ollama, ops). Web uses slim image; worker uses ollama client; ollama runs models in dedicated container; ops dashboard on port 5001.
 - **Dev tooling:** Ruff (lint/format), Mypy (type check), Pytest, Lefthook (git hooks), Commitizen (conventional commits)
 
@@ -113,6 +114,7 @@ These are hard rules, not preferences:
 - **Putting user preferences in YAML files.** User profile settings live in PostgreSQL, set through the setup wizard. Only the source catalog and app-level config belong in YAML.
 - **Using SQLite.** This project uses PostgreSQL. Always use `psycopg2` or the db layer, never `sqlite3`.
 - **Making LLM calls during request handling.** The web container never imports or runs LLM/ML code. On-demand rewrites (after setup/settings save) are queued in `rewrite_requests` and processed by the worker. Routes serve pre-cached content from the database.
+- **Bypassing the content classifier.** All articles inserted via `insert_article()` must have their `article_type` set by `classify_article()` in `orchestrator.py`. Never skip classification or hardcode `article_type = 'news'` unconditionally. The classifier is in `app/feed/classifier.py`.
 
 ---
 

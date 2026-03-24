@@ -18,11 +18,13 @@ A five-stage pipeline runs on a background schedule (APScheduler): fetch feeds �
 
 | Stage | Component | What it does |
 |-------|-----------|--------------|
-| 1. Fetch | `app/feed/` | Fetch RSS feeds, parse XML, deduplicate, insert raw articles |
-| 2. Enrich | `app/extraction/` | Trafilatura extracts full text from article URLs; updates `articles` |
-| 3. Embed | `app/llm/embeddings.py` | Ollama (nomic-embed-text) embeds each article; stores vectors |
+| 1. Fetch | `app/feed/` | Fetch RSS feeds, parse XML, classify, deduplicate, insert articles |
+| 2. Enrich | `app/extraction/` | Trafilatura extracts full text; re-classifies with full text; updates `articles` |
+| 3. Embed | `app/llm/embeddings.py` | Ollama (nomic-embed-text) embeds each `news` article; stores vectors |
 | 4. Cluster | `app/clustering/` | Cosine similarity + complete-linkage groups related articles into stories |
 | 5. Rewrite | `app/services/rewrite_service.py` | LLM cascade: merge sources → neutral EN, simplify, translate to all languages |
+
+**Content filtering** is applied in stages 1 and 2. The classifier (`app/feed/classifier.py`) uses keyword heuristics to detect non-news content (recipes, horoscopes, classifieds, promotions). Articles classified as `non_news` are stored in the database but excluded from enrichment, embedding, and clustering. Operators can review and override classifications in the ops dashboard.
 
 The worker runs on a schedule (fetch every 60 min; enrich at :05; cluster at :15; rewrite daily at 06:00). When content is ready, any user whose preferred (style, language) matches an existing story rewrite sees it immediately.
 
@@ -103,7 +105,8 @@ For automated source discovery (location-based discovery, feed detection, qualit
 
 - `fetcher.py` — fetches RSS feeds via HTTP, returns `FetchResult` with content and conditional headers
 - `parser.py` — parses feed XML via `feedparser`, returns `RawArticle` objects; extracts best image from `media:content`, enclosures, content HTML, or `media:thumbnail` (in priority order); images from `media:content`/`media:thumbnail` with an explicit width below 300 px are rejected
-- `orchestrator.py` — fetches all due feeds, parses, deduplicates, inserts articles; circuit breaker for failing feeds
+- `orchestrator.py` — fetches all due feeds, parses, classifies (via `classifier.py`), deduplicates, inserts articles; circuit breaker for failing feeds
+- `classifier.py` — heuristic classifier (`classify_article(title, text) → 'news' | 'non_news'`); checks title for strong single-term signals and title+text for multi-signal group patterns (recipes, horoscopes, classifieds, promotions); zero GPU cost
 - `availability.py` — `check_all_feeds_availability()`: HTTP HEAD/GET to each active feed; stores results in `source_availability_checks`; scheduled every 10 minutes
 
 A `RawArticle` has: `id`, `title`, `url`, `source`, `published_at`, `raw_text` (RSS description/lede), `full_text` (populated when the source provides full article content), `image_url`, `image_source` (one of `media_content`, `enclosure`, `content_html`, `media_thumbnail`, or `None`).
@@ -126,7 +129,7 @@ Article clustering by embedding similarity. Stories are not a fixed partition of
 
 Full-text extraction from article URLs.
 
-- `extractor.py` — batch enrichment for articles with `extraction_status = 'pending'`
+- `extractor.py` — batch enrichment for `news` articles with `extraction_status = 'pending'`; after successful Trafilatura extraction, re-runs the classifier with full text and marks any newly-detected non-news articles
 - `trafilatura.py` — fetches URL and extracts main body via Trafilatura
 
 ### `app/discovery/`
@@ -150,7 +153,7 @@ Business logic. Routes call services; services do the work.
 
 All PostgreSQL access. No other module writes to the database directly.
 
-- `articles.py` — read/write for articles (including embeddings, extraction status)
+- `articles.py` — read/write for articles (including embeddings, extraction status, `article_type`); all embedding and clustering queries filter `article_type = 'news'`
 - `stories.py` — stories, story_articles, story_rewrites
 - `sources.py` — news_sources, source_feeds, source_discovery_log
 - `rewrite_requests.py` — on-demand rewrite queue infrastructure (table + DB layer exist; not yet wired to routes or scheduler)

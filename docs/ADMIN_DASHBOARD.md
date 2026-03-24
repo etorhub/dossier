@@ -38,7 +38,7 @@ With the override, the ops service uses Flask debug mode and live reload.
 ### 1. Dashboard (overview)
 
 - **Incidents** — Feed deactivated, extraction backlog, rewrite failures, job errors
-- **Overview cards** — Users, articles today, active feeds, last job run
+- **Overview cards** — Users, articles today (with filtered count if any non-news detected today), active feeds, last job run
 - **Recent jobs** — Last 10 job runs (auto-refresh every 60s)
 - **Feed health** — Sources and feeds with availability status
 - **Article pipeline** — Extraction status breakdown, 7-day ingestion
@@ -69,9 +69,11 @@ Table of sources and feeds:
 Paginated table of fetched articles with full metadata:
 
 - ID, title, source, published, fetched
+- **Type** (`news` / `non_news`) — amber row highlight for filtered content; click ✓/✗ to override the classification inline
 - Extraction status, method, extracted_at
 - Has embedding, story assignment
-- Filters: extraction status, source, date range, has-embedding, in-story
+- Filters: extraction status, source, date range, has-embedding, in-story, **article type**
+- **Scan existing articles** button — runs the content classifier over all stored `news` articles and marks any detected non-news; returns the count of newly-flagged articles. Useful after deploying the classifier for the first time or after tuning signal groups.
 
 ### 5. Stories
 
