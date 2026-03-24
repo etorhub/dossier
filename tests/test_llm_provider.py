@@ -1,5 +1,7 @@
 """Tests for LLM provider layer."""
 
+import threading
+import time
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -20,6 +22,7 @@ def test_get_provider_ollama() -> None:
     assert provider._model == "qwen2.5:7b"
     assert provider._host == "http://ollama:11434"
     assert provider._max_retries == 3
+    assert provider._timeout == 300.0
 
 
 def test_get_provider_ollama_with_host() -> None:
@@ -187,3 +190,36 @@ def test_ollama_provider_warm_up_noop() -> None:
     """OllamaProvider.warm_up is a no-op (Ollama handles loading)."""
     provider = OllamaProvider(model="qwen2.5:7b")
     provider.warm_up()  # Should not raise
+
+
+def test_ollama_provider_serializes_concurrent_complete() -> None:
+    """Concurrent complete() calls do not overlap (stable VRAM on single-GPU Ollama)."""
+    concurrent = {"n": 0, "max": 0}
+    counter_lock = threading.Lock()
+    ok_body = {"message": {"content": "TITLE:\nT\n\nSUMMARY:\nS.\n\nFULL:\nF."}}
+
+    def chat_side_effect(*_a: object, **_kw: object) -> dict[str, object]:
+        with counter_lock:
+            concurrent["n"] += 1
+            concurrent["max"] = max(concurrent["max"], concurrent["n"])
+        try:
+            time.sleep(0.06)
+            return ok_body
+        finally:
+            with counter_lock:
+                concurrent["n"] -= 1
+
+    mock_client = MagicMock()
+    mock_client.chat.side_effect = chat_side_effect
+
+    with patch("ollama.Client") as mock_client_class:
+        mock_client_class.return_value = mock_client
+        provider = OllamaProvider(model="qwen2.5:7b", max_retries=1)
+        t1 = threading.Thread(target=lambda: provider.complete("a", max_tokens=10))
+        t2 = threading.Thread(target=lambda: provider.complete("b", max_tokens=10))
+        t1.start()
+        t2.start()
+        t1.join()
+        t2.join()
+
+    assert concurrent["max"] == 1

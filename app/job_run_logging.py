@@ -91,6 +91,12 @@ def job_run_file_logging(
         )
 
     handler = logging.FileHandler(full, mode="a", encoding="utf-8")
+    stream = getattr(handler, "stream", None)
+    if stream is not None and hasattr(stream, "reconfigure"):
+        try:
+            stream.reconfigure(line_buffering=True)
+        except (OSError, ValueError, AttributeError):
+            pass
     handler.setFormatter(logging.Formatter(_LOG_FORMAT, _LOG_DATEFMT))
     root_logger = logging.getLogger()
     root_logger.addHandler(handler)

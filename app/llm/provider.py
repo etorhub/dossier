@@ -2,6 +2,7 @@
 
 import logging
 import os
+import threading
 from abc import ABC, abstractmethod
 from typing import Any
 
@@ -9,6 +10,10 @@ from app.config import load_config
 from app.llm.http_utils import is_ollama_connection_failure, run_with_retries
 
 logger = logging.getLogger(__name__)
+
+# One Ollama chat at a time per worker process. Parallel story workers + proofread/translate
+# otherwise load two large contexts on one GPU, which often aborts after a brief spike (idle GPU).
+_OLLAMA_CHAT_LOCK = threading.Lock()
 
 
 class LLMProviderError(Exception):
@@ -95,12 +100,13 @@ class OllamaProvider(LLMProvider):
         *,
         temperature: float | None = None,
     ) -> str:
-        return run_with_retries(
-            lambda: self._complete_once(prompt, max_tokens, temperature),
-            max_retries=self._max_retries,
-            label=f"Ollama chat ({self._model})",
-            retry_if=lambda exc: not is_ollama_connection_failure(exc),
-        )
+        with _OLLAMA_CHAT_LOCK:
+            return run_with_retries(
+                lambda: self._complete_once(prompt, max_tokens, temperature),
+                max_retries=self._max_retries,
+                label=f"Ollama chat ({self._model})",
+                retry_if=lambda exc: not is_ollama_connection_failure(exc),
+            )
 
 
 def get_provider(
@@ -126,7 +132,8 @@ def get_provider(
         host = llm.get("host") or os.environ.get("OLLAMA_HOST") or "http://ollama:11434"
         retries = int(llm.get("max_retries") or 3)
         raw_timeout = llm.get("request_timeout_seconds")
-        timeout = float(raw_timeout) if raw_timeout is not None else None
+        # Default matches config/app.yaml — avoids indefinite blocking when key is omitted.
+        timeout = float(raw_timeout) if raw_timeout is not None else 300.0
         return OllamaProvider(model=model, host=host, max_retries=retries, timeout=timeout)
     if provider_name == "gemini":
         from app.llm.gemini import GeminiLLMProvider
