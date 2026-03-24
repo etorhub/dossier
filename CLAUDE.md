@@ -116,6 +116,15 @@ These are hard rules, not preferences:
 
 ---
 
+## Token Efficiency
+
+- Before any multi-agent session or worktree feature, invoke the `token-efficiency` skill.
+- When dispatching agents (subagent-driven-development or dispatching-parallel-agents): read all files the agent will need upfront and inject them inline. Agents must never read files themselves.
+- Branch switches cost a full context reload (~40–70K tokens). Budget: ≤2 per session. Complete all worktree work before switching to main.
+- After editing a file, do not re-read it in full. Use grep for targeted verification only.
+
+---
+
 ## Content Sourcing
 
 RSS + open publishers are the primary source. Full article text is required for meaningful rewriting — RSS-level text is the fallback for paywalled outlets, not the target. Open Catalan and Spanish publishers (RTVE, CCMA/3Cat, Vilaweb, El Crític, NacióDigital) are the initial priority and provide full content without legal risk.
