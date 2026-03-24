@@ -88,6 +88,50 @@ def test_get_feed_multi_source_ranks_above_singleton() -> None:
         assert ids[0] == "c-multi"
 
 
+def test_get_feed_equal_scores_tie_break_by_story_id() -> None:
+    """When relevance scores tie, ordering is stable by story_id (ascending)."""
+    now = datetime.now(UTC)
+    sources = {
+        "s1": {"id": "s1", "name": "Source 1", "topics": ["politics"]},
+    }
+    art = {"id": "a1", "source_id": "s1", "published_at": now, "url": "u1", "title": "T"}
+
+    with (
+        patch("app.services.article_service.profile_service") as mock_ps,
+        patch("app.services.article_service.load_sources") as mock_load_sources,
+        patch("app.services.article_service.load_config") as mock_load_config,
+        patch("app.services.article_service.db_stories") as mock_db,
+        patch("app.services.article_service.score_story", return_value=0.5),
+    ):
+        mock_ps.get_profile_with_selections.return_value = {
+            "topic_ids": ["politics"],
+        }
+        mock_ps.get_reading_variant.return_value = ("neutral", "ca")
+        mock_load_sources.return_value = list(sources.values())
+        mock_load_config.return_value = {
+            "processing": {"cluster_window_hours": 24, "articles_per_day": 10},
+            "relevance": {"min_sources": 1},
+            "rewriting": {"default_style": "neutral", "default_language": "ca"},
+        }
+        # DB order deliberately reverse lexicographic vs desired feed order
+        mock_db.get_stories_with_articles_in_window.return_value = [
+            {"story_id": "c-zebra"},
+            {"story_id": "c-apple"},
+        ]
+        mock_db.get_articles_in_story.side_effect = [
+            [art],
+            [art],
+        ]
+        mock_db.get_story_rewrites.return_value = {
+            "c-zebra": {"title": "Z", "summary": "", "full_text": "T"},
+            "c-apple": {"title": "A", "summary": "", "full_text": "T"},
+        }
+
+        feed, _ = get_feed(user_id=1)
+
+        assert [item["id"] for item in feed] == ["c-apple", "c-zebra"]
+
+
 def test_get_feed_backfill_when_few_multi_source() -> None:
     """Fallback singletons fill feed when fewer multi-source stories than limit (min_sources=1)."""
     now = datetime.now(UTC)
@@ -145,8 +189,9 @@ def test_get_feed_backfill_when_few_multi_source() -> None:
 
         assert len(feed) == 3
         assert feed[0]["id"] == "c-multi"
-        assert feed[1]["id"] in ("c-s1", "c-s2")
-        assert feed[2]["id"] in ("c-s1", "c-s2")
+        # Equal scores: stable tie-break by story_id ascending
+        assert feed[1]["id"] == "c-s1"
+        assert feed[2]["id"] == "c-s2"
 
 
 def test_get_feed_min_sources_one_disables_filter() -> None:

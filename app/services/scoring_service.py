@@ -1,4 +1,9 @@
-"""Relevance scoring for news stories. Computed per story per user at feed-build time."""
+"""Relevance scoring for news stories. Computed per story per user at feed-build time.
+
+Ranking uses only non-behavioral signals (freshness, cross-source coverage, topic alignment
+from the user's explicit topic selections, extraction quality). It does not use read history,
+clicks, dwell time, or any other past usage.
+"""
 
 from datetime import UTC, datetime
 from typing import Any
@@ -59,17 +64,6 @@ def _topic_affinity_score(
     return matching / len(articles)
 
 
-def _source_affinity_score(
-    articles: list[dict[str, Any]],
-    user_source_ids: set[str],
-) -> float:
-    """Fraction of articles from the user's selected sources."""
-    if not articles or not user_source_ids:
-        return 0.0
-    matching = sum(1 for a in articles if a.get("source_id") in user_source_ids)
-    return matching / len(articles)
-
-
 def _content_quality_score(articles: list[dict[str, Any]]) -> float:
     """Fraction of articles with full_text extracted."""
     if not articles:
@@ -82,15 +76,15 @@ def _content_quality_score(articles: list[dict[str, Any]]) -> float:
 
 def score_story(
     story_data: dict[str, Any],
-    user_source_ids: set[str],
     user_topic_ids: set[str],
     sources_catalog: dict[str, dict[str, Any]],
     config: dict[str, Any],
 ) -> float:
     """Compute composite relevance score (0.0–1.0) for a story.
 
-    Uses weighted combination of recency, coverage, topic affinity,
-    source affinity, and content quality.
+    Weighted combination of recency, multi-source coverage, topic alignment (explicit
+    profile topics only), and content extraction quality. No behavioral or source-list
+    affinity terms — see module docstring.
     """
     articles = story_data.get("articles", [])
     if not articles:
@@ -98,10 +92,9 @@ def score_story(
 
     relevance = config.get("relevance", {})
     weights = relevance.get("weights", {})
-    w_recency = weights.get("recency", 0.20)
-    w_coverage = weights.get("coverage", 0.35)
+    w_recency = weights.get("recency", 0.30)
+    w_coverage = weights.get("coverage", 0.40)
     w_topic = weights.get("topic_affinity", 0.20)
-    w_source = weights.get("source_affinity", 0.15)
     w_quality = weights.get("content_quality", 0.10)
 
     half_life = relevance.get("recency_half_life_hours", 8)
@@ -110,14 +103,12 @@ def score_story(
     recency = _recency_score(articles, half_life)
     coverage = _coverage_score(articles, coverage_cap)
     topic_affinity = _topic_affinity_score(articles, user_topic_ids, sources_catalog)
-    source_affinity = _source_affinity_score(articles, user_source_ids)
     content_quality = _content_quality_score(articles)
 
     return (
         w_recency * recency
         + w_coverage * coverage
         + w_topic * topic_affinity
-        + w_source * source_affinity
         + w_quality * content_quality
     )
 

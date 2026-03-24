@@ -122,7 +122,7 @@ def get_feed(
     user_id: int,
     topic_filter: str | None = None,
 ) -> tuple[list[dict[str, Any]], bool]:
-    """Return today's stories for the user, filtered by sources/topics.
+    """Return today's stories for the user, filtered by catalog topic overlap.
 
     If topic_filter is set, only stories matching that topic are returned.
     Returns (feed, rewrites_pending). rewrites_pending is True when there are
@@ -152,7 +152,7 @@ def get_feed(
         else None
     )
     story_rows = db_stories.get_stories_with_articles_in_window(since)
-    # Filter stories: keep only if >=1 article matches user's sources and topics
+    # Filter stories: keep only if >=1 article's source overlaps user topics
     # AND story has at least min_sources distinct sources (canonical stories)
     visible_stories: list[dict[str, Any]] = []
     for row in story_rows:
@@ -173,12 +173,14 @@ def get_feed(
                 )
                 break
 
-    # Score each story
-    user_source_ids = set(sources.keys())
+    # Score each story (non-behavioral signals only; see scoring_service)
     for s in visible_stories:
-        s["relevance_score"] = score_story(
-            s, user_source_ids, topic_ids, sources, config
-        )
+        s["relevance_score"] = score_story(s, topic_ids, sources, config)
+
+    def _story_sort_key(row: dict[str, Any]) -> tuple[float, str]:
+        """Descending score, then story_id for stable ordering when scores tie."""
+        score = row["relevance_score"]
+        return (-score, row["story_id"])
 
     # Partition by source count: multi-source first, singletons as backfill
     primary: list[dict[str, Any]] = []
@@ -190,8 +192,8 @@ def get_feed(
         else:
             fallback.append(s)
 
-    primary.sort(key=lambda s: s["relevance_score"], reverse=True)
-    fallback.sort(key=lambda s: s["relevance_score"], reverse=True)
+    primary.sort(key=_story_sort_key)
+    fallback.sort(key=_story_sort_key)
     combined = primary + fallback
     visible_stories = combined[:limit] if limit else combined
 

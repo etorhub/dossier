@@ -7,7 +7,6 @@ from app.services.scoring_service import (
     _content_quality_score,
     _coverage_score,
     _recency_score,
-    _source_affinity_score,
     _topic_affinity_score,
     score_cluster,
 )
@@ -121,32 +120,6 @@ def test_topic_affinity_empty_user_topics() -> None:
     assert _topic_affinity_score(articles, set(), sources) == 0.0
 
 
-def test_source_affinity_all_match() -> None:
-    """All articles from user sources scores 1.0."""
-    articles = [
-        {"source_id": "s1"},
-        {"source_id": "s2"},
-    ]
-    user_sources = {"s1", "s2"}
-    assert _source_affinity_score(articles, user_sources) == 1.0
-
-
-def test_source_affinity_half_match() -> None:
-    """Half from user sources scores 0.5."""
-    articles = [
-        {"source_id": "s1"},
-        {"source_id": "s3"},
-    ]
-    user_sources = {"s1", "s2"}
-    assert _source_affinity_score(articles, user_sources) == 0.5
-
-
-def test_source_affinity_empty_user_sources() -> None:
-    """Empty user sources returns 0."""
-    articles = [{"source_id": "s1"}]
-    assert _source_affinity_score(articles, set()) == 0.0
-
-
 def test_content_quality_all_extracted() -> None:
     """All articles extracted scores 1.0."""
     articles = [
@@ -180,7 +153,7 @@ def test_content_quality_empty() -> None:
 
 
 def test_score_cluster_composite() -> None:
-    """Composite score combines all signals with weights."""
+    """Composite score combines recency, coverage, topic, and quality with weights."""
     now = datetime.now(UTC)
     cluster_data: dict[str, Any] = {
         "cluster_id": "c1",
@@ -198,9 +171,8 @@ def test_score_cluster_composite() -> None:
             "weights": {
                 "recency": 0.30,
                 "coverage": 0.25,
-                "topic_affinity": 0.20,
-                "source_affinity": 0.15,
-                "content_quality": 0.10,
+                "topic_affinity": 0.25,
+                "content_quality": 0.20,
             },
             "recency_half_life_hours": 8,
             "coverage_cap": 4,
@@ -208,13 +180,13 @@ def test_score_cluster_composite() -> None:
     }
     score = score_cluster(
         cluster_data,
-        user_source_ids={"s1", "s2"},
         user_topic_ids={"politics", "general"},
         sources_catalog=sources,
         config=config,
     )
-    # Recency~1, coverage=0.5 (2/4), topic/source/quality=1 -> composite ~0.87
-    assert score > 0.85
+    # Recency~1, coverage=0.5 (2/4), topic=1, quality=1
+    # -> 0.30 + 0.125 + 0.25 + 0.20 = 0.875
+    assert 0.87 <= score <= 0.88
     assert score <= 1.0
 
 
@@ -224,7 +196,6 @@ def test_score_cluster_empty_articles() -> None:
     config = {"relevance": {"weights": {}, "recency_half_life_hours": 8, "coverage_cap": 4}}
     score = score_cluster(
         cluster_data,
-        user_source_ids={"s1"},
         user_topic_ids={"politics"},
         sources_catalog={},
         config=config,
@@ -243,7 +214,6 @@ def test_score_cluster_uses_default_weights() -> None:
     sources = {"s1": {"topics": ["politics"]}}
     score = score_cluster(
         cluster_data,
-        user_source_ids={"s1"},
         user_topic_ids={"politics"},
         sources_catalog=sources,
         config={},
@@ -269,14 +239,13 @@ def test_score_cluster_default_weights_favor_coverage() -> None:
             {"source_id": "s2", "published_at": now, "extraction_status": "extracted"},
         ],
     }
-    user_sources = {"s1", "s2"}
     user_topics = {"politics"}
-    config = {}  # uses defaults: recency 0.20, coverage 0.35
+    config = {}  # defaults: recency 0.30, coverage 0.40, etc.
 
     score_singleton = score_cluster(
-        singleton, user_sources, user_topics, sources, config
+        singleton, user_topics, sources, config
     )
     score_multi = score_cluster(
-        multi_source, user_sources, user_topics, sources, config
+        multi_source, user_topics, sources, config
     )
     assert score_multi > score_singleton

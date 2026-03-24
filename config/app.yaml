@@ -114,13 +114,14 @@ processing:
   # 0 = embed every pending article in the window each cluster run; >0 caps per run
   embed_batch_size: 0
 
+# Feed story ranking: non-behavioral only (no read history, clicks, or dwell time).
+# topic_affinity is the only term tied to explicit user setup (selected topics).
 relevance:
   weights:
-    recency: 0.20
-    coverage: 0.35
-    topic_affinity: 0.20
-    source_affinity: 0.15
-    content_quality: 0.10
+    recency: 0.30 # Freshness from latest article published_at (exponential decay)
+    coverage: 0.40 # Distinct outlets in the story (capped at coverage_cap)
+    topic_affinity: 0.20 # Share of articles matching user's selected topics
+    content_quality: 0.10 # Share of articles with full-text extraction
   recency_half_life_hours: 8
   coverage_cap: 4
   # 1 = single-source clusters same priority as multi-source
