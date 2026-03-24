@@ -1,12 +1,14 @@
 """Flask application factory."""
 
 import os
+import re
 from datetime import datetime
 from pathlib import Path
 
 import humanize
 from dotenv import load_dotenv
 from flask import Flask, Response, redirect, request, session, url_for
+from markupsafe import Markup
 from flask_babel import Babel
 
 from app.cli import make_admin, seed_sources, show_rewrite_failures
@@ -93,6 +95,15 @@ def create_app(config_path: str | Path | None = None) -> Flask:
         if dt is None:
             return "—"
         return humanize.naturaltime(dt)
+
+    @app.template_filter("bold_md")
+    def bold_md_filter(text: str | None) -> Markup:
+        """Convert **term** markers to <strong> tags. HTML-escapes input first."""
+        if not text:
+            return Markup("")
+        escaped = str(Markup.escape(text))
+        result = re.sub(r"\*\*(.+?)\*\*", r"<strong>\1</strong>", escaped)
+        return Markup(result)
 
     app.register_blueprint(auth_bp)
     app.register_blueprint(setup_bp)
