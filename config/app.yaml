@@ -109,7 +109,7 @@ processing:
   # Minimum cosine similarity for two articles to belong to the same story.
   # Higher = stricter; only articles about the same specific event are grouped.
   # Recommended range: 0.88–0.95. Default: 0.90.
-  story_similarity_threshold: 0.80
+  story_similarity_threshold: 0.92
   story_min_sources: 2
   # 0 = embed every pending article in the window each cluster run; >0 caps per run
   embed_batch_size: 0
