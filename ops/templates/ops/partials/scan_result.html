@@ -1,0 +1,5 @@
+{% if count > 0 %}
+<span class="text-warning">{{ count }} article{{ 's' if count != 1 else '' }} marked as non_news.</span>
+{% else %}
+<span class="text-success">No new non-news articles found.</span>
+{% endif %}

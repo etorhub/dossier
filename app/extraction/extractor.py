@@ -9,6 +9,7 @@ from urllib.parse import urlparse
 
 from app.db import articles as db_articles
 from app.extraction.trafilatura import extract_article
+from app.feed.classifier import classify_article
 from app.llm.http_utils import quiet_http_library_info_logs
 
 logger = logging.getLogger(__name__)
@@ -155,6 +156,13 @@ def enrich_articles(config: dict) -> EnrichmentReport:
                             replace_image=replace_image,
                         )
                         report.articles_extracted += 1
+                        # Re-classify with richer full text — catches non-news
+                        # that slipped through the title/raw_text check at fetch.
+                        if classify_article(title, extracted) == "non_news":
+                            db_articles.update_article_type(article_id, "non_news")
+                            logger.debug(
+                                "Re-classified as non_news after extraction: %s", url
+                            )
                     else:
                         # Keep raw_text as fallback, mark failed
                         fallback = full_text or raw_text

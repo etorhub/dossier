@@ -8,6 +8,7 @@ from typing import Any
 from app.config import load_config
 from app.db import articles as articles_db
 from app.db import sources as sources_db
+from app.feed.classifier import classify_article
 from app.feed.fetcher import fetch_feed
 from app.feed.parser import parse_feed
 
@@ -144,17 +145,21 @@ def fetch_all_due_feeds(config: dict[str, Any] | None = None) -> FetchReport:
                     last_guid = raw.get("guid") or raw["url"]
                     continue
 
+            title = raw["title"]
+            raw_text = raw.get("raw_text") or ""
+            article_type = classify_article(title, raw_text)
             article = {
                 "source_id": source_id,
-                "title": raw["title"],
+                "title": title,
                 "url": raw["url"],
                 "published_at": published_at,
-                "raw_text": raw.get("raw_text") or "",
+                "raw_text": raw_text,
                 "full_text": raw.get("full_text") or None,
                 "guid": raw.get("guid"),
                 "image_url": raw.get("image_url"),
                 "image_source": raw.get("image_source"),
                 "categories": raw.get("categories", []),
+                "article_type": article_type,
             }
             if articles_db.insert_article(article):
                 inserted += 1

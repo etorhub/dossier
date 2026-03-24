@@ -1,0 +1,19 @@
+{% if article_type == 'non_news' %}
+<span class="badge bg-warning text-dark">non_news</span>
+<form class="d-inline" onclick="event.stopPropagation()"
+  hx-post="{{ url_for('articles.set_article_type', article_id=article_id) }}"
+  hx-target="#type-badge-{{ article_id }}"
+  hx-swap="innerHTML">
+  <input type="hidden" name="article_type" value="news">
+  <button type="submit" class="btn btn-link btn-sm p-0 ms-1 text-success" title="Mark as news">✓ news</button>
+</form>
+{% else %}
+<span class="badge bg-secondary">news</span>
+<form class="d-inline" onclick="event.stopPropagation()"
+  hx-post="{{ url_for('articles.set_article_type', article_id=article_id) }}"
+  hx-target="#type-badge-{{ article_id }}"
+  hx-swap="innerHTML">
+  <input type="hidden" name="article_type" value="non_news">
+  <button type="submit" class="btn btn-link btn-sm p-0 ms-1 text-warning" title="Mark as non-news">✗</button>
+</form>
+{% endif %}

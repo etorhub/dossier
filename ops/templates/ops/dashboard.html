@@ -30,7 +30,11 @@
       <div class="card">
         <div class="card-body">
           <div class="display-6">{{ stats.articles_today or 0 }}</div>
-          <p class="text-muted mb-0 small">Articles today</p>
+          <p class="text-muted mb-0 small">Articles today
+            {% if stats.non_news_today %}
+            <a href="{{ url_for('articles.index') }}?article_type=non_news" class="text-warning ms-1">({{ stats.non_news_today }} filtered)</a>
+            {% endif %}
+          </p>
         </div>
       </div>
     </div>

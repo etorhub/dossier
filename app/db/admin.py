@@ -224,6 +224,9 @@ def get_overview_stats() -> dict[str, Any]:
                     (SELECT COUNT(*) FROM users) AS total_users,
                     (SELECT COUNT(*) FROM users WHERE is_active = true) AS active_users,
                     (SELECT COUNT(*) FROM articles WHERE fetched_at::date = CURRENT_DATE) AS articles_today,
+                    (SELECT COUNT(*) FROM articles
+                     WHERE fetched_at::date = CURRENT_DATE
+                       AND article_type = 'non_news') AS non_news_today,
                     (SELECT COUNT(*) FROM source_feeds WHERE feed_active = true) AS active_feeds,
                     (SELECT COUNT(*) FROM source_feeds) AS total_feeds
                 """
@@ -566,6 +569,7 @@ def get_admin_articles(
     date_to: str | None = None,
     has_embedding: bool | None = None,
     in_story: bool | None = None,
+    article_type: str | None = None,
 ) -> list[dict[str, Any]]:
     """Return articles for admin view with story_id, source_name, image_url, categories."""
     conn = get_connection()
@@ -596,6 +600,9 @@ def get_admin_articles(
             conditions.append(
                 "NOT EXISTS (SELECT 1 FROM story_articles sa WHERE sa.article_id = a.id)"
             )
+        if article_type:
+            conditions.append("a.article_type = %s")
+            params.append(article_type)
         where_clause = " AND ".join(conditions) if conditions else "TRUE"
         params.extend([limit, offset])
 
@@ -605,6 +612,7 @@ def get_admin_articles(
                 SELECT a.id, a.title, a.url, a.source_id, a.published_at,
                        a.fetched_at, a.extraction_status, a.extraction_method,
                        a.extracted_at, a.image_url, a.categories,
+                       a.article_type,
                        (a.embedding IS NOT NULL) AS has_embedding,
                        sa.story_id::text AS story_id,
                        ns.name AS source_name
@@ -657,6 +665,7 @@ def get_admin_articles_count(
     date_to: str | None = None,
     has_embedding: bool | None = None,
     in_story: bool | None = None,
+    article_type: str | None = None,
 ) -> int:
     """Return total article count for admin pagination."""
     conn = get_connection()
@@ -687,6 +696,9 @@ def get_admin_articles_count(
             conditions.append(
                 "NOT EXISTS (SELECT 1 FROM story_articles sa WHERE sa.article_id = articles.id)"
             )
+        if article_type:
+            conditions.append("article_type = %s")
+            params.append(article_type)
         where_clause = " AND ".join(conditions) if conditions else "TRUE"
 
         with conn.cursor() as cur:
@@ -698,6 +710,63 @@ def get_admin_articles_count(
             return row[0] if row else 0
     finally:
         return_connection(conn)
+
+
+def override_article_type(article_id: str, article_type: str) -> bool:
+    """Set article_type for an article. Returns True if the article was found.
+
+    When restoring to 'news', also resets extraction_status to 'pending'
+    (unless already extracted/skipped) so the article re-enters the pipeline.
+    """
+    from app.db import articles as articles_db  # avoid circular import
+
+    articles_db.update_article_type(article_id, article_type)
+    return True
+
+
+def scan_and_mark_non_news() -> int:
+    """Run classifier over all 'news' articles and mark detected non-news.
+
+    Returns the count of articles re-classified as non_news.
+    Used for retroactive cleanup of already-ingested content.
+    """
+    from app.feed.classifier import classify_article
+
+    conn = get_connection()
+    try:
+        with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
+            cur.execute(
+                """
+                SELECT id, title, COALESCE(full_text, raw_text, '') AS text
+                FROM articles
+                WHERE article_type = 'news'
+                ORDER BY fetched_at DESC
+                """
+            )
+            rows = [dict(r) for r in cur.fetchall()]
+    finally:
+        return_connection(conn)
+
+    flagged: list[str] = []
+    for row in rows:
+        if classify_article(row["title"] or "", row["text"] or "") == "non_news":
+            flagged.append(row["id"])
+
+    if not flagged:
+        return 0
+
+    conn2 = get_connection()
+    try:
+        with conn2.cursor() as cur:
+            cur.execute(
+                "UPDATE articles SET article_type = 'non_news' WHERE id = ANY(%s)",
+                (flagged,),
+            )
+        conn2.commit()
+    finally:
+        return_connection(conn2)
+
+    return len(flagged)
 
 
 def get_admin_stories(limit: int, offset: int) -> list[dict[str, Any]]:

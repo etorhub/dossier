@@ -39,8 +39,9 @@ def insert_article(article: dict[str, Any]) -> bool:
     """Insert an article. Returns True if inserted, False if duplicate.
 
     Article dict must have: title, url, source_id. Optional: published_at,
-    raw_text, full_text, guid, image_url, image_source, categories. Id is
-    generated from source_id:url.
+    raw_text, full_text, guid, image_url, image_source, categories,
+    article_type ('news' or 'non_news', defaults to 'news'). Id is generated
+    from source_id:url.
     """
     article_id = _article_id(article["source_id"], article["url"])
     categories = article.get("categories")
@@ -49,6 +50,7 @@ def insert_article(article: dict[str, Any]) -> bool:
     if not isinstance(categories, list):
         categories = []
     categories_json = json.dumps(categories)
+    article_type = article.get("article_type") or "news"
 
     conn = get_connection()
     try:
@@ -57,12 +59,13 @@ def insert_article(article: dict[str, Any]) -> bool:
                 """
                 INSERT INTO articles (
                     id, title, url, source_id, published_at,
-                    raw_text, full_text, guid, image_url, image_source, categories
+                    raw_text, full_text, guid, image_url, image_source,
+                    categories, article_type
                 )
                 VALUES (
                     %(id)s, %(title)s, %(url)s, %(source_id)s, %(published_at)s,
                     %(raw_text)s, %(full_text)s, %(guid)s, %(image_url)s,
-                    %(image_source)s, %(categories)s::jsonb
+                    %(image_source)s, %(categories)s::jsonb, %(article_type)s
                 )
                 ON CONFLICT (source_id, url) DO NOTHING
                 """,
@@ -78,6 +81,7 @@ def insert_article(article: dict[str, Any]) -> bool:
                     "image_url": article.get("image_url"),
                     "image_source": article.get("image_source"),
                     "categories": categories_json,
+                    "article_type": article_type,
                 },
             )
             inserted = bool(cur.rowcount > 0)
@@ -119,8 +123,9 @@ def get_recent_articles_without_embedding(
     since: datetime | None,
     limit: int | None = None,
 ) -> list[dict[str, Any]]:
-    """Return articles with no embedding yet.
+    """Return news articles with no embedding yet.
 
+    Non-news articles are excluded — they are never embedded or clustered.
     If since is not None, only articles with published_at >= since.
     If since is None, all articles without an embedding.
     """
@@ -132,7 +137,7 @@ def get_recent_articles_without_embedding(
                 cur.execute(
                     f"""
                     SELECT * FROM articles
-                    WHERE published_at >= %s AND {need}
+                    WHERE published_at >= %s AND {need} AND article_type = 'news'
                     ORDER BY published_at DESC
                     """,
                     (since,),
@@ -141,7 +146,7 @@ def get_recent_articles_without_embedding(
                 cur.execute(
                     f"""
                     SELECT * FROM articles
-                    WHERE {need}
+                    WHERE {need} AND article_type = 'news'
                     ORDER BY published_at DESC NULLS LAST
                     """
                 )
@@ -228,7 +233,7 @@ def count_recent_articles_with_valid_embedding(since: datetime | None) -> int:
 def get_recent_articles_with_embedding(
     since: datetime,
 ) -> list[dict[str, Any]]:
-    """Return articles since given time that have embeddings, for clustering."""
+    """Return news articles since given time that have embeddings, for clustering."""
     conn = get_connection()
     try:
         with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
@@ -236,7 +241,7 @@ def get_recent_articles_with_embedding(
             cur.execute(
                 f"""
                 SELECT * FROM articles
-                WHERE published_at >= %s AND {has_emb}
+                WHERE published_at >= %s AND {has_emb} AND article_type = 'news'
                 ORDER BY published_at DESC
                 """,
                 (since,),
@@ -260,8 +265,9 @@ def _get_articles_not_in_story(
     since: datetime | None,
     require_embedding: bool = True,
 ) -> list[dict[str, Any]]:
-    """Return articles not in a story. Optionally require embedding.
+    """Return news articles not in a story. Optionally require embedding.
 
+    Non-news articles are excluded — they are never clustered into stories.
     If since is not None, only articles with published_at >= since.
     """
     conn = get_connection()
@@ -277,6 +283,7 @@ def _get_articles_not_in_story(
                     LEFT JOIN story_articles sa ON sa.article_id = a.id
                     WHERE {has_emb}
                       AND sa.article_id IS NULL
+                      AND a.article_type = 'news'
                       {time_clause}
                     ORDER BY a.published_at DESC NULLS LAST
                     """,
@@ -288,6 +295,7 @@ def _get_articles_not_in_story(
                     SELECT a.* FROM articles a
                     LEFT JOIN story_articles sa ON sa.article_id = a.id
                     WHERE sa.article_id IS NULL
+                      AND a.article_type = 'news'
                       {time_clause}
                     ORDER BY a.published_at DESC NULLS LAST
                     """,
@@ -330,15 +338,20 @@ def get_pending_extraction_count() -> int:
 
 
 def get_articles_needing_extraction(limit: int) -> list[dict[str, Any]]:
-    """Return articles with extraction_status = 'pending', by fetched_at DESC."""
+    """Return news articles with extraction_status = 'pending', by fetched_at DESC.
+
+    Non-news articles are excluded — they are stored in the DB for operator
+    review but never enriched.
+    """
     conn = get_connection()
     try:
         with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
             cur.execute(
                 """
-                SELECT id, url, source_id, full_text, raw_text, image_url
+                SELECT id, title, url, source_id, full_text, raw_text, image_url
                 FROM articles
                 WHERE extraction_status = 'pending'
+                  AND article_type = 'news'
                 ORDER BY fetched_at DESC NULLS LAST
                 LIMIT %s
                 """,
@@ -422,6 +435,56 @@ def update_article_extraction(
                     (full_text, status, method, article_id),
                 )
         conn.commit()
+    finally:
+        return_connection(conn)
+
+
+def update_article_type(article_id: str, article_type: str) -> None:
+    """Set article_type for an article. Values: 'news' or 'non_news'.
+
+    When restoring a non_news article to 'news', also resets extraction_status
+    to 'pending' so the enrichment pipeline picks it up on the next run.
+    """
+    conn = get_connection()
+    try:
+        with conn.cursor() as cur:
+            if article_type == "news":
+                cur.execute(
+                    """
+                    UPDATE articles
+                    SET article_type = %s,
+                        extraction_status = CASE
+                            WHEN extraction_status NOT IN ('extracted', 'skipped') THEN 'pending'
+                            ELSE extraction_status
+                        END
+                    WHERE id = %s
+                    """,
+                    (article_type, article_id),
+                )
+            else:
+                cur.execute(
+                    "UPDATE articles SET article_type = %s WHERE id = %s",
+                    (article_type, article_id),
+                )
+        conn.commit()
+    finally:
+        return_connection(conn)
+
+
+def count_non_news_today() -> int:
+    """Return count of non_news articles fetched today."""
+    conn = get_connection()
+    try:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                SELECT COUNT(*) FROM articles
+                WHERE article_type = 'non_news'
+                  AND fetched_at::date = CURRENT_DATE
+                """
+            )
+            row = cur.fetchone()
+            return int(row[0]) if row else 0
     finally:
         return_connection(conn)
 

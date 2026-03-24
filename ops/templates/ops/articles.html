@@ -41,10 +41,27 @@
       <option value="0" {% if in_story == false %}selected{% endif %}>Not in story</option>
     </select>
   </div>
+  <div class="col-auto">
+    <select name="article_type" class="form-select form-select-sm" style="width: auto;">
+      <option value="">All types</option>
+      <option value="news" {% if article_type == 'news' %}selected{% endif %}>news</option>
+      <option value="non_news" {% if article_type == 'non_news' %}selected{% endif %}>non_news</option>
+    </select>
+  </div>
   <input type="hidden" name="page" value="1">
   <input type="hidden" name="per_page" value="{{ per_page }}">
   <div class="col-auto">
     <button type="submit" class="btn btn-sm btn-primary">Filter</button>
+  </div>
+  <div class="col-auto ms-auto">
+    <button class="btn btn-sm btn-outline-warning"
+      hx-post="{{ url_for('articles.scan_non_news') }}"
+      hx-target="#scan-result"
+      hx-swap="innerHTML"
+      title="Run classifier over all existing articles and mark non-news">
+      Scan existing articles
+    </button>
+    <span id="scan-result" class="ms-2 small text-muted"></span>
   </div>
 </form>
 
@@ -57,6 +74,7 @@
         <th>Source</th>
         <th>Published</th>
         <th>Fetched</th>
+        <th>Type</th>
         <th>Extraction</th>
         <th>Embedding</th>
         <th>Story</th>
@@ -64,7 +82,7 @@
     </thead>
     <tbody>
       {% for a in articles %}
-      <tr role="button" tabindex="0" class="cursor-pointer"
+      <tr role="button" tabindex="0" class="cursor-pointer {% if a.article_type == 'non_news' %}table-warning{% endif %}"
         data-bs-toggle="collapse"
         data-bs-target="#article-detail-{{ a.id }}"
         hx-get="{{ url_for('articles.article_detail_partial', article_id=a.id) }}"
@@ -76,19 +94,40 @@
         <td>{{ a.source_name or a.source_id }}</td>
         <td>{{ a.published_at.strftime('%Y-%m-%d') if a.published_at else '—' }}</td>
         <td>{{ a.fetched_at.strftime('%Y-%m-%d %H:%M') if a.fetched_at else '—' }}</td>
+        <td id="type-badge-{{ a.id }}">
+          {% if a.article_type == 'non_news' %}
+          <span class="badge bg-warning text-dark">non_news</span>
+          <form class="d-inline" onclick="event.stopPropagation()"
+            hx-post="{{ url_for('articles.set_article_type', article_id=a.id) }}"
+            hx-target="#type-badge-{{ a.id }}"
+            hx-swap="innerHTML">
+            <input type="hidden" name="article_type" value="news">
+            <button type="submit" class="btn btn-link btn-sm p-0 ms-1 text-success" title="Mark as news">✓ news</button>
+          </form>
+          {% else %}
+          <span class="badge bg-secondary">news</span>
+          <form class="d-inline" onclick="event.stopPropagation()"
+            hx-post="{{ url_for('articles.set_article_type', article_id=a.id) }}"
+            hx-target="#type-badge-{{ a.id }}"
+            hx-swap="innerHTML">
+            <input type="hidden" name="article_type" value="non_news">
+            <button type="submit" class="btn btn-link btn-sm p-0 ms-1 text-warning" title="Mark as non-news">✗</button>
+          </form>
+          {% endif %}
+        </td>
         <td><span class="badge bg-secondary">{{ a.extraction_status or 'pending' }}</span></td>
         <td>{% if a.has_embedding %}<span class="badge bg-success">yes</span>{% else %}<span class="badge bg-secondary">no</span>{% endif %}</td>
         <td>{% if a.story_id %}<a href="{{ url_for('stories.index') }}?story={{ a.story_id }}" onclick="event.stopPropagation()">{{ a.story_id[:8] }}…</a>{% else %}—{% endif %}</td>
       </tr>
       <tr>
-        <td colspan="8" class="p-0 border-0">
+        <td colspan="9" class="p-0 border-0">
           <div class="collapse" id="article-detail-{{ a.id }}">
             <div class="p-2 bg-light small text-muted">Click row to load</div>
           </div>
         </td>
       </tr>
       {% else %}
-      <tr><td colspan="8">No articles</td></tr>
+      <tr><td colspan="9">No articles</td></tr>
       {% endfor %}
     </tbody>
   </table>
@@ -99,7 +138,7 @@
     {% set total_pages = ((total / per_page)|round(0, 'ceil'))|int if total else 1 %}
     {% for p in range(1, [total_pages, 1]|max + 1) %}
     <li class="page-item {% if p == page %}active{% endif %}">
-      <a class="page-link" href="{{ url_for('articles.index') }}?page={{ p }}&per_page={{ per_page }}{% if extraction_status %}&extraction_status={{ extraction_status }}{% endif %}{% if source_id %}&source_id={{ source_id }}{% endif %}{% if date_from %}&date_from={{ date_from }}{% endif %}{% if date_to %}&date_to={{ date_to }}{% endif %}{% if has_embedding is not none %}&has_embedding={{ 1 if has_embedding else 0 }}{% endif %}{% if in_story is not none %}&in_story={{ 1 if in_story else 0 }}{% endif %}">{{ p }}</a>
+      <a class="page-link" href="{{ url_for('articles.index') }}?page={{ p }}&per_page={{ per_page }}{% if extraction_status %}&extraction_status={{ extraction_status }}{% endif %}{% if source_id %}&source_id={{ source_id }}{% endif %}{% if date_from %}&date_from={{ date_from }}{% endif %}{% if date_to %}&date_to={{ date_to }}{% endif %}{% if has_embedding is not none %}&has_embedding={{ 1 if has_embedding else 0 }}{% endif %}{% if in_story is not none %}&in_story={{ 1 if in_story else 0 }}{% endif %}{% if article_type %}&article_type={{ article_type }}{% endif %}">{{ p }}</a>
     </li>
     {% endfor %}
   </ul>
