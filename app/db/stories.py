@@ -327,13 +327,60 @@ def get_story_rewrites(
         with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
             cur.execute(
                 """
-                SELECT story_id::text, title, summary, full_text, rewrite_failed
+                SELECT story_id::text, title, summary, full_text, highlighted_full_text, rewrite_failed
                 FROM story_rewrites
                 WHERE style = %s AND language = %s AND story_id::text = ANY(%s)
                 """,
                 (style, language, story_ids),
             )
             return {row["story_id"]: dict(row) for row in cur.fetchall()}
+    finally:
+        return_connection(conn)
+
+
+def update_story_rewrite_highlight(
+    story_id: str,
+    style: str,
+    language: str,
+    highlighted_full_text: str,
+) -> None:
+    """Store the highlighted version of full_text for (story_id, style, language)."""
+    conn = get_connection()
+    try:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                UPDATE story_rewrites
+                SET highlighted_full_text = %s
+                WHERE story_id = %s::uuid AND style = %s AND language = %s
+                """,
+                (highlighted_full_text, story_id, style, language),
+            )
+        conn.commit()
+    finally:
+        return_connection(conn)
+
+
+def get_stories_needing_highlight(
+    limit: int | None = None,
+) -> list[dict[str, Any]]:
+    """Return story_rewrites rows with full_text but no highlighted_full_text yet."""
+    conn = get_connection()
+    try:
+        with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
+            cur.execute(
+                """
+                SELECT story_id::text, style, language, full_text
+                FROM story_rewrites
+                WHERE full_text IS NOT NULL
+                  AND (rewrite_failed = false OR rewrite_failed IS NULL)
+                  AND highlighted_full_text IS NULL
+                ORDER BY story_id
+                """
+                + (" LIMIT %s" if limit is not None else ""),
+                (limit,) if limit is not None else (),
+            )
+            return [dict(row) for row in cur.fetchall()]
     finally:
         return_connection(conn)
 
