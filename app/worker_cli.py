@@ -182,6 +182,20 @@ def rewrite_all_stories_cmd() -> None:
     click.echo("Rewrite-all job completed. Check ops dashboard for details.")
 
 
+@worker_cli.command("highlight-stories")
+def highlight_stories_cmd() -> None:
+    """Run the LLM highlighting pass for all rewrites missing highlighted_full_text."""
+    from app.scheduler import _run_tracked_job
+    from app.services.highlight_service import run_highlight_batch
+
+    try:
+        _run_tracked_job("highlight_stories", run_highlight_batch, trigger="manual")
+    except Exception as e:
+        click.echo(f"Highlight job failed: {e}", err=True)
+        raise SystemExit(1)
+    click.echo("Highlight job completed. Check ops dashboard for details.")
+
+
 @worker_cli.command("run-pipeline")
 @click.option(
     "--sources-path",
@@ -190,11 +204,12 @@ def rewrite_all_stories_cmd() -> None:
     help="Path to sources.yaml for seed step (default: config/sources.yaml)",
 )
 def run_pipeline_cmd(sources_path: str | None) -> None:
-    """Run the full pipeline once: seed → fetch → enrich → cluster → rewrite."""
+    """Run the full pipeline once: seed → fetch → enrich → cluster → rewrite → highlight."""
     from app.scheduler import _run_tracked_job
     from app.clustering.service import run_cluster_and_embed
     from app.extraction.extractor import enrich_all_articles
     from app.feed.orchestrator import fetch_all_due_feeds
+    from app.services.highlight_service import run_highlight_batch
     from app.services.rewrite_service import run_rewrite_batch
 
     click.echo("Running seed-sources...")
@@ -210,6 +225,12 @@ def run_pipeline_cmd(sources_path: str | None) -> None:
         _run_tracked_job("rewrite_articles", run_rewrite_batch, trigger="manual")
     except Exception as e:
         click.echo(f"Rewrite failed: {e}", err=True)
+        raise SystemExit(1)
+    click.echo("Running highlight...")
+    try:
+        _run_tracked_job("highlight_stories", run_highlight_batch, trigger="manual")
+    except Exception as e:
+        click.echo(f"Highlight failed: {e}", err=True)
         raise SystemExit(1)
     click.echo("Pipeline complete.")
 

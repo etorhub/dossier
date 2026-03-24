@@ -70,6 +70,13 @@ def _rewrite_articles_job(config: dict[str, Any]) -> Any:
     return run_rewrite_batch(config)
 
 
+def _highlight_articles_job(config: dict[str, Any]) -> Any:
+    """Lazy import so light-only hosts never load LLM/highlight stack."""
+    from app.services.highlight_service import run_highlight_batch
+
+    return run_highlight_batch(config)
+
+
 def _run_tracked_job(
     job_name: str,
     job_fn: Callable[[dict[str, Any]], Any],
@@ -136,6 +143,7 @@ def main() -> None:
     enrichment_cron = config.get("schedule", {}).get("enrichment_cron", "10 * * * *")
     cluster_cron = config.get("schedule", {}).get("cluster_cron", "5 * * * *")
     rewrite_cron = config.get("schedule", {}).get("rewrite_cron", "0 6 * * *")
+    highlight_cron = config.get("schedule", {}).get("highlight_cron", "30 6 * * *")
     availability_interval = config.get("schedule", {}).get(
         "availability_check_interval_minutes", 10
     )
@@ -173,6 +181,11 @@ def main() -> None:
             trigger=CronTrigger.from_crontab(rewrite_cron),
             id="rewrite_articles",
         )
+        scheduler.add_job(
+            lambda: _run_tracked_job("highlight_stories", _highlight_articles_job),
+            trigger=CronTrigger.from_crontab(highlight_cron),
+            id="highlight_stories",
+        )
 
     if mode == "light":
         logger.info(
@@ -184,18 +197,20 @@ def main() -> None:
         )
     elif mode == "heavy":
         logger.info(
-            "Scheduler started (mode=heavy): cluster=%s, rewrite=%s",
+            "Scheduler started (mode=heavy): cluster=%s, rewrite=%s, highlight=%s",
             cluster_cron,
             rewrite_cron,
+            highlight_cron,
         )
     else:
         logger.info(
             "Scheduler started (mode=full): fetch every %d min, enrichment=%s, "
-            "cluster=%s, rewrite=%s, availability every %d min",
+            "cluster=%s, rewrite=%s, highlight=%s, availability every %d min",
             interval_min,
             enrichment_cron,
             cluster_cron,
             rewrite_cron,
+            highlight_cron,
             availability_interval,
         )
     with contextlib.suppress(KeyboardInterrupt, SystemExit):
