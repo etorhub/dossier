@@ -197,6 +197,71 @@ def test_parse_feed_prefers_content_img_over_media_thumbnail() -> None:
     assert articles[0]["image_source"] == "content_html"
 
 
+RSS_MEDIA_CONTENT_SMALL = b"""<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0" xmlns:media="http://search.yahoo.com/mrss/">
+<channel>
+    <title>Small Image Feed</title>
+    <item>
+        <title>Small Image</title>
+        <link>https://example.com/small</link>
+        <description>Summary</description>
+        <media:content url="https://cdn.example.com/icon.jpg" medium="image" width="100" height="100"/>
+        <pubDate>Mon, 01 Jan 2024 12:00:00 GMT</pubDate>
+    </item>
+</channel>
+</rss>"""
+
+RSS_MEDIA_CONTENT_NO_WIDTH = b"""<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0" xmlns:media="http://search.yahoo.com/mrss/">
+<channel>
+    <title>No-Width Feed</title>
+    <item>
+        <title>Unknown Width</title>
+        <link>https://example.com/nowidth</link>
+        <description>Summary</description>
+        <media:content url="https://cdn.example.com/photo.jpg" medium="image"/>
+        <pubDate>Mon, 01 Jan 2024 12:00:00 GMT</pubDate>
+    </item>
+</channel>
+</rss>"""
+
+RSS_MEDIA_THUMBNAIL_SMALL = b"""<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0" xmlns:media="http://search.yahoo.com/mrss/">
+<channel>
+    <title>Small Thumb Feed</title>
+    <item>
+        <title>Small Thumb</title>
+        <link>https://example.com/smallthumb</link>
+        <description>Summary</description>
+        <media:thumbnail url="https://cdn.example.com/tiny.jpg" width="80"/>
+        <pubDate>Mon, 01 Jan 2024 12:00:00 GMT</pubDate>
+    </item>
+</channel>
+</rss>"""
+
+
+def test_parse_feed_skips_media_content_below_min_width() -> None:
+    """media:content with explicit width below threshold is rejected."""
+    articles = parse_feed(RSS_MEDIA_CONTENT_SMALL)
+    assert len(articles) == 1
+    assert articles[0]["image_url"] is None
+
+
+def test_parse_feed_accepts_media_content_with_unknown_width() -> None:
+    """media:content without explicit width is accepted (width unknown, not small)."""
+    articles = parse_feed(RSS_MEDIA_CONTENT_NO_WIDTH)
+    assert len(articles) == 1
+    assert articles[0]["image_url"] == "https://cdn.example.com/photo.jpg"
+    assert articles[0]["image_source"] == "media_content"
+
+
+def test_parse_feed_skips_media_thumbnail_below_min_width() -> None:
+    """media:thumbnail with explicit width below threshold is rejected."""
+    articles = parse_feed(RSS_MEDIA_THUMBNAIL_SMALL)
+    assert len(articles) == 1
+    assert articles[0]["image_url"] is None
+
+
 RSS_WITH_CATEGORIES = b"""<?xml version="1.0" encoding="UTF-8"?>
 <rss version="2.0">
 <channel>

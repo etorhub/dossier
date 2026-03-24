@@ -102,11 +102,11 @@ Responsible for fetching and normalising content from RSS feeds.
 For automated source discovery (location-based discovery, feed detection, quality scoring), see `docs/news_source_discovery_agent.md`. The Cursor rule `.cursor/rules/news-source-discovery.mdc` applies when working in this area.
 
 - `fetcher.py` — fetches RSS feeds via HTTP, returns `FetchResult` with content and conditional headers
-- `parser.py` — parses feed XML via `feedparser`, returns `RawArticle` objects
+- `parser.py` — parses feed XML via `feedparser`, returns `RawArticle` objects; extracts best image from `media:content`, enclosures, content HTML, or `media:thumbnail` (in priority order); images from `media:content`/`media:thumbnail` with an explicit width below 300 px are rejected
 - `orchestrator.py` — fetches all due feeds, parses, deduplicates, inserts articles; circuit breaker for failing feeds
 - `availability.py` — `check_all_feeds_availability()`: HTTP HEAD/GET to each active feed; stores results in `source_availability_checks`; scheduled every 10 minutes
 
-A `RawArticle` has: `id`, `title`, `url`, `source`, `published_at`, `raw_text` (RSS description/lede), `full_text` (populated when the source provides full article content).
+A `RawArticle` has: `id`, `title`, `url`, `source`, `published_at`, `raw_text` (RSS description/lede), `full_text` (populated when the source provides full article content), `image_url`, `image_source` (one of `media_content`, `enclosure`, `content_html`, `media_thumbnail`, or `None`).
 
 ### `app/llm/`
 

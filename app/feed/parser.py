@@ -241,6 +241,7 @@ def _get_full_text(entry: FeedParserDict) -> str:
 
 
 _IMAGE_EXTENSIONS = (".jpg", ".jpeg", ".png", ".gif", ".webp", ".svg")
+_MIN_IMAGE_WIDTH = 300  # pixels; candidates with known width below this are skipped
 
 
 def _is_image_url(url: str) -> bool:
@@ -282,6 +283,8 @@ def _get_image_url(entry: FeedParserDict) -> tuple[str | None, str | None]:
                     w = int(width) if width is not None else 0
                 except (ValueError, TypeError):
                     w = 0
+                if w > 0 and w < _MIN_IMAGE_WIDTH:
+                    continue
                 candidates.append((str(url), w))
         if candidates:
             candidates.sort(key=lambda x: x[1], reverse=True)
@@ -324,6 +327,8 @@ def _get_image_url(entry: FeedParserDict) -> tuple[str | None, str | None]:
                 w = int(width) if width is not None else 0
             except (ValueError, TypeError):
                 w = 0
+            if w > 0 and w < _MIN_IMAGE_WIDTH:
+                continue
             thumb_candidates.append((str(url), w))
         if thumb_candidates:
             thumb_candidates.sort(key=lambda x: x[1], reverse=True)
