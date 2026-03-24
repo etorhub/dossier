@@ -13,6 +13,9 @@ llm:
   host: http://ollama:11434
   # Per-call retries for Ollama chat (transient errors)
   max_retries: 3
+  # Per-call timeout in seconds for Ollama chat requests. Prevents hung LLM calls
+  # from blocking rewrite workers indefinitely. Increase on slow hardware.
+  request_timeout_seconds: 300
   # Sampling temperature per pipeline step (lower = more deterministic, fewer typos).
   rewrite_temperature: 0.2
   simplify_temperature: 0.2

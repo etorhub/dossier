@@ -46,10 +46,12 @@ class OllamaProvider(LLMProvider):
         host: str = "http://ollama:11434",
         *,
         max_retries: int = 3,
+        timeout: float | None = None,
     ) -> None:
         self._model = model
         self._host = host
         self._max_retries = max_retries
+        self._timeout = timeout
 
     def _complete_once(
         self, prompt: str, max_tokens: int, temperature: float | None
@@ -57,7 +59,7 @@ class OllamaProvider(LLMProvider):
         import ollama
 
         try:
-            client = ollama.Client(host=self._host)
+            client = ollama.Client(host=self._host, timeout=self._timeout)
             options: dict[str, Any] = {"num_predict": max_tokens}
             if temperature is not None:
                 options["temperature"] = float(temperature)
@@ -123,7 +125,9 @@ def get_provider(
     if provider_name == "ollama":
         host = llm.get("host") or os.environ.get("OLLAMA_HOST") or "http://ollama:11434"
         retries = int(llm.get("max_retries") or 3)
-        return OllamaProvider(model=model, host=host, max_retries=retries)
+        raw_timeout = llm.get("request_timeout_seconds")
+        timeout = float(raw_timeout) if raw_timeout is not None else None
+        return OllamaProvider(model=model, host=host, max_retries=retries, timeout=timeout)
     if provider_name == "gemini":
         from app.llm.gemini import GeminiLLMProvider
 
