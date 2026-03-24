@@ -99,6 +99,42 @@ def _load_exclusion_rules() -> ExclusionRules:
     )
 
 
+def _build_source_topics_index() -> dict[str, frozenset[str]]:
+    """Return mapping source_id -> frozenset of topics, loaded from sources.yaml.
+
+    Loaded once per cluster run. Used for the domain-compatibility gate.
+    A source not found in the index is treated as general-capable (permissive default).
+    """
+    from app.config import load_sources
+
+    index: dict[str, frozenset[str]] = {}
+    for src in load_sources():
+        sid = src.get("id")
+        topics = src.get("topics") or []
+        if sid and isinstance(topics, list):
+            index[sid] = frozenset(str(t) for t in topics)
+    return index
+
+
+def _topics_compatible(
+    source_id_a: str,
+    source_id_b: str,
+    source_topics: dict[str, frozenset[str]],
+) -> bool:
+    """Return False only if both sources are domain-exclusive with disjoint topic sets.
+
+    A source is "domain-exclusive" if its topic set does not include "general".
+    General-capable sources can always cluster with any other source.
+    """
+    topics_a = source_topics.get(source_id_a)
+    topics_b = source_topics.get(source_id_b)
+    if topics_a is None or topics_b is None:
+        return True  # unknown source: permissive default
+    if "general" in topics_a or "general" in topics_b:
+        return True  # at least one general-capable source: always allow
+    return bool(topics_a & topics_b)  # both exclusive: require non-empty intersection
+
+
 def _effective_pair_threshold(
     art_a: dict[str, Any],
     art_b: dict[str, Any],
@@ -122,13 +158,31 @@ def _article_pair_blocked(rules: ExclusionRules, id_a: str, id_b: str) -> bool:
 
 
 def _text_to_embed(article: dict[str, Any]) -> str:
-    """Build text for embedding: title + content excerpt."""
+    """Build text for embedding: domain prefix + title + content excerpt.
+
+    The caller may inject '_source_topics' (list[str]) as a synthetic key on the
+    article dict before calling. This key is never persisted to the database.
+    """
     title = (article.get("title") or "").strip()
     full = (article.get("full_text") or "").strip()
     raw = (article.get("raw_text") or "").strip()
-    content = full or raw
-    content = content[:2000] if content else ""
-    return f"{title} {content}".strip() or ""
+    content = (full or raw)[:2000]
+
+    src_topics: list[str] = article.get("_source_topics") or []
+    rss_cats: list[str] = [
+        str(c).strip()
+        for c in (article.get("categories") or [])
+        if c and str(c).strip()
+    ][:5]
+
+    parts: list[str] = []
+    if src_topics:
+        parts.append("topics: " + ", ".join(sorted(src_topics)))
+    if rss_cats:
+        parts.append("categories: " + ", ".join(rss_cats))
+    prefix = ". ".join(parts) + ". " if parts else ""
+
+    return (prefix + title + " " + content).strip()
 
 
 def _assign_to_existing_stories(
