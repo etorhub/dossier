@@ -32,6 +32,13 @@ def _llm_host_for_logging(config: dict[str, Any]) -> str:
 
 _rewrite_progress_lock = threading.Lock()
 
+# Prepended to merge-source rewrite prompts so small models keep TITLE:/SUMMARY:/FULL: in {language}.
+_REWRITE_OUTPUT_CONTRACT_PREFIX = (
+    "[Output contract — highest priority]\n"
+    "Line 1 of your reply must be TITLE: (character T first). No preamble, markdown headings, "
+    "or numbered summaries per source. Use TITLE:, SUMMARY:, FULL: then write only in {language}.\n\n"
+)
+
 
 def _rewrite_story_title_snippet(articles: list[dict[str, Any]], story_id: str) -> str:
     if articles:
@@ -89,12 +96,49 @@ def _strip_markdown_bold(text: str) -> str:
     return s.strip()
 
 
+def _strip_optional_markdown_fences(text: str) -> str:
+    """If the model wraps the reply in a fenced block, strip it for header parsing."""
+    raw = text.lstrip("\ufeff")
+    s = raw.strip()
+    if not s.startswith("```"):
+        return raw
+    without_open = re.sub(r"^```[a-zA-Z0-9_-]*\s*", "", s, count=1)
+    without_close = re.sub(r"\s*```\s*$", "", without_open.strip())
+    return without_close.lstrip("\n")
+
+
 # LLM prompts ask for TITLE:/SUMMARY:/FULL: but "output exclusively in {language}"
 # often makes models use localized headers (e.g. TÍTULO:/RESUMEN:/COMPLETO:).
 # Longer patterns must run before shorter prefixes (e.g. TEXTO COMPLETO before COMPLETO).
 _HEADER_NORMALIZATIONS: tuple[tuple[re.Pattern[str], str], ...] = tuple(
     (re.compile(pat, re.I | re.M), repl)
     for pat, repl in (
+        # Markdown ATX headers (despite "plain text only" in the prompt)
+        (r"^#{1,6}\s*TEXTO\s+COMPLETO\s*:", "FULL:"),
+        (r"^#{1,6}\s*TEXT\s+COMPLET\s*:", "FULL:"),
+        (r"^#{1,6}\s*(?:ARTÍCULO|ARTICULO)\s+COMPLETO\s*:", "FULL:"),
+        (r"^#{1,6}\s*RÉSUMÉ\s*:", "SUMMARY:"),
+        (r"^#{1,6}\s*RESUMEN\s*:", "SUMMARY:"),
+        (r"^#{1,6}\s*SUMMARY\s*:", "SUMMARY:"),
+        (r"^#{1,6}\s*TÍTULO\s*:", "TITLE:"),
+        (r"^#{1,6}\s*TITULO\s*:", "TITLE:"),
+        (r"^#{1,6}\s*TITLE\s*:", "TITLE:"),
+        (r"^#{1,6}\s*FULL\s*:", "FULL:"),
+        (r"^#{1,6}\s*COMPLETO\s*:", "FULL:"),
+        (r"^#{1,6}\s*COMPLET\s*:", "FULL:"),
+        # Line that is only a bold section label
+        (r"^\*{0,2}\s*TÍTULO\s*:\*{0,2}\s*$", "TITLE:"),
+        (r"^\*{0,2}\s*TITULO\s*:\*{0,2}\s*$", "TITLE:"),
+        (r"^\*{0,2}\s*TITLE\s*:\*{0,2}\s*$", "TITLE:"),
+        (r"^\*{0,2}\s*RESUMEN\s*:\*{0,2}\s*$", "SUMMARY:"),
+        (r"^\*{0,2}\s*SUMMARY\s*:\*{0,2}\s*$", "SUMMARY:"),
+        (r"^\*{0,2}\s*FULL\s*:\*{0,2}\s*$", "FULL:"),
+        (r"^\*{0,2}\s*COMPLETO\s*:\*{0,2}\s*$", "FULL:"),
+        # Spanish synonyms
+        (r"^ENCABEZADO\s*:", "TITLE:"),
+        (r"^SINOPSIS\s*:", "SUMMARY:"),
+        (r"^CUERPO\s*:", "FULL:"),
+        (r"^DESARROLLO\s*:", "FULL:"),
         # FULL
         (r"^TEXTO\s+COMPLETO\s*:", "FULL:"),
         (r"^TEXT\s+COMPLET\s*:", "FULL:"),
@@ -124,15 +168,36 @@ _HEADER_NORMALIZATIONS: tuple[tuple[re.Pattern[str], str], ...] = tuple(
 
 def _normalize_story_llm_section_headers(text: str) -> str:
     """Replace localized section headers with TITLE:/SUMMARY:/FULL: for parsing."""
-    out = text.lstrip("\ufeff")
+    out = _strip_optional_markdown_fences(text)
     for pattern, repl in _HEADER_NORMALIZATIONS:
         out = pattern.sub(repl, out)
     return out
 
 
+def _strip_preamble_before_first_title(text: str) -> str:
+    """If the model adds chatter before TITLE:, parse from the first TITLE: line."""
+    m = re.search(r"(?m)^TITLE\s*:", text, re.I)
+    if not m:
+        return text
+    return text[m.start() :].lstrip()
+
+
+def _derive_title_from_summary(summary: str) -> str:
+    """Headline when the model emits TITLE: with no text (common with long merged prompts)."""
+    s = _strip_markdown_bold((summary or "").strip())
+    if not s:
+        return ""
+    first_sentence = s.split(".")[0].strip()
+    candidate = first_sentence if first_sentence else s
+    if len(candidate) > 220:
+        return candidate[:217].rstrip() + "..."
+    return candidate
+
+
 def _parse_story_llm_response(text: str) -> tuple[str, str, str]:
     """Parse LLM output into (title, summary, full_text). Raises ValueError on bad format."""
     text = _normalize_story_llm_section_headers(text)
+    text = _strip_preamble_before_first_title(text)
     if not re.search(r"TITLE\s*:", text, re.I):
         raise ValueError("Response missing TITLE:, SUMMARY:, or FULL: sections")
     if not re.search(r"SUMMARY\s*:", text, re.I):
@@ -156,6 +221,9 @@ def _parse_story_llm_response(text: str) -> tuple[str, str, str]:
     if summary_match:
         summary = summary_match.group(1).strip()
 
+    if not title and summary:
+        title = _derive_title_from_summary(summary)
+
     if not title or not summary or not full_text:
         raise ValueError("Empty TITLE, SUMMARY, or FULL section")
     return (
@@ -169,18 +237,69 @@ def _parse_story_llm_response(text: str) -> tuple[str, str, str]:
 _parse_cluster_llm_response = _parse_story_llm_response
 
 
-def _build_articles_text(articles: list[dict[str, Any]]) -> str:
-    """Build concatenated text of all articles for the prompt."""
-    blocks = []
-    for i, art in enumerate(articles, 1):
+_TRUNC_MARKER = "\n\n[... source text truncated ...]"
+_MERGED_TRUNC_MARKER = "\n\n---\n\n[... merged sources truncated for model context ...]"
+
+
+def _processing_int(processing: dict[str, Any], key: str, default: int) -> int:
+    """Read int from processing; missing key uses default. Value 0 means unlimited for caps."""
+    raw = processing.get(key)
+    if raw is None:
+        return default
+    return int(raw)
+
+
+def _build_articles_text_for_rewrite(
+    articles: list[dict[str, Any]],
+    processing: dict[str, Any],
+) -> tuple[str, dict[str, Any]]:
+    """Build articles_text with caps so prompts stay inside typical local LLM context.
+
+    Defaults (when keys omitted) match config/app.yaml. Set any cap to 0 for unlimited.
+    """
+    max_sources = _processing_int(processing, "rewrite_max_sources_per_story", 18)
+    max_per_article = _processing_int(processing, "rewrite_max_chars_per_article", 8000)
+    max_total = _processing_int(processing, "rewrite_max_articles_text_chars", 52000)
+
+    n_total = len(articles)
+    work = articles[:max_sources] if max_sources > 0 else list(articles)
+    capped_source_count = n_total > len(work)
+    per_article_truncated = False
+
+    blocks: list[str] = []
+    for i, art in enumerate(work, 1):
         title = (art.get("title") or "").strip()
         full = (art.get("full_text") or "").strip()
         raw = (art.get("raw_text") or "").strip()
         text = full or raw
         if not text:
             continue
+        if max_per_article > 0 and len(text) > max_per_article:
+            keep = max_per_article - len(_TRUNC_MARKER)
+            if keep > 200:
+                text = text[:keep].rstrip() + _TRUNC_MARKER
+                per_article_truncated = True
         blocks.append(f"[Source {i}: {title}]\n\n{text}")
-    return "\n\n---\n\n".join(blocks) if blocks else ""
+
+    out = "\n\n---\n\n".join(blocks) if blocks else ""
+    hard_truncated = False
+    if max_total > 0 and len(out) > max_total:
+        room = max_total - len(_MERGED_TRUNC_MARKER)
+        if room > 200:
+            out = out[:room].rstrip() + _MERGED_TRUNC_MARKER
+        else:
+            out = _MERGED_TRUNC_MARKER.strip()
+        hard_truncated = True
+
+    meta: dict[str, Any] = {
+        "sources_total": n_total,
+        "sources_used": len(work),
+        "capped_source_count": capped_source_count,
+        "articles_text_chars": len(out),
+        "per_article_truncated": per_article_truncated,
+        "hard_truncated": hard_truncated,
+    }
+    return out, meta
 
 
 def _build_article_text_from_rewrite(rewrite: dict[str, Any]) -> str:
@@ -314,7 +433,8 @@ def rewrite_story(
         language,
         len(articles),
     )
-    articles_text = _build_articles_text(articles)
+    processing = config.get("processing", {})
+    articles_text, _input_meta = _build_articles_text_for_rewrite(articles, processing)
     if not articles_text:
         logger.warning(
             "rewrite_story skipped story_id=%s style=%s language=%s: no article text",
@@ -337,30 +457,51 @@ def rewrite_story(
     rewriting = config.get("rewriting", {})
     styles_cfg = {s["id"]: s for s in rewriting.get("styles", [])}
     prompt_name = styles_cfg.get(style, {}).get("prompt", "rewrite_cluster_neutral")
-    processing = config.get("processing", {})
     summary_sentences = processing.get("summary_sentences", 3)
     max_tokens = processing.get("rewrite_max_tokens", 4096)
     prompt_language = _get_language_label(config, language)
 
     prompt_template = load_prompt(prompt_name)
-    prompt = prompt_template.format(
+    body = prompt_template.format(
         articles_text=articles_text,
         language=prompt_language,
         summary_sentences=summary_sentences,
     )
+    prompt = _REWRITE_OUTPUT_CONTRACT_PREFIX.format(language=prompt_language) + body
 
     if provider is None:
         provider = get_provider(config, task="rewrite")
     try:
+        rw_temp = _llm_task_temperature(config, "rewrite")
         logger.debug(
             "rewrite_story: calling LLM story_id=%s style=%s language=%s",
             story_id,
             style,
             language,
         )
-        rw_temp = _llm_task_temperature(config, "rewrite")
         response = provider.complete(prompt, max_tokens=max_tokens, temperature=rw_temp)
-        title, summary, full_text = _parse_story_llm_response(response)
+        try:
+            title, summary, full_text = _parse_story_llm_response(response)
+        except ValueError as ve:
+            err_msg = str(ve)[:500]
+            db_stories.insert_story_rewrite(
+                story_id=story_id,
+                style=style,
+                language=language,
+                title=None,
+                summary=None,
+                full_text=None,
+                rewrite_failed=True,
+                error_message=err_msg,
+            )
+            logger.warning(
+                "rewrite_story failed story_id=%s style=%s language=%s: %s",
+                story_id,
+                style,
+                language,
+                err_msg,
+            )
+            return False
         title, summary, full_text = _proofread_if_enabled(
             provider,
             title,
@@ -676,6 +817,22 @@ def _gather_rewrite_work(
     return work
 
 
+def _gather_rewrite_work_all_stories(
+    since: datetime | None,
+    batch_size: int,
+) -> list[tuple[str, list[dict[str, Any]], bool]]:
+    """Return (story_id, articles, True) for every story with articles (full cascade)."""
+    limit = None if batch_size <= 0 else batch_size
+    stories = db_stories.get_all_stories_with_articles(since=since, limit=limit)
+    work: list[tuple[str, list[dict[str, Any]], bool]] = []
+    for row in stories:
+        story_id = row["story_id"]
+        articles = db_stories.get_articles_in_story(story_id)
+        if articles:
+            work.append((story_id, articles, True))
+    return work
+
+
 def _execute_cascading_rewrites(
     work: list[tuple[str, list[dict[str, Any]], bool]],
     config: dict[str, Any],
@@ -846,6 +1003,83 @@ def run_rewrite_batch(config: dict[str, Any]) -> RewriteReport:
     parallel_w = max(1, int(schedule_cfg.get("rewrite_parallel_workers") or 1))
     logger.info(
         "Rewrite batch: %d stories, workers=%d, base_language=%s, variants=%s",
+        len(work),
+        parallel_w,
+        base_language,
+        variant_str or "—",
+    )
+    rewrite_provider = get_provider(config, task="rewrite")
+    if "simple" in style_ids:
+        simplify_provider = get_provider(config, task="simplify")
+    else:
+        simplify_provider = rewrite_provider
+    translate_provider = get_provider(config, task="translate")
+
+    stories_succeeded, stories_failed = _execute_cascading_rewrites(
+        work=work,
+        config=config,
+        base_language=base_language,
+        other_languages=other_languages,
+        rewrite_provider=rewrite_provider,
+        simplify_provider=simplify_provider,
+        translate_provider=translate_provider,
+    )
+
+    stories_attempted = len(work)
+    return RewriteReport(
+        variants_processed=len(variants),
+        stories_attempted=stories_attempted,
+        stories_succeeded=stories_succeeded,
+        stories_failed=stories_failed,
+    )
+
+
+def run_rewrite_all_stories(config: dict[str, Any]) -> RewriteReport:
+    """Regenerate rewrites for every story with articles (ignores needs_rewrite / coverage).
+
+    Uses the same time window and batch size as the scheduled rewrite job
+    (``processing.cluster_window_hours``, ``schedule.rewrite_batch_size``).
+    Intended for operators iterating on prompts or models.
+    """
+    style_ids = _configured_style_ids(config)
+    processing = config.get("processing", {})
+    window_hours = processing.get("cluster_window_hours", 24)
+    since = (
+        datetime.now(UTC) - timedelta(hours=window_hours)
+        if window_hours
+        else None
+    )
+    schedule_cfg = config.get("schedule", {})
+    batch_size = int(schedule_cfg.get("rewrite_batch_size") or 0)
+
+    variants = _get_rewriting_variants(config)
+    base_language = config.get("rewriting", {}).get("base_language", "en")
+    other_languages = [
+        lang["id"]
+        for lang in config.get("rewriting", {}).get("languages", [])
+        if lang["id"] != base_language
+    ]
+
+    variant_str = ", ".join(f"{sty}/{lng}" for sty, lng in variants)
+    batch_desc = "unlimited" if batch_size <= 0 else str(batch_size)
+
+    work = _gather_rewrite_work_all_stories(since, batch_size)
+    if not work:
+        logger.info(
+            "Rewrite-all: no stories with articles (window_hours=%s, batch_size=%s)",
+            window_hours if window_hours else "all",
+            batch_desc,
+        )
+        return RewriteReport(
+            variants_processed=len(variants),
+            stories_attempted=0,
+            stories_succeeded=0,
+            stories_failed=0,
+        )
+
+    parallel_w = max(1, int(schedule_cfg.get("rewrite_parallel_workers") or 1))
+    logger.info(
+        "Rewrite-all: %d stories (full regen), workers=%d, base_language=%s, variants=%s",
         len(work),
         parallel_w,
         base_language,

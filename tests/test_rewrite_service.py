@@ -6,14 +6,46 @@ import pytest
 
 from app.services.rewrite_service import (
     RewriteReport,
+    _build_articles_text_for_rewrite,
     _get_language_writing_note,
     _llm_task_temperature,
     _parse_cluster_llm_response,
     _strip_markdown_bold,
     _writing_note_section_for_translate,
     rewrite_story,
+    run_rewrite_all_stories,
     run_rewrite_batch,
 )
+
+
+def test_build_articles_text_for_rewrite_caps_source_count() -> None:
+    """Large clusters only send the first N sources to the rewrite model."""
+    arts = [
+        {"title": f"T{i}", "full_text": "body", "raw_text": ""} for i in range(25)
+    ]
+    text, meta = _build_articles_text_for_rewrite(
+        arts,
+        {"rewrite_max_sources_per_story": 6, "rewrite_max_chars_per_article": 0, "rewrite_max_articles_text_chars": 0},
+    )
+    assert meta["sources_total"] == 25
+    assert meta["sources_used"] == 6
+    assert meta["capped_source_count"] is True
+    assert text.count("[Source ") == 6
+
+
+def test_build_articles_text_for_rewrite_hard_cap_total_chars() -> None:
+    """articles_text is cut when merged body exceeds rewrite_max_articles_text_chars."""
+    arts = [{"title": "A", "full_text": "x" * 5000, "raw_text": ""} for _ in range(20)]
+    text, meta = _build_articles_text_for_rewrite(
+        arts,
+        {
+            "rewrite_max_sources_per_story": 0,
+            "rewrite_max_chars_per_article": 0,
+            "rewrite_max_articles_text_chars": 3000,
+        },
+    )
+    assert meta["hard_truncated"] is True
+    assert len(text) <= 3200
 
 
 def test_parse_cluster_llm_response_happy() -> None:
@@ -62,6 +94,73 @@ Cos de l'article."""
     assert "Títol català" in title
     assert "Una dos tres" in summary
     assert "Cos de l'article" in full
+
+
+def test_parse_cluster_llm_response_markdown_atx_headers() -> None:
+    """Markdown ## headers are normalized and parsed."""
+    text = """## TÍTULO:
+Titular en español.
+
+### RESUMEN:
+Una frase. Dos frases. Tres frases.
+
+## COMPLETO:
+Cuerpo del artículo unificado."""
+    title, summary, full = _parse_cluster_llm_response(text)
+    assert "Titular" in title
+    assert "Una frase" in summary
+    assert "Cuerpo del artículo" in full
+
+
+def test_parse_cluster_llm_response_fenced_markdown_block() -> None:
+    """Leading ``` fence is stripped so TITLE:/SUMMARY:/FULL: parse."""
+    text = """```text
+TITLE:
+Headline here.
+
+SUMMARY:
+One. Two. Three.
+
+FULL:
+Full body text.
+```"""
+    title, summary, full = _parse_cluster_llm_response(text)
+    assert "Headline" in title
+    assert "One." in summary
+    assert "Full body" in full
+
+
+def test_parse_cluster_llm_response_strips_preamble_before_title() -> None:
+    """Chatter before the first TITLE: line is ignored."""
+    text = """Here is the merged story.
+
+TITLE:
+Headline after preamble.
+
+SUMMARY:
+First sentence. Second sentence. Third sentence.
+
+FULL:
+Unified article body."""
+    title, summary, full = _parse_cluster_llm_response(text)
+    assert "Headline after preamble" in title
+    assert "First sentence" in summary
+    assert "Unified article body" in full
+
+
+def test_parse_cluster_llm_response_empty_title_derived_from_summary() -> None:
+    """Blank TITLE: body is filled from the first summary sentence (model quirk)."""
+    text = """TITLE:
+
+SUMMARY:
+El FC Barcelona gana en Champions. El equipo mostró solidez defensiva.
+
+FULL:
+El FC Barcelona ha tenido un rendimiento sólido en la Liga de Campeones."""
+    title, summary, full = _parse_cluster_llm_response(text)
+    assert "Barcelona" in title or "Champions" in title
+    assert "Champions" in summary
+    assert "rendimiento" in full
 
 
 def test_strip_markdown_bold() -> None:
@@ -463,3 +562,69 @@ def test_run_rewrite_batch_calls_cascade() -> None:
         assert "rewrite" in tasks
         assert "translate" in tasks
         assert "simplify" not in tasks
+
+
+def test_run_rewrite_all_stories_uses_get_all_stories_and_full_regen() -> None:
+    """run_rewrite_all_stories selects every story with articles and forces full cascade."""
+    with (
+        patch("app.services.rewrite_service.db_stories") as mock_stories,
+        patch("app.services.rewrite_service.get_provider") as mock_get,
+        patch("app.services.rewrite_service._execute_cascading_rewrites") as mock_execute,
+    ):
+        mock_get.return_value = MagicMock()
+        mock_stories.get_all_stories_with_articles.return_value = [
+            {"story_id": "s1"},
+            {"story_id": "s2"},
+        ]
+        mock_stories.get_articles_in_story.side_effect = [
+            [{"id": "a1", "raw_text": "t1", "full_text": None}],
+            [{"id": "a2", "raw_text": "t2", "full_text": None}],
+        ]
+        mock_execute.return_value = (4, 0)
+
+        config = {
+            "schedule": {"rewrite_batch_size": 10},
+            "processing": {"cluster_window_hours": 24},
+            "rewriting": {
+                "base_language": "en",
+                "styles": [{"id": "neutral"}],
+                "languages": [{"id": "ca"}, {"id": "en"}],
+            },
+        }
+        report = run_rewrite_all_stories(config)
+
+        mock_stories.get_stories_needing_any_rewrite.assert_not_called()
+        mock_stories.get_all_stories_with_articles.assert_called_once()
+        assert mock_stories.get_all_stories_with_articles.call_args.kwargs["limit"] == 10
+
+        mock_execute.assert_called_once()
+        work = mock_execute.call_args.kwargs["work"]
+        assert len(work) == 2
+        assert all(w[2] is True for w in work)
+
+        assert report.stories_attempted == 2
+        assert report.stories_succeeded == 4
+
+
+def test_run_rewrite_all_stories_unlimited_batch() -> None:
+    """rewrite_batch_size 0 passes limit=None to get_all_stories_with_articles."""
+    with (
+        patch("app.services.rewrite_service.db_stories") as mock_stories,
+        patch("app.services.rewrite_service.get_provider") as mock_get,
+        patch("app.services.rewrite_service._execute_cascading_rewrites") as mock_execute,
+    ):
+        mock_get.return_value = MagicMock()
+        mock_stories.get_all_stories_with_articles.return_value = []
+        mock_execute.return_value = (0, 0)
+
+        config = {
+            "schedule": {"rewrite_batch_size": 0},
+            "processing": {"cluster_window_hours": 24},
+            "rewriting": {
+                "base_language": "en",
+                "styles": [{"id": "neutral"}],
+                "languages": [{"id": "en"}],
+            },
+        }
+        run_rewrite_all_stories(config)
+        assert mock_stories.get_all_stories_with_articles.call_args.kwargs["limit"] is None

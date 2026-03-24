@@ -384,6 +384,8 @@ The daily rewrite job (APScheduler, default 06:00) uses a cascading pipeline:
 
 Stories that already have all variants are skipped. Per-task models (`rewrite_model`, `simplify_model`, `translate_model`) can be tuned in config for optimal performance.
 
+**Operator backfill:** To re-run the full cascade for stories that already have rewrites (e.g. after changing prompts or models), use the worker CLI command `rewrite-all-stories`. It respects `processing.cluster_window_hours` and `schedule.rewrite_batch_size` and logs job runs as `rewrite_all_stories`. See [docs/TECH_STACK.md](TECH_STACK.md#full-story-rewrite-backfill-rewrite-all-stories).
+
 The `rewrite_requests` table and `app/db/rewrite_requests.py` exist as infrastructure for future on-demand rewrites (triggered when a user saves setup/settings). This is not yet wired to routes or the scheduler; all rewrites are currently driven by the daily batch job.
 
 ### Daily digest delivery

@@ -168,6 +168,20 @@ def rewrite_articles_cmd() -> None:
     click.echo("Rewrite job completed. Check ops dashboard for details.")
 
 
+@worker_cli.command("rewrite-all-stories")
+def rewrite_all_stories_cmd() -> None:
+    """Regenerate rewrites for every story with articles (full cascade), for prompt/model tuning."""
+    from app.scheduler import _run_tracked_job
+    from app.services.rewrite_service import run_rewrite_all_stories
+
+    try:
+        _run_tracked_job("rewrite_all_stories", run_rewrite_all_stories, trigger="manual")
+    except Exception as e:
+        click.echo(f"Rewrite-all job failed: {e}", err=True)
+        raise SystemExit(1)
+    click.echo("Rewrite-all job completed. Check ops dashboard for details.")
+
+
 @worker_cli.command("run-pipeline")
 @click.option(
     "--sources-path",

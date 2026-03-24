@@ -101,6 +101,7 @@ The scheduler runs jobs on a schedule. To run them manually:
 | `python -m app.worker_cli enrich-articles` | Worker | Extract full article content for pending articles |
 | `python -m app.worker_cli cluster-articles` | Worker | Embed and cluster today's articles |
 | `python -m app.worker_cli rewrite-articles` | Worker | Rewrite articles for all user profiles |
+| `python -m app.worker_cli rewrite-all-stories` | Worker | Regenerate **all** story rewrites (full cascade); for prompt/model tuning — see [docs/TECH_STACK.md](docs/TECH_STACK.md#full-story-rewrite-backfill-rewrite-all-stories) |
 | `python -m app.worker_cli run-pipeline` | Worker | Full pipeline once (seed → fetch → enrich → cluster → rewrite) |
 
 With Docker:

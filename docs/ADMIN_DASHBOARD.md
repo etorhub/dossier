@@ -123,7 +123,7 @@ The scheduler records each job execution in the `job_runs` table:
 2. On success: update with `status = 'success'`, `result` (JSONB of the report)
 3. On exception: update with `status = 'error'`, `error_message`
 
-CLI commands (`fetch-feeds`, `enrich-articles`, etc.) also record runs with `trigger = 'manual'`.
+CLI commands (`fetch-feeds`, `enrich-articles`, etc.) also record runs with `trigger = 'manual'`. The operator backfill command **`rewrite-all-stories`** logs as job name **`rewrite_all_stories`** (not `rewrite_articles`), so you can tell full rewrites apart from the normal incremental rewrite batch in the jobs list.
 
 ---
 

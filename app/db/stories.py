@@ -483,6 +483,53 @@ def get_all_rewrites_for_story(story_id: str) -> dict[tuple[str, str], dict[str,
         return_connection(conn)
 
 
+def get_all_stories_with_articles(
+    since: datetime | None,
+    limit: int | None = None,
+) -> list[dict[str, Any]]:
+    """Return every story that has at least one linked article.
+
+    Ordered by newest linked article ``published_at`` descending. Optional
+    ``since`` restricts to stories with at least one article on or after that
+    time (same window semantics as the scheduled rewrite job). Used for
+    operator-driven full rewrites when prompts or models change.
+    """
+    conn = get_connection()
+    try:
+        with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
+            if since is not None:
+                cur.execute(
+                    """
+                    SELECT s.id::text AS story_id, MAX(a.published_at) AS max_pub
+                    FROM stories s
+                    JOIN story_articles sa ON sa.story_id = s.id
+                    JOIN articles a ON a.id = sa.article_id
+                    WHERE a.published_at >= %s
+                    GROUP BY s.id
+                    ORDER BY max_pub DESC
+                    """
+                    + (" LIMIT %s" if limit is not None and limit > 0 else ""),
+                    (since,) + ((limit,) if limit is not None and limit > 0 else ()),
+                )
+            else:
+                cur.execute(
+                    """
+                    SELECT s.id::text AS story_id, MAX(a.published_at) AS max_pub
+                    FROM stories s
+                    JOIN story_articles sa ON sa.story_id = s.id
+                    JOIN articles a ON a.id = sa.article_id
+                    GROUP BY s.id
+                    ORDER BY max_pub DESC
+                    """
+                    + (" LIMIT %s" if limit is not None and limit > 0 else ""),
+                    (limit,) if limit is not None and limit > 0 else (),
+                )
+            rows = cur.fetchall()
+            return [dict(row) for row in rows]
+    finally:
+        return_connection(conn)
+
+
 def get_stories_needing_any_rewrite(
     variants: list[tuple[str, str]],
     since: datetime | None,

@@ -333,4 +333,20 @@ When a user opens the app, content is already ready. No waiting.
 | `python -m app.worker_cli enrich-articles` | Worker container | Run enrichment once |
 | `python -m app.worker_cli cluster-articles` | Worker container | Run clustering once |
 | `python -m app.worker_cli rewrite-articles` | Worker container | Run rewrite batch once |
+| `python -m app.worker_cli rewrite-all-stories` | Worker container | Regenerate rewrites for every story with articles (operator / prompt tuning) |
 | `python -m app.worker_cli run-pipeline` | Worker container | Full pipeline: seed → fetch → enrich → cluster → rewrite |
+
+### Full story rewrite backfill (`rewrite-all-stories`)
+
+The scheduled rewrite job (`rewrite-articles` / `rewrite_articles`) only processes stories that are missing a required `(style, language)` variant or have `needs_rewrite = true`. For **prompt or model iteration**, operators can run a **full backfill** that ignores coverage and flags and runs the **entire cascade** (neutral → simple when configured → translations) for every selected story:
+
+```bash
+docker compose exec worker python -m app.worker_cli rewrite-all-stories
+```
+
+- **Job name** in `job_runs` and per-run logs: `rewrite_all_stories` (distinct from `rewrite_articles`).
+- **Time window:** `processing.cluster_window_hours` — only stories with at least one linked article whose `published_at` falls in that window. Set to **`0`** in `config/app.yaml` to include **all** stories in the database.
+- **Batch size:** `schedule.rewrite_batch_size` — **`0`** means no limit per invocation; a positive value caps how many stories are processed in one run (ordered by newest article first).
+- **Parallelism:** same as the normal rewrite job (`schedule.rewrite_parallel_workers`).
+
+This can consume **many** LLM calls. Prefer a small `rewrite_batch_size` and/or a narrow window while experimenting; widen only when you intend to reprocess everything.
