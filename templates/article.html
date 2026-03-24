@@ -47,8 +47,9 @@
     </div>
   </div>
   <div class="article-body">
-    {% for para in article.full_text.split('\n\n') %}
-    {% if para.strip() %}<p>{{ para.strip() }}</p>{% endif %}
+    {% set body = article.highlighted_full_text or article.full_text or '' %}
+    {% for para in body.split('\n\n') %}
+    {% if para.strip() %}<p>{{ para.strip()|bold_md }}</p>{% endif %}
     {% endfor %}
   </div>
   <div class="article-actions">
