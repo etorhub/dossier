@@ -46,14 +46,22 @@ def _get_scheduler_mode() -> str:
 
 
 def _cluster_articles_guarded(config: dict[str, Any]) -> Any:
-    """Run clustering only when no articles are pending extraction."""
+    """Run clustering only when pending extraction count is within threshold.
+
+    Tolerates up to cluster_gate_max_pending articles still pending (fresh
+    articles fetched in the last few hours that haven't been enriched yet).
+    Articles older than abandon_after_hours are auto-abandoned by enrich_all_articles
+    so they don't contribute to this count.
+    """
     from app.clustering.service import StoryReport, run_cluster_and_embed
 
+    max_pending = config.get("extraction", {}).get("cluster_gate_max_pending", 5)
     pending = articles_db.get_pending_extraction_count()
-    if pending > 0:
+    if pending > max_pending:
         logger.warning(
-            "Skipping cluster job: %d articles still pending extraction",
+            "Skipping cluster job: %d articles still pending extraction (threshold: %d)",
             pending,
+            max_pending,
         )
         return StoryReport(
             articles_embedded=0,

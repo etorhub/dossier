@@ -76,6 +76,11 @@ extraction:
   max_enrichment_rounds: 20 # Cap per run to avoid runaway loops
   rate_limit_per_domain: 2.0
   timeout: 30
+  # Articles stuck in 'pending' extraction longer than this are auto-abandoned (0 = never abandon)
+  abandon_after_hours: 4
+  # Cluster job is skipped if more than this many articles are still pending extraction.
+  # Set to 0 to require zero pending (strictest gate, original behaviour).
+  cluster_gate_max_pending: 5
 
 # Reader feed: drop RSS items that look like native ads (matched in title + start of body).
 feed:

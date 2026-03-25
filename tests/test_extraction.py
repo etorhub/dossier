@@ -1,6 +1,7 @@
 """Tests for extraction module."""
 
-from unittest.mock import patch
+import logging
+from unittest.mock import MagicMock, call, patch
 
 import pytest
 
@@ -248,3 +249,64 @@ def test_update_article_extraction_replace_image_overwrites() -> None:
         assert updated["image_source"] == "article_body"
     finally:
         _cleanup_test_extraction_articles()
+
+
+# ---------------------------------------------------------------------------
+# enrich_all_articles abandonment logic (no DB required)
+# ---------------------------------------------------------------------------
+
+
+def test_enrich_all_articles_abandons_stale_pending() -> None:
+    """abandon_stale_pending_articles is called with the configured hours value."""
+    config = {"extraction": {"enabled": True, "abandon_after_hours": 4}}
+    with patch("app.db.articles.abandon_stale_pending_articles", return_value=3) as mock_abandon, \
+         patch("app.db.articles.get_pending_extraction_count", return_value=0):
+        from app.extraction.extractor import enrich_all_articles
+        enrich_all_articles(config)
+        mock_abandon.assert_called_once_with(4)
+
+
+def test_enrich_all_articles_skips_abandon_when_hours_zero() -> None:
+    """abandon_stale_pending_articles is NOT called when abandon_after_hours=0."""
+    config = {"extraction": {"enabled": True, "abandon_after_hours": 0}}
+    with patch("app.db.articles.abandon_stale_pending_articles") as mock_abandon, \
+         patch("app.db.articles.get_pending_extraction_count", return_value=0):
+        from app.extraction.extractor import enrich_all_articles
+        enrich_all_articles(config)
+        mock_abandon.assert_not_called()
+
+
+def test_enrich_all_articles_logs_warning_when_articles_abandoned(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """A WARNING is logged when abandon_stale_pending_articles returns > 0."""
+    config = {"extraction": {"enabled": True, "abandon_after_hours": 4}}
+    with patch("app.db.articles.abandon_stale_pending_articles", return_value=2), \
+         patch("app.db.articles.get_pending_extraction_count", return_value=0):
+        from app.extraction.extractor import enrich_all_articles
+        with caplog.at_level(logging.WARNING, logger="app.extraction.extractor"):
+            enrich_all_articles(config)
+    assert any("Abandoned" in r.message and "2" in r.message for r in caplog.records)
+
+
+def test_enrich_all_articles_no_warning_when_none_abandoned(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """No abandonment WARNING is logged when abandon_stale_pending_articles returns 0."""
+    config = {"extraction": {"enabled": True, "abandon_after_hours": 4}}
+    with patch("app.db.articles.abandon_stale_pending_articles", return_value=0), \
+         patch("app.db.articles.get_pending_extraction_count", return_value=0):
+        from app.extraction.extractor import enrich_all_articles
+        with caplog.at_level(logging.WARNING, logger="app.extraction.extractor"):
+            enrich_all_articles(config)
+    assert not any("Abandoned" in r.message for r in caplog.records)
+
+
+def test_enrich_all_articles_uses_default_abandon_hours() -> None:
+    """abandon_stale_pending_articles is called with default of 4 when not configured."""
+    config = {"extraction": {"enabled": True}}
+    with patch("app.db.articles.abandon_stale_pending_articles", return_value=0) as mock_abandon, \
+         patch("app.db.articles.get_pending_extraction_count", return_value=0):
+        from app.extraction.extractor import enrich_all_articles
+        enrich_all_articles(config)
+        mock_abandon.assert_called_once_with(4)

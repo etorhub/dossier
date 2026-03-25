@@ -439,6 +439,31 @@ def update_article_extraction(
         return_connection(conn)
 
 
+def abandon_stale_pending_articles(older_than_hours: int) -> int:
+    """Mark articles stuck in 'pending' extraction as failed due to timeout.
+
+    Articles with extraction_status = 'pending' and fetched_at older than
+    older_than_hours are updated to extraction_status = 'extraction_failed'
+    with extraction_method = 'timeout'. Returns the count of rows updated.
+
+    This unblocks the cluster gate when dead URLs (paywalled, 404, redirected)
+    would otherwise keep pending count > 0 indefinitely.
+    """
+    conn = get_connection()
+    try:
+        with conn.cursor() as cur:
+            cur.execute(
+                "UPDATE articles SET extraction_status = 'extraction_failed', extraction_method = 'timeout' "
+                "WHERE extraction_status = 'pending' AND fetched_at < NOW() - %s::interval",
+                (f"{older_than_hours} hours",),
+            )
+            count = cur.rowcount
+        conn.commit()
+        return count
+    finally:
+        return_connection(conn)
+
+
 def update_article_type(article_id: str, article_type: str) -> None:
     """Set article_type for an article. Values: 'news' or 'non_news'.
 

@@ -222,6 +222,17 @@ def enrich_all_articles(config: dict) -> EnrichmentReport:
     max_rounds = extraction_cfg.get("max_enrichment_rounds", 20)
     aggregate = EnrichmentReport(0, 0, 0, 0)
 
+    # Auto-abandon articles that have been pending too long (dead URLs, paywalls, etc.)
+    abandon_hours = extraction_cfg.get("abandon_after_hours", 4)
+    if abandon_hours > 0:
+        abandoned = db_articles.abandon_stale_pending_articles(abandon_hours)
+        if abandoned > 0:
+            logger.warning(
+                "Abandoned %d stale pending articles (pending > %d hours)",
+                abandoned,
+                abandon_hours,
+            )
+
     total_pending = db_articles.get_pending_extraction_count()
     if total_pending == 0:
         return aggregate
