@@ -118,6 +118,38 @@ def test_highlight_story_ner_returns_true_on_plain_text() -> None:
     mock_db.update_story_rewrite_highlight.assert_called_once()
 
 
+def test_highlight_ner_regex_bolds_only_first_occurrence() -> None:
+    """_highlight_ner_regex bolds each Title Case phrase only on its first occurrence."""
+    from app.services.highlight_service import _highlight_ner_regex
+
+    text = "Joe Biden met Angela Merkel. Later, Joe Biden left."
+    result = _highlight_ner_regex(text)
+
+    assert result.count("**Joe Biden**") == 1
+    assert result.count("**Angela Merkel**") == 1
+    # Second occurrence of Joe Biden must not be wrapped
+    assert "Later, Joe Biden left." in result
+
+
+def test_highlight_ner_spacy_bolds_only_first_occurrence() -> None:
+    """highlight_story (ner) bolds each entity only once, falling back to regex when spaCy absent."""
+    with patch("app.services.highlight_service._load_spacy", return_value=None), \
+         patch("app.services.highlight_service.db_stories") as mock_db:
+        from app.services.highlight_service import highlight_story
+        highlight_story(
+            story_id="story-ded",
+            full_text="Joe Biden met Angela Merkel. Later, Joe Biden left.",
+            style="neutral",
+            language="en",
+            config=_ner_config(),
+        )
+
+    highlighted = mock_db.update_story_rewrite_highlight.call_args[0][3]
+    assert highlighted.count("**Joe Biden**") == 1
+    assert highlighted.count("**Angela Merkel**") == 1
+    assert "Later, Joe Biden left." in highlighted
+
+
 # ---------------------------------------------------------------------------
 # run_highlight_batch tests
 # ---------------------------------------------------------------------------

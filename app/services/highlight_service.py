@@ -77,11 +77,20 @@ def _load_spacy() -> Any | None:
 
 
 def _highlight_ner_regex(full_text: str) -> str:
-    """Regex fallback: bold 2+ consecutive Title Case words not already bolded."""
+    """Regex fallback: bold 2+ consecutive Title Case words not already bolded (first occurrence only)."""
     # Matches two or more consecutive words starting with an uppercase letter.
     # Negative lookbehind/lookahead prevents double-wrapping.
     pattern = re.compile(r"(?<!\*)\b([A-Z][a-z]+(?:\s+[A-Z][a-z]+)+)\b(?!\*)")
-    return pattern.sub(lambda m: f"**{m.group(1)}**", full_text)
+    seen: set[str] = set()
+
+    def _replace(m: re.Match[str]) -> str:
+        key = m.group(1).lower()
+        if key in seen:
+            return m.group(1)
+        seen.add(key)
+        return f"**{m.group(1)}**"
+
+    return pattern.sub(_replace, full_text)
 
 
 def _highlight_ner_spacy(full_text: str) -> str:
@@ -113,9 +122,18 @@ def _highlight_ner_spacy(full_text: str) -> str:
             continue
         clean.append((s, e))
 
+    # Deduplicate: bold each distinct entity text only once (first occurrence)
+    seen: set[str] = set()
+    unique: list[tuple[int, int]] = []
+    for s, e in clean:
+        key = full_text[s:e].strip().lower()
+        if key and key not in seen:
+            seen.add(key)
+            unique.append((s, e))
+
     # Insert markers from end to avoid offset shifts
     chars = list(full_text)
-    for s, e in reversed(clean):
+    for s, e in reversed(unique):
         chars[s:e] = list(f"**{full_text[s:e]}**")
     return "".join(chars)
 

@@ -43,9 +43,9 @@ services:
     restart: "no"
 
   db:
-    image: postgres:18-alpine
+    image: pgvector/pgvector:pg18
     volumes:
-      - pgdata:/var/lib/postgresql/data
+      - pgdata:/var/lib/postgresql
     environment:
       POSTGRES_DB: dossier
       POSTGRES_USER: dossier
@@ -56,6 +56,18 @@ services:
       timeout: 5s
       retries: 5
 
+  db-init:
+    build:
+      context: .
+      target: web
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://dossier:${POSTGRES_PASSWORD:-devpassword}@db:5432/dossier
+    command: alembic upgrade head
+    restart: "no"
+
   web:
     build:
       context: .
@@ -63,24 +75,23 @@ services:
     ports:
       - "5000:5000"
     depends_on:
-      db:
-        condition: service_healthy
+      db-init:
+        condition: service_completed_successfully
     environment:
       DATABASE_URL: postgresql://dossier:${POSTGRES_PASSWORD:-devpassword}@db:5432/dossier
       POSTGRES_HOST: db
       SECRET_KEY: ${SECRET_KEY:-dev-secret-key-change-in-production}
     volumes:
       - ./config:/app/config
-    command: >
-      sh -c "alembic upgrade head && flask seed-sources && gunicorn -b 0.0.0.0:5000 app:application"
+    command: sh -c "flask seed-sources && gunicorn -b 0.0.0.0:5000 app:application"
 
   worker:
     build:
       context: .
       target: worker
     depends_on:
-      db:
-        condition: service_healthy
+      db-init:
+        condition: service_completed_successfully
       # When profile local-llm is off, this dependency is skipped (required: false).
       ollama-init:
         condition: service_completed_successfully
@@ -101,8 +112,8 @@ services:
     ports:
       - "5001:5001"
     depends_on:
-      db:
-        condition: service_healthy
+      db-init:
+        condition: service_completed_successfully
     environment:
       DATABASE_URL: postgresql://dossier:${POSTGRES_PASSWORD:-devpassword}@db:5432/dossier
       POSTGRES_HOST: db
