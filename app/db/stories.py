@@ -419,13 +419,17 @@ def get_story_centroid(story_id: str) -> list[float] | None:
 
 
 def update_story_centroid(story_id: str, embedding: list[float]) -> None:
-    """Store centroid embedding for story."""
+    """Store centroid embedding for story. Writes to JSONB and pgvector columns."""
     conn = get_connection()
     try:
         with conn.cursor() as cur:
+            vec_str = "[" + ",".join(str(x) for x in embedding) + "]"
             cur.execute(
-                "UPDATE stories SET centroid_embedding = %s::jsonb WHERE id = %s::uuid",
-                (json.dumps(embedding), story_id),
+                """UPDATE stories
+                   SET centroid_embedding = %s::jsonb,
+                       centroid_vec = %s::vector
+                   WHERE id = %s::uuid""",
+                (json.dumps(embedding), vec_str, story_id),
             )
         conn.commit()
     finally:
@@ -518,6 +522,57 @@ def get_stories_with_centroid_in_window(since: datetime | None) -> list[dict[str
                         d["centroid_embedding"] = None
                 result.append(d)
             return result
+    finally:
+        return_connection(conn)
+
+
+def get_top_k_story_candidates(
+    embedding: list[float],
+    k: int,
+    since: datetime | None,
+) -> list[dict[str, Any]]:
+    """Return top-k stories nearest to embedding using pgvector ANN (cosine distance).
+
+    Requires migration 029 (pgvector extension + centroid_vec column).
+    Results are ordered by similarity DESC. Suitable for use with
+    processing.cluster_use_ivfflat = true.
+    """
+    if not embedding:
+        return []
+    vec_str = "[" + ",".join(str(x) for x in embedding) + "]"
+    conn = get_connection()
+    try:
+        with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
+            if since is not None:
+                cur.execute(
+                    """
+                    SELECT s.id::text AS story_id,
+                           1 - (s.centroid_vec <=> %s::vector) AS sim
+                    FROM stories s
+                    WHERE s.centroid_vec IS NOT NULL
+                      AND EXISTS (
+                          SELECT 1 FROM story_articles sa
+                          JOIN articles a ON a.id = sa.article_id
+                          WHERE sa.story_id = s.id AND a.published_at >= %s
+                      )
+                    ORDER BY s.centroid_vec <=> %s::vector
+                    LIMIT %s
+                    """,
+                    (vec_str, since, vec_str, k),
+                )
+            else:
+                cur.execute(
+                    """
+                    SELECT s.id::text AS story_id,
+                           1 - (s.centroid_vec <=> %s::vector) AS sim
+                    FROM stories s
+                    WHERE s.centroid_vec IS NOT NULL
+                    ORDER BY s.centroid_vec <=> %s::vector
+                    LIMIT %s
+                    """,
+                    (vec_str, vec_str, k),
+                )
+            return [dict(row) for row in cur.fetchall()]
     finally:
         return_connection(conn)
 

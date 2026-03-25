@@ -72,6 +72,8 @@ DEFAULTS: dict[str, Any] = {
         "story_value_delta": 0.05,
         "embed_batch_size": 0,
         "rewrite_cooldown_minutes": 60,
+        "cluster_ann_candidates": 20,
+        "cluster_use_ivfflat": False,
     },
     "server": {
         "port": 5000,

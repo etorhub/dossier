@@ -185,6 +185,68 @@ def _text_to_embed(article: dict[str, Any]) -> str:
     return (prefix + title + " " + content).strip()
 
 
+def _assign_to_existing_stories_ann(
+    articles: list[dict[str, Any]],
+    since: datetime | None,
+    threshold: float,
+    ann_k: int,
+    rules: ExclusionRules,
+    source_topics: dict[str, frozenset[str]],
+) -> tuple[list[tuple[str, str]], list[dict[str, Any]]]:
+    """Assign articles to existing stories using pgvector ANN top-K candidates.
+
+    For each article, queries the DB for the top-k nearest stories by centroid,
+    then applies the same exclusion rules and threshold checks in Python.
+    Requires migration 029 (centroid_vec column + IVFFlat index).
+    """
+    assigned: list[tuple[str, str]] = []
+    remaining: list[dict[str, Any]] = []
+    member_ids_cache: dict[str, list[str]] = {}
+    source_ids_cache: dict[str, set[str]] = {}
+
+    for art in articles:
+        emb = _embedding_from_article(art)
+        if not emb:
+            remaining.append(art)
+            continue
+        candidates = db_stories.get_top_k_story_candidates(emb, ann_k, since)
+        best_story_id: str | None = None
+        best_sim = -1.0
+        for cand in candidates:
+            sid = cand["story_id"]
+            sim = float(cand["sim"])
+            if sim < threshold:
+                break  # ordered DESC; no point checking further
+            if sim <= best_sim:
+                continue
+            # Lazy-load story members for exclusion/source-compat checks
+            if sid not in member_ids_cache:
+                members = db_stories.get_articles_in_story(sid)
+                member_ids_cache[sid] = [a["id"] for a in members]
+                source_ids_cache[sid] = {a["source_id"] for a in members if a.get("source_id")}
+            if rules.article_pairs:
+                blocked = any(
+                    _article_pair_blocked(rules, art["id"], mid)
+                    for mid in member_ids_cache[sid]
+                )
+                if blocked:
+                    continue
+            art_src = (art.get("source_id") or "").strip()
+            if art_src:
+                story_srcs = source_ids_cache[sid]
+                if story_srcs and not all(
+                    _topics_compatible(art_src, src_id, source_topics) for src_id in story_srcs
+                ):
+                    continue
+            best_sim = sim
+            best_story_id = sid
+        if best_story_id:
+            assigned.append((art["id"], best_story_id))
+        else:
+            remaining.append(art)
+    return assigned, remaining
+
+
 def _assign_to_existing_stories(
     articles: list[dict[str, Any]],
     existing_stories: list[dict[str, Any]],
@@ -459,19 +521,26 @@ def run_cluster_and_embed(config: dict[str, Any] | None = None) -> StoryReport:
                 _update_story_centroid(sid)
 
     # 3. Incremental assignment: try to assign to existing stories with centroids
+    use_ann = bool(processing.get("cluster_use_ivfflat", False))
+    ann_k = int(processing.get("cluster_ann_candidates", 20))
     if has_embedding_provider:
-        existing = db_stories.get_stories_with_centroid_in_window(since)
-        story_member_ids: dict[str, list[str]] = {}
-        story_source_ids: dict[str, set[str]] = {}
-        for row in existing:
-            sid = row["story_id"]
-            members = db_stories.get_articles_in_story(sid)
-            story_member_ids[sid] = [a["id"] for a in members]
-            story_source_ids[sid] = {a["source_id"] for a in members if a.get("source_id")}
-        assigned, to_cluster = _assign_to_existing_stories(
-            to_cluster, existing, threshold, story_member_ids, exclusion_rules,
-            source_topics, story_source_ids,
-        )
+        if use_ann:
+            assigned, to_cluster = _assign_to_existing_stories_ann(
+                to_cluster, since, threshold, ann_k, exclusion_rules, source_topics,
+            )
+        else:
+            existing = db_stories.get_stories_with_centroid_in_window(since)
+            story_member_ids: dict[str, list[str]] = {}
+            story_source_ids: dict[str, set[str]] = {}
+            for row in existing:
+                sid = row["story_id"]
+                members = db_stories.get_articles_in_story(sid)
+                story_member_ids[sid] = [a["id"] for a in members]
+                story_source_ids[sid] = {a["source_id"] for a in members if a.get("source_id")}
+            assigned, to_cluster = _assign_to_existing_stories(
+                to_cluster, existing, threshold, story_member_ids, exclusion_rules,
+                source_topics, story_source_ids,
+            )
         for article_id, story_id in assigned:
             db_stories.add_article_to_story(story_id, article_id)
             articles_in_story = db_stories.get_articles_in_story(story_id)

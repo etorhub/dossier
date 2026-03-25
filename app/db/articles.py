@@ -106,13 +106,17 @@ def article_exists(source_id: str, url: str) -> bool:
 
 
 def update_article_embedding(article_id: str, embedding: list[float]) -> None:
-    """Store embedding for an article. Embedding is stored as JSONB."""
+    """Store embedding for an article. Writes to JSONB and pgvector columns."""
     conn = get_connection()
     try:
         with conn.cursor() as cur:
+            vec_str = "[" + ",".join(str(x) for x in embedding) + "]"
             cur.execute(
-                "UPDATE articles SET embedding = %s::jsonb WHERE id = %s",
-                (json.dumps(embedding), article_id),
+                """UPDATE articles
+                   SET embedding = %s::jsonb,
+                       embedding_vec = %s::vector
+                   WHERE id = %s""",
+                (json.dumps(embedding), vec_str, article_id),
             )
         conn.commit()
     finally:
