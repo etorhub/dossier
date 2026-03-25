@@ -64,8 +64,17 @@ def _domain_from_url(url: str) -> str:
         return url
 
 
-def enrich_articles(config: dict) -> EnrichmentReport:
-    """Process articles needing extraction. Returns EnrichmentReport."""
+def enrich_articles(
+    config: dict,
+    *,
+    progress_offset: int = 0,
+    progress_total: int = 0,
+) -> EnrichmentReport:
+    """Process articles needing extraction. Returns EnrichmentReport.
+
+    When called from enrich_all_articles, progress_offset and progress_total
+    are supplied so the progress bar spans the full bulk rather than each batch.
+    """
     extraction_cfg = config.get("extraction", {})
     if not extraction_cfg.get("enabled", True):
         return EnrichmentReport(0, 0, 0, 0)
@@ -114,8 +123,8 @@ def enrich_articles(config: dict) -> EnrichmentReport:
                         )
                         report.articles_skipped += 1
                         _render_enrich_progress(
-                            report.articles_checked,
-                            total_candidates,
+                            progress_offset + report.articles_checked,
+                            progress_total or total_candidates,
                             title,
                             frame=frame,
                         )
@@ -183,15 +192,17 @@ def enrich_articles(config: dict) -> EnrichmentReport:
                         )
 
                     _render_enrich_progress(
-                        report.articles_checked,
-                        total_candidates,
+                        progress_offset + report.articles_checked,
+                        progress_total or total_candidates,
                         title,
                         frame=frame,
                     )
 
                     time.sleep(min_interval)
         finally:
-            if sys.stderr.isatty() and total_candidates > 0:
+            # Only print the newline here when running standalone (no overall
+            # progress context). enrich_all_articles prints it after the loop.
+            if sys.stderr.isatty() and total_candidates > 0 and progress_total == 0:
                 sys.stderr.write("\n")
                 sys.stderr.flush()
 
@@ -222,7 +233,11 @@ def enrich_all_articles(config: dict) -> EnrichmentReport:
         if pending == 0:
             break
 
-        report = enrich_articles(config)
+        report = enrich_articles(
+            config,
+            progress_offset=aggregate.articles_checked,
+            progress_total=total_pending,
+        )
         aggregate.articles_checked += report.articles_checked
         aggregate.articles_extracted += report.articles_extracted
         aggregate.articles_failed += report.articles_failed
@@ -239,6 +254,10 @@ def enrich_all_articles(config: dict) -> EnrichmentReport:
                 report.articles_checked,
                 remaining,
             )
+
+    if sys.stderr.isatty() and total_pending > 0:
+        sys.stderr.write("\n")
+        sys.stderr.flush()
 
     logger.info(
         "Enrichment complete: %d extracted, %d failed, %d skipped",
