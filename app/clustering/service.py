@@ -191,6 +191,8 @@ def _assign_to_existing_stories(
     threshold: float,
     story_member_ids: dict[str, list[str]],
     rules: ExclusionRules,
+    source_topics: dict[str, frozenset[str]],
+    story_source_ids: dict[str, set[str]],
 ) -> tuple[list[tuple[str, str]], list[dict[str, Any]]]:
     """Try to assign articles to existing stories by centroid similarity.
 
@@ -222,6 +224,13 @@ def _assign_to_existing_stories(
                         break
                 if blocked:
                     continue
+            art_src = (art.get("source_id") or "").strip()
+            if art_src:
+                story_srcs = story_source_ids.get(sid, set())
+                if story_srcs and not any(
+                    _topics_compatible(art_src, s, source_topics) for s in story_srcs
+                ):
+                    continue
             sim = _cosine_similarity(emb, centroid)
             if sim >= threshold and sim > best_sim:
                 best_sim = sim
@@ -238,6 +247,7 @@ def _cluster_articles(
     articles: list[dict[str, Any]],
     threshold: float,
     rules: ExclusionRules,
+    source_topics: dict[str, frozenset[str]],
 ) -> list[list[str]]:
     """Group articles by embedding similarity using complete-linkage clustering.
 
@@ -286,6 +296,11 @@ def _cluster_articles(
                         ):
                             cross_ok = False
                             break
+                        sa = art_a.get("source_id") or ""
+                        sb = art_b.get("source_id") or ""
+                        if sa and sb and not _topics_compatible(sa, sb, source_topics):
+                            cross_ok = False
+                            break
                         tneed = _effective_pair_threshold(art_a, art_b, threshold, rules)
                         if raw < tneed:
                             cross_ok = False
@@ -330,6 +345,7 @@ def run_cluster_and_embed(config: dict[str, Any] | None = None) -> StoryReport:
     )
     report = StoryReport(articles_embedded=0, articles_clustered=0, stories_created=0)
     exclusion_rules = _load_exclusion_rules()
+    source_topics = _build_source_topics_index()
 
     # 1. Embed articles without embeddings
     has_embedding_provider = True
@@ -348,6 +364,7 @@ def run_cluster_and_embed(config: dict[str, Any] | None = None) -> StoryReport:
         to_embed = db_articles.get_recent_articles_without_embedding(since, limit=embed_limit)
         eligible: list[tuple[int, dict[str, Any], str]] = []
         for i, article in enumerate(to_embed):
+            article["_source_topics"] = list(source_topics.get(article.get("source_id") or "", frozenset()))
             text = _text_to_embed(article)
             if text:
                 eligible.append((i, article, text))
@@ -404,12 +421,16 @@ def run_cluster_and_embed(config: dict[str, Any] | None = None) -> StoryReport:
     # 3. Incremental assignment: try to assign to existing stories with centroids
     if has_embedding_provider:
         existing = db_stories.get_stories_with_centroid_in_window(since)
-        story_member_ids: dict[str, list[str]] = {
-            row["story_id"]: [a["id"] for a in db_stories.get_articles_in_story(row["story_id"])]
-            for row in existing
-        }
+        story_member_ids: dict[str, list[str]] = {}
+        story_source_ids: dict[str, set[str]] = {}
+        for row in existing:
+            sid = row["story_id"]
+            members = db_stories.get_articles_in_story(sid)
+            story_member_ids[sid] = [a["id"] for a in members]
+            story_source_ids[sid] = {a["source_id"] for a in members if a.get("source_id")}
         assigned, to_cluster = _assign_to_existing_stories(
-            to_cluster, existing, threshold, story_member_ids, exclusion_rules
+            to_cluster, existing, threshold, story_member_ids, exclusion_rules,
+            source_topics, story_source_ids,
         )
         for article_id, story_id in assigned:
             db_stories.add_article_to_story(story_id, article_id)
@@ -422,7 +443,7 @@ def run_cluster_and_embed(config: dict[str, Any] | None = None) -> StoryReport:
             report.stories_created += 0  # no new story, but article assigned
 
     # 4. Batch cluster remaining articles
-    groups = _cluster_articles(to_cluster, threshold, exclusion_rules) if to_cluster else []
+    groups = _cluster_articles(to_cluster, threshold, exclusion_rules, source_topics) if to_cluster else []
 
     # 5. Create story records only for groups with >= min_sources distinct sources
     for article_ids in groups:
