@@ -325,29 +325,24 @@ def _cluster_articles(
     return result
 
 
-def run_cluster_and_embed(config: dict[str, Any] | None = None) -> StoryReport:
-    """Embed articles without embeddings, then assign unassigned articles to stories, create stories.
+def run_embed_pass(cfg: dict[str, Any] | None = None) -> tuple[int, bool]:
+    """Embed articles without embeddings. Called by run_cluster_and_embed.
 
-    Only creates stories for groups with at least 2 distinct sources.
-    Single-source groups are skipped (wait for second source).
+    Returns (articles_embedded, has_embedding_provider).
     """
-    cfg = config or load_config()
+    if cfg is None:
+        cfg = load_config()
     processing = cfg.get("processing", {})
     window_hours = processing.get("cluster_window_hours", 24)
-    threshold = processing.get("story_similarity_threshold", processing.get("cluster_similarity_threshold", 0.90))
     embed_n = int(processing.get("embed_batch_size") or 0)
     embed_limit: int | None = None if embed_n <= 0 else embed_n
-    min_sources = processing.get("story_min_sources", 2)
 
-    # window_hours=0 means no time filter (same semantics as rewrite when window is 0)
     since: datetime | None = (
         datetime.now(UTC) - timedelta(hours=window_hours) if window_hours else None
     )
-    report = StoryReport(articles_embedded=0, articles_clustered=0, stories_created=0)
-    exclusion_rules = _load_exclusion_rules()
     source_topics = _build_source_topics_index()
 
-    # 1. Embed articles without embeddings
+    articles_embedded = 0
     has_embedding_provider = True
     try:
         provider = get_embedding_provider(cfg)
@@ -375,10 +370,10 @@ def run_cluster_and_embed(config: dict[str, Any] | None = None) -> StoryReport:
                     try:
                         embedding = provider.embed(text)
                         db_articles.update_article_embedding(article["id"], embedding)
-                        report.articles_embedded += 1
+                        articles_embedded += 1
                         title = str(article.get("title") or article.get("id") or "")
                         _render_embedding_progress(
-                            report.articles_embedded,
+                            articles_embedded,
                             total_eligible,
                             title,
                             frame=k,
@@ -399,6 +394,44 @@ def run_cluster_and_embed(config: dict[str, Any] | None = None) -> StoryReport:
                 if sys.stderr.isatty() and total_eligible > 0:
                     sys.stderr.write("\n")
                     sys.stderr.flush()
+
+    return articles_embedded, has_embedding_provider
+
+
+def run_cluster_and_embed(config: dict[str, Any] | None = None) -> StoryReport:
+    """Embed articles without embeddings, then assign unassigned articles to stories, create stories.
+
+    Only creates stories for groups with at least 2 distinct sources.
+    Single-source groups are skipped (wait for second source).
+    Embedding always runs; clustering is gated by cluster_gate_max_pending.
+    """
+    cfg = config or load_config()
+    processing = cfg.get("processing", {})
+    window_hours = processing.get("cluster_window_hours", 24)
+    threshold = processing.get("story_similarity_threshold", processing.get("cluster_similarity_threshold", 0.90))
+    min_sources = processing.get("story_min_sources", 2)
+
+    # window_hours=0 means no time filter (same semantics as rewrite when window is 0)
+    since: datetime | None = (
+        datetime.now(UTC) - timedelta(hours=window_hours) if window_hours else None
+    )
+    exclusion_rules = _load_exclusion_rules()
+    source_topics = _build_source_topics_index()
+
+    # 1. Embed articles without embeddings (always runs)
+    articles_embedded, has_embedding_provider = run_embed_pass(cfg)
+    report = StoryReport(articles_embedded=articles_embedded, articles_clustered=0, stories_created=0)
+
+    # Cluster gate: skip if too many articles still pending extraction
+    max_pending = cfg.get("extraction", {}).get("cluster_gate_max_pending", 5)
+    pending = db_articles.get_pending_extraction_count()
+    if pending > max_pending:
+        logger.warning(
+            "Skipping cluster: %d articles still pending extraction (threshold: %d)",
+            pending,
+            max_pending,
+        )
+        return report  # report already has articles_embedded from embed pass
 
     # 2. Get articles not yet in a story
     if has_embedding_provider:

@@ -1,8 +1,9 @@
 """Unit tests for topic-gate and embedding-text helpers in clustering service."""
 
 import pytest
+from unittest.mock import MagicMock, patch
 
-from app.clustering.service import _topics_compatible, _text_to_embed
+from app.clustering.service import _topics_compatible, _text_to_embed, run_cluster_and_embed
 
 
 # --- _topics_compatible ---
@@ -112,3 +113,37 @@ def test_text_to_embed_empty_categories_ignored() -> None:
     art = _make_article(title="T", categories=["", "  ", None])
     result = _text_to_embed(art)
     assert "categories" not in result
+
+
+# --- cluster gate ---
+
+def test_run_cluster_and_embed_skips_cluster_when_gate_fires() -> None:
+    """When pending count exceeds threshold, embed runs but cluster is skipped."""
+    config = {"extraction": {"cluster_gate_max_pending": 2}}
+    with patch("app.clustering.service.db_articles.get_recent_articles_without_embedding", return_value=[]), \
+         patch("app.clustering.service.db_articles.get_pending_extraction_count", return_value=10), \
+         patch("app.clustering.service.get_embedding_provider") as mock_prov, \
+         patch("app.clustering.service.db_articles.get_articles_with_embedding_not_in_story") as mock_cluster, \
+         patch("app.clustering.service._load_exclusion_rules") as mock_rules, \
+         patch("app.clustering.service._build_source_topics_index", return_value={}):
+        mock_prov.return_value = MagicMock()
+        mock_rules.return_value = MagicMock(article_pairs=frozenset(), source_pair_thresholds={})
+        report = run_cluster_and_embed(config)
+        # Cluster step should not be called
+        mock_cluster.assert_not_called()
+        assert report.articles_clustered == 0
+
+
+def test_run_cluster_and_embed_proceeds_when_pending_within_threshold() -> None:
+    """When pending count <= threshold, cluster step proceeds."""
+    config = {"extraction": {"cluster_gate_max_pending": 5}}
+    with patch("app.clustering.service.db_articles.get_recent_articles_without_embedding", return_value=[]), \
+         patch("app.clustering.service.db_articles.get_pending_extraction_count", return_value=3), \
+         patch("app.clustering.service.get_embedding_provider") as mock_prov, \
+         patch("app.clustering.service.db_articles.get_articles_with_embedding_not_in_story", return_value=[]), \
+         patch("app.clustering.service._load_exclusion_rules") as mock_rules, \
+         patch("app.clustering.service._build_source_topics_index", return_value={}):
+        mock_prov.return_value = MagicMock()
+        mock_rules.return_value = MagicMock(article_pairs=frozenset(), source_pair_thresholds={})
+        report = run_cluster_and_embed(config)
+        assert report.articles_clustered == 0  # no articles to cluster, but step ran
