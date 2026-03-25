@@ -64,7 +64,7 @@ DEFAULTS: dict[str, Any] = {
         # Second LLM pass: spelling, grammar, agreement only (after each draft rewrite).
         "rewrite_proofread_enabled": True,
         "cluster_window_hours": 24,
-        "story_similarity_threshold": 0.90,
+        "story_similarity_threshold": 0.92,
         "story_min_sources": 2,
         "story_value_delta": 0.05,
         "embed_batch_size": 0,

@@ -99,6 +99,42 @@ def _load_exclusion_rules() -> ExclusionRules:
     )
 
 
+def _build_source_topics_index() -> dict[str, frozenset[str]]:
+    """Return mapping source_id -> frozenset of topics, loaded from sources.yaml.
+
+    Loaded once per cluster run. Used for the domain-compatibility gate.
+    A source not found in the index is treated as general-capable (permissive default).
+    """
+    from app.config import load_sources
+
+    index: dict[str, frozenset[str]] = {}
+    for src in load_sources():
+        sid = src.get("id")
+        topics = src.get("topics") or []
+        if sid and isinstance(topics, list):
+            index[sid] = frozenset(str(t) for t in topics)
+    return index
+
+
+def _topics_compatible(
+    source_id_a: str,
+    source_id_b: str,
+    source_topics: dict[str, frozenset[str]],
+) -> bool:
+    """Return False only if both sources are domain-exclusive with disjoint topic sets.
+
+    A source is "domain-exclusive" if its topic set does not include "general".
+    General-capable sources can always cluster with any other source.
+    """
+    topics_a = source_topics.get(source_id_a)
+    topics_b = source_topics.get(source_id_b)
+    if topics_a is None or topics_b is None:
+        return True  # unknown source: permissive default
+    if "general" in topics_a or "general" in topics_b:
+        return True  # at least one general-capable source: always allow
+    return bool(topics_a & topics_b)  # both exclusive: require non-empty intersection
+
+
 def _effective_pair_threshold(
     art_a: dict[str, Any],
     art_b: dict[str, Any],
@@ -122,13 +158,31 @@ def _article_pair_blocked(rules: ExclusionRules, id_a: str, id_b: str) -> bool:
 
 
 def _text_to_embed(article: dict[str, Any]) -> str:
-    """Build text for embedding: title + content excerpt."""
+    """Build text for embedding: domain prefix + title + content excerpt.
+
+    The caller may inject '_source_topics' (list[str]) as a synthetic key on the
+    article dict before calling. This key is never persisted to the database.
+    """
     title = (article.get("title") or "").strip()
     full = (article.get("full_text") or "").strip()
     raw = (article.get("raw_text") or "").strip()
-    content = full or raw
-    content = content[:2000] if content else ""
-    return f"{title} {content}".strip() or ""
+    content = (full or raw)[:2000]
+
+    src_topics: list[str] = article.get("_source_topics") or []
+    rss_cats: list[str] = [
+        str(c).strip()
+        for c in (article.get("categories") or [])
+        if c and str(c).strip()
+    ][:5]
+
+    parts: list[str] = []
+    if src_topics:
+        parts.append("topics: " + ", ".join(sorted(src_topics)))
+    if rss_cats:
+        parts.append("categories: " + ", ".join(rss_cats))
+    prefix = ". ".join(parts) + ". " if parts else ""
+
+    return (prefix + title + " " + content).strip()
 
 
 def _assign_to_existing_stories(
@@ -137,6 +191,8 @@ def _assign_to_existing_stories(
     threshold: float,
     story_member_ids: dict[str, list[str]],
     rules: ExclusionRules,
+    source_topics: dict[str, frozenset[str]],
+    story_source_ids: dict[str, set[str]],
 ) -> tuple[list[tuple[str, str]], list[dict[str, Any]]]:
     """Try to assign articles to existing stories by centroid similarity.
 
@@ -168,6 +224,13 @@ def _assign_to_existing_stories(
                         break
                 if blocked:
                     continue
+            art_src = (art.get("source_id") or "").strip()
+            if art_src:
+                story_srcs = story_source_ids.get(sid, set())
+                if story_srcs and not all(
+                    _topics_compatible(art_src, src_id, source_topics) for src_id in story_srcs
+                ):
+                    continue
             sim = _cosine_similarity(emb, centroid)
             if sim >= threshold and sim > best_sim:
                 best_sim = sim
@@ -184,6 +247,7 @@ def _cluster_articles(
     articles: list[dict[str, Any]],
     threshold: float,
     rules: ExclusionRules,
+    source_topics: dict[str, frozenset[str]],
 ) -> list[list[str]]:
     """Group articles by embedding similarity using complete-linkage clustering.
 
@@ -232,6 +296,11 @@ def _cluster_articles(
                         ):
                             cross_ok = False
                             break
+                        sa = art_a.get("source_id") or ""
+                        sb = art_b.get("source_id") or ""
+                        if sa and sb and not _topics_compatible(sa, sb, source_topics):
+                            cross_ok = False
+                            break
                         tneed = _effective_pair_threshold(art_a, art_b, threshold, rules)
                         if raw < tneed:
                             cross_ok = False
@@ -276,6 +345,7 @@ def run_cluster_and_embed(config: dict[str, Any] | None = None) -> StoryReport:
     )
     report = StoryReport(articles_embedded=0, articles_clustered=0, stories_created=0)
     exclusion_rules = _load_exclusion_rules()
+    source_topics = _build_source_topics_index()
 
     # 1. Embed articles without embeddings
     has_embedding_provider = True
@@ -294,6 +364,7 @@ def run_cluster_and_embed(config: dict[str, Any] | None = None) -> StoryReport:
         to_embed = db_articles.get_recent_articles_without_embedding(since, limit=embed_limit)
         eligible: list[tuple[int, dict[str, Any], str]] = []
         for i, article in enumerate(to_embed):
+            article["_source_topics"] = list(source_topics.get(article.get("source_id") or "", frozenset()))
             text = _text_to_embed(article)
             if text:
                 eligible.append((i, article, text))
@@ -350,12 +421,16 @@ def run_cluster_and_embed(config: dict[str, Any] | None = None) -> StoryReport:
     # 3. Incremental assignment: try to assign to existing stories with centroids
     if has_embedding_provider:
         existing = db_stories.get_stories_with_centroid_in_window(since)
-        story_member_ids: dict[str, list[str]] = {
-            row["story_id"]: [a["id"] for a in db_stories.get_articles_in_story(row["story_id"])]
-            for row in existing
-        }
+        story_member_ids: dict[str, list[str]] = {}
+        story_source_ids: dict[str, set[str]] = {}
+        for row in existing:
+            sid = row["story_id"]
+            members = db_stories.get_articles_in_story(sid)
+            story_member_ids[sid] = [a["id"] for a in members]
+            story_source_ids[sid] = {a["source_id"] for a in members if a.get("source_id")}
         assigned, to_cluster = _assign_to_existing_stories(
-            to_cluster, existing, threshold, story_member_ids, exclusion_rules
+            to_cluster, existing, threshold, story_member_ids, exclusion_rules,
+            source_topics, story_source_ids,
         )
         for article_id, story_id in assigned:
             db_stories.add_article_to_story(story_id, article_id)
@@ -368,7 +443,7 @@ def run_cluster_and_embed(config: dict[str, Any] | None = None) -> StoryReport:
             report.stories_created += 0  # no new story, but article assigned
 
     # 4. Batch cluster remaining articles
-    groups = _cluster_articles(to_cluster, threshold, exclusion_rules) if to_cluster else []
+    groups = _cluster_articles(to_cluster, threshold, exclusion_rules, source_topics) if to_cluster else []
 
     # 5. Create story records only for groups with >= min_sources distinct sources
     for article_ids in groups:
