@@ -1,6 +1,8 @@
 """LLM highlighting pass: wraps significant terms in ** in story full_text."""
 
 import logging
+import shutil
+import sys
 from dataclasses import dataclass
 from typing import Any
 
@@ -9,6 +11,33 @@ from app.llm.prompts import load_prompt
 from app.llm.provider import LLMProvider, get_provider
 
 logger = logging.getLogger(__name__)
+
+
+def _render_highlight_progress(
+    done: int,
+    total: int,
+    label: str,
+    *,
+    frame: int,
+) -> None:
+    """One-line stderr progress (TTY only). Matches enrich job UX."""
+    if total <= 0 or not sys.stderr.isatty():
+        return
+    spin = "⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏"
+    ch = spin[frame % len(spin)]
+    pct = min(100, round(100.0 * done / total)) if total else 0
+    bar_w = min(28, max(12, shutil.get_terminal_size((88, 24)).columns - 48))
+    filled = min(bar_w, max(0, round(bar_w * done / total)))
+    bar_f = "█" * filled + "░" * (bar_w - filled)
+    safe = (label or "").replace("\n", " ").strip() or "—"
+    if len(safe) > 40:
+        safe = safe[:39] + "…"
+    sys.stderr.write(
+        f"\r\x1b[36m{ch}\x1b[0m highlight \x1b[32m{bar_f}\x1b[0m "
+        f"\x1b[1m{done}\x1b[0m/\x1b[1m{total}\x1b[0m {pct}%  "
+        f"\x1b[2m{safe}\x1b[0m\x1b[K"
+    )
+    sys.stderr.flush()
 
 
 @dataclass
@@ -77,25 +106,36 @@ def run_highlight_batch(config: dict[str, Any] | None = None) -> HighlightReport
         logger.info("run_highlight_batch: nothing to highlight")
         return HighlightReport(attempted=0, succeeded=0, failed=0)
 
+    total = len(rows)
+    logger.info("Highlight starting: %d story rewrites pending", total)
+
     provider = get_provider(config, task="highlight")
 
-    for row in rows:
-        attempted += 1
-        ok = highlight_story(
-            story_id=row["story_id"],
-            full_text=row["full_text"],
-            style=row["style"],
-            language=row["language"],
-            config=config,
-            provider=provider,
-        )
-        if ok:
-            succeeded += 1
-        else:
-            failed += 1
+    try:
+        for row in rows:
+            attempted += 1
+            label = f"{row['story_id'][:8]} {row['style']}/{row['language']}"
+            _render_highlight_progress(attempted - 1, total, label, frame=attempted - 1)
+            ok = highlight_story(
+                story_id=row["story_id"],
+                full_text=row["full_text"],
+                style=row["style"],
+                language=row["language"],
+                config=config,
+                provider=provider,
+            )
+            if ok:
+                succeeded += 1
+            else:
+                failed += 1
+            _render_highlight_progress(attempted, total, label, frame=attempted)
+    finally:
+        if sys.stderr.isatty() and total > 0:
+            sys.stderr.write("\n")
+            sys.stderr.flush()
 
     logger.info(
-        "run_highlight_batch: attempted=%d succeeded=%d failed=%d",
-        attempted, succeeded, failed,
+        "Highlight complete: %d succeeded, %d failed",
+        succeeded, failed,
     )
     return HighlightReport(attempted=attempted, succeeded=succeeded, failed=failed)
