@@ -56,3 +56,21 @@ def test_get_story_rewrites_includes_highlighted_full_text() -> None:
 
     sql = mock_cur.execute.call_args[0][0]
     assert "highlighted_full_text" in sql
+
+
+def test_get_articles_for_stories_empty_list_returns_empty_dict() -> None:
+    """get_articles_for_stories([]) returns {} without touching the DB."""
+    with patch("app.db.stories.get_connection") as mock_get_conn:
+        from app.db.stories import get_articles_for_stories
+        result = get_articles_for_stories([])
+    assert result == {}
+    mock_get_conn.assert_not_called()
+
+
+def test_get_all_rewrites_for_stories_empty_list_returns_empty_dict() -> None:
+    """get_all_rewrites_for_stories([]) returns {} without touching the DB."""
+    with patch("app.db.stories.get_connection") as mock_get_conn:
+        from app.db.stories import get_all_rewrites_for_stories
+        result = get_all_rewrites_for_stories([])
+    assert result == {}
+    mock_get_conn.assert_not_called()

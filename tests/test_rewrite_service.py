@@ -504,10 +504,10 @@ def test_run_rewrite_batch_counts() -> None:
             {"story_id": "c1", "needs_rewrite": True},
             {"story_id": "c2", "needs_rewrite": True},
         ]
-        mock_stories.get_articles_in_story.side_effect = [
-            [{"id": "a1", "raw_text": "t1", "full_text": None}],
-            [{"id": "a2", "raw_text": "t2", "full_text": None}],
-        ]
+        mock_stories.get_articles_for_stories.return_value = {
+            "c1": [{"id": "a1", "raw_text": "t1", "full_text": None}],
+            "c2": [{"id": "a2", "raw_text": "t2", "full_text": None}],
+        }
         mock_execute.return_value = (5, 3)  # succeeded, failed
 
         config = {
@@ -538,9 +538,9 @@ def test_run_rewrite_batch_calls_cascade() -> None:
         mock_stories.get_stories_needing_any_rewrite.return_value = [
             {"story_id": "c1", "needs_rewrite": True},
         ]
-        mock_stories.get_articles_in_story.return_value = [
-            {"id": "a1", "raw_text": "t1", "full_text": None},
-        ]
+        mock_stories.get_articles_for_stories.return_value = {
+            "c1": [{"id": "a1", "raw_text": "t1", "full_text": None}],
+        }
         mock_execute.return_value = (3, 0)  # all 3 variants succeeded
 
         config = {
@@ -576,10 +576,10 @@ def test_run_rewrite_all_stories_uses_get_all_stories_and_full_regen() -> None:
             {"story_id": "s1"},
             {"story_id": "s2"},
         ]
-        mock_stories.get_articles_in_story.side_effect = [
-            [{"id": "a1", "raw_text": "t1", "full_text": None}],
-            [{"id": "a2", "raw_text": "t2", "full_text": None}],
-        ]
+        mock_stories.get_articles_for_stories.return_value = {
+            "s1": [{"id": "a1", "raw_text": "t1", "full_text": None}],
+            "s2": [{"id": "a2", "raw_text": "t2", "full_text": None}],
+        }
         mock_execute.return_value = (4, 0)
 
         config = {
@@ -628,3 +628,34 @@ def test_run_rewrite_all_stories_unlimited_batch() -> None:
         }
         run_rewrite_all_stories(config)
         assert mock_stories.get_all_stories_with_articles.call_args.kwargs["limit"] is None
+
+
+def test_gather_rewrite_work_returns_empty_when_no_stories() -> None:
+    """_gather_rewrite_work returns [] immediately when no stories need rewrite."""
+    from app.services.rewrite_service import _gather_rewrite_work
+
+    with patch("app.services.rewrite_service.db_stories") as mock_stories:
+        mock_stories.get_stories_needing_any_rewrite.return_value = []
+        result = _gather_rewrite_work(variants=[("neutral", "en")], since=None, batch_size=10)
+        assert result == []
+        mock_stories.get_articles_for_stories.assert_not_called()
+
+
+def test_gather_rewrite_work_uses_bulk_fetch() -> None:
+    """_gather_rewrite_work calls get_articles_for_stories once for all stories."""
+    from app.services.rewrite_service import _gather_rewrite_work
+
+    with patch("app.services.rewrite_service.db_stories") as mock_stories:
+        mock_stories.get_stories_needing_any_rewrite.return_value = [
+            {"story_id": "s1", "needs_rewrite": False},
+            {"story_id": "s2", "needs_rewrite": True},
+        ]
+        mock_stories.get_articles_for_stories.return_value = {
+            "s1": [{"id": "a1", "raw_text": "text", "full_text": None}],
+            "s2": [{"id": "a2", "raw_text": "text2", "full_text": None}],
+        }
+        result = _gather_rewrite_work(variants=[("neutral", "en")], since=None, batch_size=10)
+        mock_stories.get_articles_for_stories.assert_called_once_with(["s1", "s2"])
+        assert len(result) == 2
+        assert result[0] == ("s1", [{"id": "a1", "raw_text": "text", "full_text": None}], False)
+        assert result[1][2] is True

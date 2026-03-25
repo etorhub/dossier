@@ -530,6 +530,71 @@ def get_all_rewrites_for_story(story_id: str) -> dict[tuple[str, str], dict[str,
         return_connection(conn)
 
 
+def get_articles_for_stories(story_ids: list[str]) -> dict[str, list[dict[str, Any]]]:
+    """Return articles for multiple stories in a single query.
+
+    Returns a dict mapping story_id (str) -> list of article dicts ordered by position.
+    Stories with no articles are not included in the result.
+    """
+    if not story_ids:
+        return {}
+    conn = get_connection()
+    try:
+        with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
+            cur.execute(
+                """
+                SELECT a.*, sa.story_id::text AS _story_id, sa.position
+                FROM articles a
+                JOIN story_articles sa ON sa.article_id = a.id
+                WHERE sa.story_id = ANY(%s::uuid[])
+                ORDER BY sa.story_id, sa.position
+                """,
+                (story_ids,),
+            )
+            result: dict[str, list[dict[str, Any]]] = {}
+            for row in cur.fetchall():
+                d = dict(row)
+                sid = d.pop("_story_id")
+                result.setdefault(sid, []).append(d)
+        return result
+    finally:
+        return_connection(conn)
+
+
+def get_all_rewrites_for_stories(
+    story_ids: list[str],
+) -> dict[str, dict[tuple[str, str], dict[str, Any]]]:
+    """Return all non-failed rewrites for multiple stories in a single query.
+
+    Returns a dict mapping story_id (str) -> {(style, language): rewrite_dict}.
+    Same structure as get_all_rewrites_for_story but for a batch.
+    Stories with no rewrites are not included in the result.
+    """
+    if not story_ids:
+        return {}
+    conn = get_connection()
+    try:
+        with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
+            cur.execute(
+                """
+                SELECT story_id::text AS story_id, style, language, title, summary, full_text
+                FROM story_rewrites
+                WHERE story_id = ANY(%s::uuid[])
+                  AND (rewrite_failed = false OR rewrite_failed IS NULL)
+                """,
+                (story_ids,),
+            )
+            result: dict[str, dict[tuple[str, str], dict[str, Any]]] = {}
+            for row in cur.fetchall():
+                d = dict(row)
+                sid = d["story_id"]
+                key: tuple[str, str] = (d["style"], d["language"])
+                result.setdefault(sid, {})[key] = d
+        return result
+    finally:
+        return_connection(conn)
+
+
 def get_all_stories_with_articles(
     since: datetime | None,
     limit: int | None = None,

@@ -815,11 +815,15 @@ def _gather_rewrite_work(
         since=since,
         limit=limit,
     )
+    if not stories:
+        return []
+    story_ids = [row["story_id"] for row in stories]
+    articles_by_story = db_stories.get_articles_for_stories(story_ids)
     work: list[tuple[str, list[dict[str, Any]], bool]] = []
     for row in stories:
         story_id = row["story_id"]
         needs_rewrite = row.get("needs_rewrite", False)
-        articles = db_stories.get_articles_in_story(story_id)
+        articles = articles_by_story.get(story_id, [])
         if articles:
             work.append((story_id, articles, needs_rewrite))
     return work
@@ -832,10 +836,14 @@ def _gather_rewrite_work_all_stories(
     """Return (story_id, articles, True) for every story with articles (full cascade)."""
     limit = None if batch_size <= 0 else batch_size
     stories = db_stories.get_all_stories_with_articles(since=since, limit=limit)
+    if not stories:
+        return []
+    story_ids = [row["story_id"] for row in stories]
+    articles_by_story = db_stories.get_articles_for_stories(story_ids)
     work: list[tuple[str, list[dict[str, Any]], bool]] = []
     for row in stories:
         story_id = row["story_id"]
-        articles = db_stories.get_articles_in_story(story_id)
+        articles = articles_by_story.get(story_id, [])
         if articles:
             work.append((story_id, articles, True))
     return work
@@ -868,11 +876,15 @@ def _execute_cascading_rewrites(
     progress_state = {"done": 0, "frame": 0}
     ollama_host = _llm_host_for_logging(config)
 
+    # Bulk-fetch all existing rewrites for all stories in this batch (avoids N+1)
+    story_ids = [sid for sid, _, _ in work]
+    all_existing = db_stories.get_all_rewrites_for_stories(story_ids)
+
     def _process_one(
         pack: tuple[int, str, list[dict[str, Any]], bool],
     ) -> tuple[int, str, int, int]:
         idx, story_id, articles, needs_full_regen = pack
-        existing = db_stories.get_all_rewrites_for_story(story_id)
+        existing = all_existing.get(story_id, {})
         s, f = _rewrite_story_cascading(
             story_id=story_id,
             articles=articles,
