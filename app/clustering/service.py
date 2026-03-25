@@ -227,8 +227,8 @@ def _assign_to_existing_stories(
             art_src = (art.get("source_id") or "").strip()
             if art_src:
                 story_srcs = story_source_ids.get(sid, set())
-                if story_srcs and not any(
-                    _topics_compatible(art_src, s, source_topics) for s in story_srcs
+                if story_srcs and not all(
+                    _topics_compatible(art_src, src_id, source_topics) for src_id in story_srcs
                 ):
                     continue
             sim = _cosine_similarity(emb, centroid)
