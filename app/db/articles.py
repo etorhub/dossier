@@ -454,7 +454,8 @@ def abandon_stale_pending_articles(older_than_hours: int) -> int:
         with conn.cursor() as cur:
             cur.execute(
                 "UPDATE articles SET extraction_status = 'extraction_failed', extraction_method = 'timeout' "
-                "WHERE extraction_status = 'pending' AND fetched_at < NOW() - %s::interval",
+                "WHERE extraction_status = 'pending' "
+                "AND (fetched_at IS NULL OR fetched_at < NOW() - %s::interval)",
                 (f"{older_than_hours} hours",),
             )
             count = cur.rowcount
