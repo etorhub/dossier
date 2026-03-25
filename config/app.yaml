@@ -55,11 +55,14 @@ schedule:
   cluster_cron: '15 * * * *' # Hourly at :15 (after enrichment)
   # Articles older than this are not fetched (0 = no limit)
   max_article_age_hours: 24
-  rewrite_cron: '0 6 * * *' # Daily at 6am
+  # Runs every 30 minutes so fresh stories are available within the hour (not once daily at 6am)
+  rewrite_cron: '*/30 * * * *'
+  # Highlight extraction runs 15 min after each rewrite (staggered to avoid contention)
+  highlight_cron: '15-59/30 * * * *'
   # Source feed availability check (HTTP HEAD/GET) — visible in ops dashboard
   availability_check_interval_minutes: 10
-  # 0 = process every story needing rewrite in one run; >0 caps stories per run
-  rewrite_batch_size: 0
+  # Cap stories per rewrite run to 20 to prevent multi-hour blocking (0 = unlimited, not recommended)
+  rewrite_batch_size: 20
   # Story-level thread pool. Use 1 with a single-GPU Ollama host: two concurrent rewrites
   # often blow VRAM and the GPU goes idle after a short spike. Raise only if Ollama has
   # headroom (see docker-compose OLLAMA_NUM_PARALLEL / GPU memory).
@@ -109,8 +112,9 @@ processing:
   rewrite_max_articles_text_chars: 52000
   # Extra LLM call per variant to fix spelling/grammar only; disable to reduce load/timeouts under parallel rewrite.
   rewrite_proofread_enabled: true
-  # 0 = all stories regardless of freshness
-  cluster_window_hours: 0
+  # Time window for clustering: only articles within this window participate (48h = 2 days of articles).
+  # 0 = all stories regardless of freshness (for manual backfill runs only; set to 0 temporarily, then revert)
+  cluster_window_hours: 48
   # Minimum cosine similarity for two articles to belong to the same story.
   # Higher = stricter; only articles about the same specific event are grouped.
   # Recommended range: 0.88–0.95. Default: 0.90.

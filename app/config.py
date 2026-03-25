@@ -48,6 +48,7 @@ DEFAULTS: dict[str, Any] = {
         "enrichment_cron": "*/5 * * * *",
         "cluster_cron": "*/5 * * * *",
         "rewrite_cron": "*/5 * * * *",
+        "highlight_cron": "15-59/30 * * * *",
         "rewrite_batch_size": 0,
         "rewrite_parallel_workers": 1,
         "fetcher": {

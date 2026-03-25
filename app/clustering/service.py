@@ -415,6 +415,11 @@ def run_cluster_and_embed(config: dict[str, Any] | None = None) -> StoryReport:
     since: datetime | None = (
         datetime.now(UTC) - timedelta(hours=window_hours) if window_hours else None
     )
+    if window_hours == 0:
+        logger.warning(
+            "cluster_window_hours=0: considering all articles ever stored. "
+            "This can be slow for large datasets. Set cluster_window_hours in config for normal operation."
+        )
     exclusion_rules = _load_exclusion_rules()
     source_topics = _build_source_topics_index()
 
