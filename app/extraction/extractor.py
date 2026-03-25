@@ -211,6 +211,12 @@ def enrich_all_articles(config: dict) -> EnrichmentReport:
     max_rounds = extraction_cfg.get("max_enrichment_rounds", 20)
     aggregate = EnrichmentReport(0, 0, 0, 0)
 
+    total_pending = db_articles.get_pending_extraction_count()
+    if total_pending == 0:
+        return aggregate
+
+    logger.info("Enrichment starting: %d articles pending", total_pending)
+
     for round_num in range(max_rounds):
         pending = db_articles.get_pending_extraction_count()
         if pending == 0:
@@ -227,11 +233,17 @@ def enrich_all_articles(config: dict) -> EnrichmentReport:
 
         remaining = db_articles.get_pending_extraction_count()
         if remaining > 0:
-            logger.info(
+            logger.debug(
                 "Enrichment round %d: %d processed, %d pending remaining",
                 round_num + 1,
                 report.articles_checked,
                 remaining,
             )
 
+    logger.info(
+        "Enrichment complete: %d extracted, %d failed, %d skipped",
+        aggregate.articles_extracted,
+        aggregate.articles_failed,
+        aggregate.articles_skipped,
+    )
     return aggregate
