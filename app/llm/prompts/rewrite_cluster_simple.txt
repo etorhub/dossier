@@ -18,6 +18,9 @@ Merge and rewrite these news articles about the same event for a general audienc
 
 ## TITLE (headline)
 - One line: a clear headline that states the main news (concrete subject + strong verb).
+- Write a grammatically complete sentence: include all articles, determiners, and prepositions required by {language}. Do not drop articles the way English newspapers do.
+  Correct (Spanish): "La fiscalía denuncia el incumplimiento del Ayuntamiento de Badalona en el desalojo del instituto B9"
+  Wrong: "Fiscalía denuncia incumplimiento del Ayuntamiento de Badalona en desalojo de instituto B9"
 - Do not use meta labels: no "Actualización", "Resumen", "Informe", or English "Update:", "Summary:", "Roundup:".
 - Do not write a teaser that describes the piece instead of the event.
 

@@ -12,6 +12,7 @@ Translate this news article to {target_language}.
 
 ## TITLE (headline)
 - Accurate translation of the headline. No clickbait. No meta labels as the headline.
+- Preserve grammatical completeness: keep all articles, determiners, and prepositions that {target_language} requires. Do not produce a telegraphic, article-dropping translation.
 
 ## SUMMARY (nutgraph)
 - Exactly {summary_sentences} sentences. Keep the nutgraph: direct factual statements, not "In this article…" / "En este resumen…" / meta summaries of the piece.
