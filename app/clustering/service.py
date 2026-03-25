@@ -325,23 +325,23 @@ def _cluster_articles(
     return result
 
 
-def run_embed_pass(cfg: dict[str, Any] | None = None) -> tuple[int, bool]:
-    """Embed articles without embeddings. Called by run_cluster_and_embed.
+def _run_embed_pass(
+    cfg: dict[str, Any],
+    since: datetime | None,
+    embed_limit: int | None,
+    source_topics: dict[str, frozenset[str]],
+) -> tuple[int, bool]:
+    """Embed articles without embeddings.
 
-    Returns (articles_embedded, has_embedding_provider).
+    Args:
+        cfg: full app config
+        since: only embed articles published after this (None = all)
+        embed_limit: cap on articles per run (None = unlimited)
+        source_topics: source_id -> topic set for embedding text enrichment
+
+    Returns:
+        (articles_embedded, has_embedding_provider)
     """
-    if cfg is None:
-        cfg = load_config()
-    processing = cfg.get("processing", {})
-    window_hours = processing.get("cluster_window_hours", 24)
-    embed_n = int(processing.get("embed_batch_size") or 0)
-    embed_limit: int | None = None if embed_n <= 0 else embed_n
-
-    since: datetime | None = (
-        datetime.now(UTC) - timedelta(hours=window_hours) if window_hours else None
-    )
-    source_topics = _build_source_topics_index()
-
     articles_embedded = 0
     has_embedding_provider = True
     try:
@@ -419,7 +419,9 @@ def run_cluster_and_embed(config: dict[str, Any] | None = None) -> StoryReport:
     source_topics = _build_source_topics_index()
 
     # 1. Embed articles without embeddings (always runs)
-    articles_embedded, has_embedding_provider = run_embed_pass(cfg)
+    embed_n = int(processing.get("embed_batch_size") or 0)
+    embed_limit: int | None = None if embed_n <= 0 else embed_n
+    articles_embedded, has_embedding_provider = _run_embed_pass(cfg, since, embed_limit, source_topics)
     report = StoryReport(articles_embedded=articles_embedded, articles_clustered=0, stories_created=0)
 
     # Cluster gate: skip if too many articles still pending extraction

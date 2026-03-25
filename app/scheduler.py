@@ -46,7 +46,7 @@ def _get_scheduler_mode() -> str:
 
 
 def _cluster_articles_guarded(config: dict[str, Any]) -> Any:
-    """Run embed pass then cluster articles (cluster step gated by pending extraction count)."""
+    """Lazy import wrapper for the cluster+embed job."""
     from app.clustering.service import run_cluster_and_embed
 
     return run_cluster_and_embed(config)
