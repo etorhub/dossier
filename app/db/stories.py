@@ -460,6 +460,20 @@ def set_story_needs_rewrite(story_id: str, needs: bool = True) -> None:
         return_connection(conn)
 
 
+def set_story_last_rewrite_at(story_id: str) -> None:
+    """Record that a successful cascade rewrite completed for this story."""
+    conn = get_connection()
+    try:
+        with conn.cursor() as cur:
+            cur.execute(
+                "UPDATE stories SET last_rewrite_at = NOW() WHERE id = %s::uuid",
+                (story_id,),
+            )
+        conn.commit()
+    finally:
+        return_connection(conn)
+
+
 def get_stories_with_centroid_in_window(since: datetime | None) -> list[dict[str, Any]]:
     """Return stories with centroid_embedding for incremental assignment.
 
@@ -646,6 +660,7 @@ def get_stories_needing_any_rewrite(
     variants: list[tuple[str, str]],
     since: datetime | None,
     limit: int | None = None,
+    cooldown_minutes: int = 0,
 ) -> list[dict[str, Any]]:
     """Return stories missing at least one variant, or with needs_rewrite=true.
 
@@ -653,6 +668,8 @@ def get_stories_needing_any_rewrite(
     If since is not None, prefer stories with articles published since that time;
     stories with needs_rewrite=true are always included so ops edits (e.g. removing
     an article) still get a full cascade rewrite on the next batch.
+    cooldown_minutes: if > 0, stories with needs_rewrite=true that were rewritten
+    within this window are deferred (first-time rewrites always proceed).
     """
     if not variants:
         return []
@@ -668,6 +685,19 @@ def get_stories_needing_any_rewrite(
             ]
             required_count = len(variants)
 
+            # Cooldown: defer recently-rewritten stories (needs_rewrite=true only)
+            cooldown_filter = ""
+            cooldown_params: list[Any] = []
+            if cooldown_minutes > 0:
+                cooldown_filter = (
+                    "\nAND NOT (\n"
+                    "  sc.needs_rewrite = TRUE\n"
+                    "  AND sc.last_rewrite_at IS NOT NULL\n"
+                    "  AND sc.last_rewrite_at > NOW() - %s::interval\n"
+                    ")"
+                )
+                cooldown_params = [f"{cooldown_minutes} minutes"]
+
             if since is not None:
                 cur.execute(
                     f"""
@@ -675,7 +705,8 @@ def get_stories_needing_any_rewrite(
                         SELECT * FROM (VALUES {values_placeholders}) AS t(style, lang)
                     ),
                     story_counts AS (
-                        SELECT s.id, s.needs_rewrite, MAX(a.published_at) AS max_pub,
+                        SELECT s.id, s.needs_rewrite, s.last_rewrite_at,
+                            MAX(a.published_at) AS max_pub,
                             (SELECT count(*) FROM story_rewrites sr
                              WHERE sr.story_id = s.id
                                AND (sr.rewrite_failed = false OR sr.rewrite_failed IS NULL)
@@ -689,12 +720,14 @@ def get_stories_needing_any_rewrite(
                     )
                     SELECT sc.id::text AS story_id, sc.needs_rewrite
                     FROM story_counts sc
-                    WHERE sc.needs_rewrite = true OR sc.have_count < %s
+                    WHERE (sc.needs_rewrite = true OR sc.have_count < %s)
+                    {cooldown_filter}
                     ORDER BY sc.max_pub DESC
                     """
                     + (" LIMIT %s" if limit is not None and limit > 0 else ""),
                     flat_variants
                     + [since, required_count]
+                    + cooldown_params
                     + ([limit] if limit is not None and limit > 0 else []),
                 )
             else:
@@ -704,7 +737,8 @@ def get_stories_needing_any_rewrite(
                         SELECT * FROM (VALUES {values_placeholders}) AS t(style, lang)
                     ),
                     story_counts AS (
-                        SELECT s.id, s.needs_rewrite, MAX(a.published_at) AS max_pub,
+                        SELECT s.id, s.needs_rewrite, s.last_rewrite_at,
+                            MAX(a.published_at) AS max_pub,
                             (SELECT count(*) FROM story_rewrites sr
                              WHERE sr.story_id = s.id
                                AND (sr.rewrite_failed = false OR sr.rewrite_failed IS NULL)
@@ -717,12 +751,14 @@ def get_stories_needing_any_rewrite(
                     )
                     SELECT sc.id::text AS story_id, sc.needs_rewrite
                     FROM story_counts sc
-                    WHERE sc.needs_rewrite = true OR sc.have_count < %s
+                    WHERE (sc.needs_rewrite = true OR sc.have_count < %s)
+                    {cooldown_filter}
                     ORDER BY sc.max_pub DESC
                     """
                     + (" LIMIT %s" if limit is not None and limit > 0 else ""),
                     flat_variants
                     + [required_count]
+                    + cooldown_params
                     + ([limit] if limit is not None and limit > 0 else []),
                 )
             rows = cur.fetchall()

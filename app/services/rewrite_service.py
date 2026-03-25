@@ -803,6 +803,7 @@ def _rewrite_story_cascading(
                     else:
                         failed += 1
 
+    db_stories.set_story_last_rewrite_at(story_id)
     db_stories.set_story_needs_rewrite(story_id, False)
     return (succeeded, failed)
 
@@ -811,6 +812,7 @@ def _gather_rewrite_work(
     variants: list[tuple[str, str]],
     since: datetime | None,
     batch_size: int,
+    cooldown_minutes: int = 0,
 ) -> list[tuple[str, list[dict[str, Any]], bool]]:
     """Return list of (story_id, articles, needs_full_regen) needing rewrite."""
     limit = None if batch_size <= 0 else batch_size
@@ -818,6 +820,7 @@ def _gather_rewrite_work(
         variants=variants,
         since=since,
         limit=limit,
+        cooldown_minutes=cooldown_minutes,
     )
     if not stories:
         return []
@@ -998,6 +1001,7 @@ def run_rewrite_batch(config: dict[str, Any]) -> RewriteReport:
     )
     schedule_cfg = config.get("schedule", {})
     batch_size = int(schedule_cfg.get("rewrite_batch_size") or 0)
+    cooldown_minutes = int(processing.get("rewrite_cooldown_minutes") or 0)
 
     variants = _get_rewriting_variants(config)
     base_language = config.get("rewriting", {}).get("base_language", "en")
@@ -1010,7 +1014,7 @@ def run_rewrite_batch(config: dict[str, Any]) -> RewriteReport:
     variant_str = ", ".join(f"{sty}/{lng}" for sty, lng in variants)
     batch_desc = "unlimited" if batch_size <= 0 else str(batch_size)
 
-    work = _gather_rewrite_work(variants, since, batch_size)
+    work = _gather_rewrite_work(variants, since, batch_size, cooldown_minutes)
     if not work:
         logger.info(
             "Rewrite batch: no stories need rewrite (window_hours=%s, batch_size=%s)",

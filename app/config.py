@@ -71,6 +71,7 @@ DEFAULTS: dict[str, Any] = {
         "story_min_sources": 2,
         "story_value_delta": 0.05,
         "embed_batch_size": 0,
+        "rewrite_cooldown_minutes": 60,
     },
     "server": {
         "port": 5000,
