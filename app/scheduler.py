@@ -132,7 +132,7 @@ def main() -> None:
     enrichment_cron = config.get("schedule", {}).get("enrichment_cron", "10 * * * *")
     cluster_cron = config.get("schedule", {}).get("cluster_cron", "5 * * * *")
     rewrite_cron = config.get("schedule", {}).get("rewrite_cron", "0 6 * * *")
-    highlight_cron = config.get("schedule", {}).get("highlight_cron", "30 6 * * *")
+    highlight_cron = config.get("schedule", {}).get("highlight_cron", "15-59/30 * * * *")
     availability_interval = config.get("schedule", {}).get(
         "availability_check_interval_minutes", 10
     )
