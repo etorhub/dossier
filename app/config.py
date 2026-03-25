@@ -74,6 +74,7 @@ DEFAULTS: dict[str, Any] = {
         "rewrite_cooldown_minutes": 60,
         "cluster_ann_candidates": 20,
         "cluster_use_ivfflat": False,
+        "highlight_method": "ner",
     },
     "server": {
         "port": 5000,
