@@ -709,7 +709,11 @@ def _rewrite_story_cascading(
 
     # Step 1: Neutral in base language (merge sources)
     neutral_key = ("neutral", base_language)
-    if needs_full_regen or neutral_key not in existing_rewrites:
+    has_valid_neutral = (
+        neutral_key in existing_rewrites
+        and bool(existing_rewrites[neutral_key].get("title"))
+    )
+    if not has_valid_neutral:
         ok = rewrite_story(
             story_id=story_id,
             articles=articles,
