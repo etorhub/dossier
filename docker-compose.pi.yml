@@ -1,18 +1,28 @@
 # Raspberry Pi compose — web UI + light worker only.
 # Database and LLM are external (Neon + dev machine).
 #
-# Usage:
-#   docker compose -f docker-compose.pi.yml up -d
+# Images are built for arm64 by GitHub Actions on every push to master
+# and pushed to GHCR. Watchtower polls GHCR and redeploys automatically.
+#
+# First-time setup on the Pi:
+#   1. docker login ghcr.io -u <github-username>
+#      (use a PAT with read:packages scope as the password)
+#   2. cp .env.example .env && nano .env
+#   3. docker compose -f docker-compose.pi.yml up -d
+#
+# After that, every push to master redeploys within ~1 minute.
 #
 # Required .env:
 #   DATABASE_URL=postgresql://user:pass@ep-xxx.neon.tech/dossier?sslmode=require
 #   SECRET_KEY=<strong-random-key>
+#   GHCR_USERNAME=<github-username>
+#   GHCR_TOKEN=<PAT with read:packages>
 
 services:
   web:
-    build:
-      context: .
-      target: web
+    image: ghcr.io/etorhub/dossier-web:latest
+    labels:
+      - com.centurylinklabs.watchtower.scope=dossier
     ports:
       - "5000:5000"
     environment:
@@ -25,9 +35,9 @@ services:
     restart: unless-stopped
 
   worker:
-    build:
-      context: .
-      target: worker
+    image: ghcr.io/etorhub/dossier-worker:latest
+    labels:
+      - com.centurylinklabs.watchtower.scope=dossier
     environment:
       DATABASE_URL: ${DATABASE_URL}
       # Light mode: fetch_feeds, enrich_articles, check_source_availability only.
@@ -37,4 +47,22 @@ services:
       - ./config:/app/config
       - ./data/job_runs:/app/data/job_runs
     command: python -m app.scheduler
+    restart: unless-stopped
+
+  watchtower:
+    image: containrrr/watchtower
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      # Reuse the credentials from `docker login ghcr.io` run during setup.
+      - /root/.docker/config.json:/config.json:ro
+    environment:
+      DOCKER_CONFIG: /config.json
+      # Poll every 60 seconds. Adjust down to 30 if you want faster picks.
+      WATCHTOWER_POLL_INTERVAL: "60"
+      # Remove old images after pulling new ones (keeps the Pi disk clean).
+      WATCHTOWER_CLEANUP: "true"
+      # Only watch these two containers, not watchtower itself.
+      WATCHTOWER_SCOPE: dossier
+    # Restrict to containers with the com.centurylinklabs.watchtower.scope=dossier label.
+    command: --scope dossier
     restart: unless-stopped
