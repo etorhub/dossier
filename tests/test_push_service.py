@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-from unittest.mock import MagicMock, patch
-
+from unittest.mock import MagicMock, patch, call_args
+import pytest
 from app.services.push_service import _NOTIFICATION_BODIES, notify_users_with_new_stories
 
 # ---------------------------------------------------------------------------
@@ -51,10 +51,7 @@ def test_notify_skips_when_vapid_private_key_missing() -> None:
     app.config.get.return_value = None  # VAPID_PRIVATE_KEY = None
 
     mock_webpush = MagicMock()
-    with patch.dict(
-        "sys.modules",
-        {"pywebpush": MagicMock(webpush=mock_webpush, WebPushException=Exception)},
-    ):
+    with patch.dict("sys.modules", {"pywebpush": MagicMock(webpush=mock_webpush, WebPushException=Exception)}):
         notify_users_with_new_stories(5, app=app)
 
     mock_webpush.assert_not_called()
@@ -63,18 +60,8 @@ def test_notify_skips_when_vapid_private_key_missing() -> None:
 def test_notify_sends_push_to_each_subscriber() -> None:
     """notify_users_with_new_stories calls webpush once per subscriber."""
     subscriptions = [
-        {
-            "endpoint": "https://push1.example.com",
-            "p256dh": "key1",
-            "auth": "auth1",
-            "language": "en",
-        },
-        {
-            "endpoint": "https://push2.example.com",
-            "p256dh": "key2",
-            "auth": "auth2",
-            "language": "ca",
-        },
+        {"endpoint": "https://push1.example.com", "p256dh": "key1", "auth": "auth1", "language": "en"},
+        {"endpoint": "https://push2.example.com", "p256dh": "key2", "auth": "auth2", "language": "ca"},
     ]
 
     mock_webpush = MagicMock()
@@ -84,10 +71,7 @@ def test_notify_sends_push_to_each_subscriber() -> None:
 
     with (
         patch.dict("sys.modules", {"pywebpush": mock_module}),
-        patch(
-            "app.services.push_service.push_db.get_all_subscriptions_with_language",
-            return_value=subscriptions,
-        ),
+        patch("app.services.push_service.push_db.get_all_subscriptions_with_language", return_value=subscriptions),
     ):
         notify_users_with_new_stories(3, app=_make_flask_app())
 
@@ -113,10 +97,7 @@ def test_notify_uses_correct_language_for_body() -> None:
 
     with (
         patch.dict("sys.modules", {"pywebpush": mock_module}),
-        patch(
-            "app.services.push_service.push_db.get_all_subscriptions_with_language",
-            return_value=subscriptions,
-        ),
+        patch("app.services.push_service.push_db.get_all_subscriptions_with_language", return_value=subscriptions),
     ):
         notify_users_with_new_stories(7, app=_make_flask_app())
 
@@ -148,10 +129,7 @@ def test_notify_falls_back_to_english_for_unknown_language() -> None:
 
     with (
         patch.dict("sys.modules", {"pywebpush": mock_module}),
-        patch(
-            "app.services.push_service.push_db.get_all_subscriptions_with_language",
-            return_value=subscriptions,
-        ),
+        patch("app.services.push_service.push_db.get_all_subscriptions_with_language", return_value=subscriptions),
     ):
         notify_users_with_new_stories(4, app=_make_flask_app())
 
@@ -179,10 +157,7 @@ def test_notify_removes_dead_subscription_on_404() -> None:
 
     with (
         patch.dict("sys.modules", {"pywebpush": mock_module}),
-        patch(
-            "app.services.push_service.push_db.get_all_subscriptions_with_language",
-            return_value=subscriptions,
-        ),
+        patch("app.services.push_service.push_db.get_all_subscriptions_with_language", return_value=subscriptions),
         patch("app.services.push_service.push_db.delete_subscription") as mock_delete,
     ):
         notify_users_with_new_stories(1, app=_make_flask_app())
@@ -209,10 +184,7 @@ def test_notify_does_not_remove_subscription_on_other_errors() -> None:
 
     with (
         patch.dict("sys.modules", {"pywebpush": mock_module}),
-        patch(
-            "app.services.push_service.push_db.get_all_subscriptions_with_language",
-            return_value=subscriptions,
-        ),
+        patch("app.services.push_service.push_db.get_all_subscriptions_with_language", return_value=subscriptions),
         patch("app.services.push_service.push_db.delete_subscription") as mock_delete,
     ):
         notify_users_with_new_stories(1, app=_make_flask_app())

@@ -2,7 +2,9 @@
 
 from unittest.mock import patch
 
+import pytest
 from flask.testing import FlaskClient
+
 
 # ---------------------------------------------------------------------------
 # /login GET
@@ -45,9 +47,11 @@ def test_login_post_missing_password_shows_error(client: FlaskClient) -> None:
 def test_login_post_invalid_credentials_shows_error(client: FlaskClient) -> None:
     """POST /login with wrong credentials re-renders the form with an error."""
     with patch("app.routes.auth.auth_service.authenticate_user", return_value=None):
-        response = client.post("/login", data={"email": "bad@example.com", "password": "badpass"})
+        response = client.post(
+            "/login", data={"email": "bad@example.com", "password": "badpass"}
+        )
     assert response.status_code == 200
-    assert b"flash-error" in response.data
+    assert b"Invalid" in response.data
 
 
 def test_login_post_valid_credentials_redirects_to_reader(client: FlaskClient) -> None:
@@ -110,20 +114,24 @@ def test_register_post_missing_fields_shows_error(client: FlaskClient) -> None:
 
 def test_register_post_short_password_shows_error(client: FlaskClient) -> None:
     """POST /register with < 8 char password shows a password-length error."""
-    response = client.post("/register", data={"email": "new@example.com", "password": "short"})
+    response = client.post(
+        "/register", data={"email": "new@example.com", "password": "short"}
+    )
     assert response.status_code == 200
-    assert b"flash-error" in response.data
+    assert b"8 char" in response.data.lower() or b"characters" in response.data.lower()
 
 
 def test_register_post_duplicate_email_shows_error(client: FlaskClient) -> None:
     """POST /register with a taken email shows an error."""
-    with patch("app.routes.auth.auth_service.register_user", side_effect=ValueError("taken")):
+    with patch(
+        "app.routes.auth.auth_service.register_user", side_effect=ValueError("taken")
+    ):
         response = client.post(
             "/register",
             data={"email": "taken@example.com", "password": "password123"},
         )
     assert response.status_code == 200
-    assert b"flash-error" in response.data
+    assert b"already" in response.data.lower() or b"registered" in response.data.lower()
 
 
 def test_register_post_success_redirects_to_setup(client: FlaskClient) -> None:

@@ -47,3 +47,8 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 CMD ["python", "-m", "app.scheduler"]
+
+# --- Ops target: ops dashboard on port 5001 ---
+FROM web AS ops
+
+CMD ["gunicorn", "-w", "1", "-b", "0.0.0.0:5001", "ops:application"]

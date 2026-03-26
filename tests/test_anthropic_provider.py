@@ -105,7 +105,9 @@ def test_from_llm_config_falls_back_to_default_api_base_when_blank() -> None:
 
 def test_complete_returns_stripped_text_on_success() -> None:
     """complete returns the LLM text stripped of leading/trailing whitespace."""
-    response_data = {"content": [{"type": "text", "text": "  Answer here.  "}]}
+    response_data = {
+        "content": [{"type": "text", "text": "  Answer here.  "}]
+    }
     with (
         patch("app.llm.anthropic_llm._anthropic_api_key", return_value="test-key"),
         patch(

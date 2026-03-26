@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
-from unittest.mock import patch
+from unittest.mock import call, patch
+
+import pytest
 
 from app.clustering.retroactive_rules import apply_article_pair_rules_retroactively
 
@@ -27,9 +29,7 @@ def _make_rule(
 
 def test_returns_zero_when_no_rules() -> None:
     """Returns 0 when there are no active exclusion rules."""
-    with patch(
-        "app.clustering.retroactive_rules.admin_db.get_active_exclusion_rules", return_value=[]
-    ):
+    with patch("app.clustering.retroactive_rules.admin_db.get_active_exclusion_rules", return_value=[]):
         result = apply_article_pair_rules_retroactively()
     assert result == 0
 
@@ -41,13 +41,8 @@ def test_skips_non_article_pair_rules() -> None:
         {"rule_type": "keyword", "rule_data": {"keyword": "foo"}},
     ]
     with (
-        patch(
-            "app.clustering.retroactive_rules.admin_db.get_active_exclusion_rules",
-            return_value=rules,
-        ),
-        patch(
-            "app.clustering.retroactive_rules.stories_db.get_story_ids_for_articles"
-        ) as mock_stories,
+        patch("app.clustering.retroactive_rules.admin_db.get_active_exclusion_rules", return_value=rules),
+        patch("app.clustering.retroactive_rules.stories_db.get_story_ids_for_articles") as mock_stories,
     ):
         result = apply_article_pair_rules_retroactively()
 
@@ -60,14 +55,8 @@ def test_skips_rule_when_articles_are_in_different_stories() -> None:
     rule = _make_rule(a="a1", b="b1")
     smap = {"a1": "story-1", "b1": "story-2"}  # different stories
     with (
-        patch(
-            "app.clustering.retroactive_rules.admin_db.get_active_exclusion_rules",
-            return_value=[rule],
-        ),
-        patch(
-            "app.clustering.retroactive_rules.stories_db.get_story_ids_for_articles",
-            return_value=smap,
-        ),
+        patch("app.clustering.retroactive_rules.admin_db.get_active_exclusion_rules", return_value=[rule]),
+        patch("app.clustering.retroactive_rules.stories_db.get_story_ids_for_articles", return_value=smap),
     ):
         result = apply_article_pair_rules_retroactively()
 
@@ -79,14 +68,8 @@ def test_skips_rule_when_article_not_in_any_story() -> None:
     rule = _make_rule(a="a1", b="b1")
     smap = {"a1": "story-1"}  # b1 missing
     with (
-        patch(
-            "app.clustering.retroactive_rules.admin_db.get_active_exclusion_rules",
-            return_value=[rule],
-        ),
-        patch(
-            "app.clustering.retroactive_rules.stories_db.get_story_ids_for_articles",
-            return_value=smap,
-        ),
+        patch("app.clustering.retroactive_rules.admin_db.get_active_exclusion_rules", return_value=[rule]),
+        patch("app.clustering.retroactive_rules.stories_db.get_story_ids_for_articles", return_value=smap),
     ):
         result = apply_article_pair_rules_retroactively()
 
@@ -99,18 +82,9 @@ def test_removes_article_b_by_default() -> None:
     smap = {"art-a": "story-1", "art-b": "story-1"}
 
     with (
-        patch(
-            "app.clustering.retroactive_rules.admin_db.get_active_exclusion_rules",
-            return_value=[rule],
-        ),
-        patch(
-            "app.clustering.retroactive_rules.stories_db.get_story_ids_for_articles",
-            return_value=smap,
-        ),
-        patch(
-            "app.clustering.retroactive_rules.stories_db.remove_article_from_story",
-            return_value=True,
-        ) as mock_remove,
+        patch("app.clustering.retroactive_rules.admin_db.get_active_exclusion_rules", return_value=[rule]),
+        patch("app.clustering.retroactive_rules.stories_db.get_story_ids_for_articles", return_value=smap),
+        patch("app.clustering.retroactive_rules.stories_db.remove_article_from_story", return_value=True) as mock_remove,
         patch("app.clustering.retroactive_rules.recompute_story_centroid"),
         patch("app.clustering.retroactive_rules.stories_db.set_story_needs_rewrite"),
     ):
@@ -126,23 +100,14 @@ def test_removes_flagged_article_when_feedback_id_present() -> None:
     smap = {"art-a": "story-1", "art-b": "story-1"}
 
     with (
-        patch(
-            "app.clustering.retroactive_rules.admin_db.get_active_exclusion_rules",
-            return_value=[rule],
-        ),
-        patch(
-            "app.clustering.retroactive_rules.stories_db.get_story_ids_for_articles",
-            return_value=smap,
-        ),
+        patch("app.clustering.retroactive_rules.admin_db.get_active_exclusion_rules", return_value=[rule]),
+        patch("app.clustering.retroactive_rules.stories_db.get_story_ids_for_articles", return_value=smap),
         # Flagged article in the feedback row is art-a
         patch(
             "app.clustering.retroactive_rules.admin_db.get_clustering_feedback_flagged_article_id",
             return_value="art-a",
         ),
-        patch(
-            "app.clustering.retroactive_rules.stories_db.remove_article_from_story",
-            return_value=True,
-        ) as mock_remove,
+        patch("app.clustering.retroactive_rules.stories_db.remove_article_from_story", return_value=True) as mock_remove,
         patch("app.clustering.retroactive_rules.recompute_story_centroid"),
         patch("app.clustering.retroactive_rules.stories_db.set_story_needs_rewrite"),
     ):
@@ -158,22 +123,13 @@ def test_falls_back_to_article_b_when_flagged_article_not_in_pair() -> None:
     smap = {"art-a": "story-1", "art-b": "story-1"}
 
     with (
-        patch(
-            "app.clustering.retroactive_rules.admin_db.get_active_exclusion_rules",
-            return_value=[rule],
-        ),
-        patch(
-            "app.clustering.retroactive_rules.stories_db.get_story_ids_for_articles",
-            return_value=smap,
-        ),
+        patch("app.clustering.retroactive_rules.admin_db.get_active_exclusion_rules", return_value=[rule]),
+        patch("app.clustering.retroactive_rules.stories_db.get_story_ids_for_articles", return_value=smap),
         patch(
             "app.clustering.retroactive_rules.admin_db.get_clustering_feedback_flagged_article_id",
             return_value="unrelated-article",
         ),
-        patch(
-            "app.clustering.retroactive_rules.stories_db.remove_article_from_story",
-            return_value=True,
-        ) as mock_remove,
+        patch("app.clustering.retroactive_rules.stories_db.remove_article_from_story", return_value=True) as mock_remove,
         patch("app.clustering.retroactive_rules.recompute_story_centroid"),
         patch("app.clustering.retroactive_rules.stories_db.set_story_needs_rewrite"),
     ):
@@ -189,22 +145,11 @@ def test_recomputes_centroid_and_marks_needs_rewrite_after_removal() -> None:
     smap = {"art-a": "story-1", "art-b": "story-1"}
 
     with (
-        patch(
-            "app.clustering.retroactive_rules.admin_db.get_active_exclusion_rules",
-            return_value=[rule],
-        ),
-        patch(
-            "app.clustering.retroactive_rules.stories_db.get_story_ids_for_articles",
-            return_value=smap,
-        ),
-        patch(
-            "app.clustering.retroactive_rules.stories_db.remove_article_from_story",
-            return_value=True,
-        ),
+        patch("app.clustering.retroactive_rules.admin_db.get_active_exclusion_rules", return_value=[rule]),
+        patch("app.clustering.retroactive_rules.stories_db.get_story_ids_for_articles", return_value=smap),
+        patch("app.clustering.retroactive_rules.stories_db.remove_article_from_story", return_value=True),
         patch("app.clustering.retroactive_rules.recompute_story_centroid") as mock_centroid,
-        patch(
-            "app.clustering.retroactive_rules.stories_db.set_story_needs_rewrite"
-        ) as mock_rewrite,
+        patch("app.clustering.retroactive_rules.stories_db.set_story_needs_rewrite") as mock_rewrite,
     ):
         apply_article_pair_rules_retroactively()
 
@@ -218,18 +163,9 @@ def test_does_not_count_failed_removal() -> None:
     smap = {"art-a": "story-1", "art-b": "story-1"}
 
     with (
-        patch(
-            "app.clustering.retroactive_rules.admin_db.get_active_exclusion_rules",
-            return_value=[rule],
-        ),
-        patch(
-            "app.clustering.retroactive_rules.stories_db.get_story_ids_for_articles",
-            return_value=smap,
-        ),
-        patch(
-            "app.clustering.retroactive_rules.stories_db.remove_article_from_story",
-            return_value=False,
-        ),
+        patch("app.clustering.retroactive_rules.admin_db.get_active_exclusion_rules", return_value=[rule]),
+        patch("app.clustering.retroactive_rules.stories_db.get_story_ids_for_articles", return_value=smap),
+        patch("app.clustering.retroactive_rules.stories_db.remove_article_from_story", return_value=False),
         patch("app.clustering.retroactive_rules.recompute_story_centroid"),
         patch("app.clustering.retroactive_rules.stories_db.set_story_needs_rewrite"),
     ):
@@ -258,18 +194,9 @@ def test_processes_multiple_rules() -> None:
         return result
 
     with (
-        patch(
-            "app.clustering.retroactive_rules.admin_db.get_active_exclusion_rules",
-            return_value=rules,
-        ),
-        patch(
-            "app.clustering.retroactive_rules.stories_db.get_story_ids_for_articles",
-            side_effect=fake_get_story_ids,
-        ),
-        patch(
-            "app.clustering.retroactive_rules.stories_db.remove_article_from_story",
-            return_value=True,
-        ),
+        patch("app.clustering.retroactive_rules.admin_db.get_active_exclusion_rules", return_value=rules),
+        patch("app.clustering.retroactive_rules.stories_db.get_story_ids_for_articles", side_effect=fake_get_story_ids),
+        patch("app.clustering.retroactive_rules.stories_db.remove_article_from_story", return_value=True),
         patch("app.clustering.retroactive_rules.recompute_story_centroid"),
         patch("app.clustering.retroactive_rules.stories_db.set_story_needs_rewrite"),
     ):
