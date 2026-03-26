@@ -176,11 +176,20 @@ def get_feed(
     # Score each story (non-behavioral signals only; see scoring_service)
     for s in visible_stories:
         s["relevance_score"] = score_story(s, topic_ids, sources, config)
+        pubs = [a["published_at"] for a in s["articles"] if a.get("published_at")]
+        s["max_published_at"] = max(pubs) if pubs else None
 
-    def _story_sort_key(row: dict[str, Any]) -> tuple[float, str]:
-        """Descending score, then story_id for stable ordering when scores tie."""
-        score = row["relevance_score"]
-        return (-score, row["story_id"])
+    def _story_sort_key(row: dict[str, Any]) -> tuple[int, float, str]:
+        """Primary: recency bucket (most recent first). Secondary: relevance_score desc."""
+        bucket_hours = config.get("relevance", {}).get("recency_bucket_hours", 6)
+        pub = row.get("max_published_at")
+        if pub:
+            if pub.tzinfo is None:
+                pub = pub.replace(tzinfo=UTC)
+            bucket = -int(pub.timestamp() // (bucket_hours * 3600))
+        else:
+            bucket = 0
+        return (bucket, -row["relevance_score"], row["story_id"])
 
     # Partition by source count: multi-source first, singletons as backfill
     primary: list[dict[str, Any]] = []

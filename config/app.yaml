@@ -133,6 +133,7 @@ relevance:
     content_quality: 0.10 # Share of articles with full-text extraction
   recency_half_life_hours: 8
   coverage_cap: 4
+  recency_bucket_hours: 6  # Stories are grouped into N-hour windows; within each window, relevance_score decides order
   # 1 = single-source clusters same priority as multi-source
   min_sources: 1
 
