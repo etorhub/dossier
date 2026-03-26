@@ -1,0 +1,72 @@
+# Heavy-machine compose — GPU worker + Ollama only.
+# Database is external (Neon). Web UI runs on the Pi.
+#
+# Usage (with GPU):
+#   COMPOSE_PROFILES=local-llm docker compose -f docker-compose.heavy.yml up -d
+#
+# Required .env:
+#   DATABASE_URL=postgresql://user:pass@ep-xxx.neon.tech/dossier?sslmode=require
+#   SECRET_KEY=<same key as Pi>
+#   COMPOSE_PROFILES=local-llm
+
+services:
+  ollama:
+    profiles: ["local-llm"]
+    image: ollama/ollama
+    volumes:
+      - ollama_data:/root/.ollama
+    environment:
+      NVIDIA_VISIBLE_DEVICES: all
+      NVIDIA_DRIVER_CAPABILITIES: compute,utility
+      OLLAMA_NUM_PARALLEL: "4"
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    healthcheck:
+      test: ["CMD", "ollama", "list"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  ollama-init:
+    profiles: ["local-llm"]
+    image: ollama/ollama
+    depends_on:
+      ollama:
+        condition: service_healthy
+    environment:
+      OLLAMA_HOST: http://ollama:11434
+    entrypoint:
+      [
+        "sh",
+        "-c",
+        "set -eu && ollama pull qwen2.5:7b && ollama pull qwen2.5:3b && ollama pull nomic-embed-text && echo 'ollama-init: done.'",
+      ]
+    restart: "no"
+
+  worker:
+    build:
+      context: .
+      target: worker
+    depends_on:
+      ollama-init:
+        condition: service_completed_successfully
+        required: false
+    environment:
+      DATABASE_URL: ${DATABASE_URL}
+      OLLAMA_HOST: http://ollama:11434
+      # Heavy mode: cluster_articles, rewrite_articles, highlight_stories only.
+      SCHEDULER_MODE: heavy
+    volumes:
+      - ./config:/app/config
+      - ./data/job_runs:/app/data/job_runs
+    command: python -m app.scheduler
+    restart: unless-stopped
+
+volumes:
+  ollama_data:

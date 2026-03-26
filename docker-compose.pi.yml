@@ -1,0 +1,40 @@
+# Raspberry Pi compose — web UI + light worker only.
+# Database and LLM are external (Neon + dev machine).
+#
+# Usage:
+#   docker compose -f docker-compose.pi.yml up -d
+#
+# Required .env:
+#   DATABASE_URL=postgresql://user:pass@ep-xxx.neon.tech/dossier?sslmode=require
+#   SECRET_KEY=<strong-random-key>
+
+services:
+  web:
+    build:
+      context: .
+      target: web
+    ports:
+      - "5000:5000"
+    environment:
+      DATABASE_URL: ${DATABASE_URL}
+      SECRET_KEY: ${SECRET_KEY}
+    volumes:
+      - ./config:/app/config
+    # -w 1: single gunicorn worker to stay within Pi 3's 1GB RAM.
+    command: sh -c "flask seed-sources && gunicorn -w 1 -b 0.0.0.0:5000 app:application"
+    restart: unless-stopped
+
+  worker:
+    build:
+      context: .
+      target: worker
+    environment:
+      DATABASE_URL: ${DATABASE_URL}
+      # Light mode: fetch_feeds, enrich_articles, check_source_availability only.
+      # No LLM calls — OLLAMA_HOST is not required.
+      SCHEDULER_MODE: light
+    volumes:
+      - ./config:/app/config
+      - ./data/job_runs:/app/data/job_runs
+    command: python -m app.scheduler
+    restart: unless-stopped
