@@ -24,7 +24,7 @@ services:
     labels:
       - com.centurylinklabs.watchtower.scope=dossier
     ports:
-      - "5000:5000"
+      - '5000:5000'
     environment:
       DATABASE_URL: ${DATABASE_URL}
       SECRET_KEY: ${SECRET_KEY}
@@ -54,13 +54,14 @@ services:
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
       # Reuse the credentials from `docker login ghcr.io` run during setup.
-      - /root/.docker/config.json:/config.json:ro
+      - ~/.docker/config.json:/config.json:ro
     environment:
       DOCKER_CONFIG: /config.json
+      DOCKER_API_VERSION: '1.40'
       # Poll every 60 seconds. Adjust down to 30 if you want faster picks.
-      WATCHTOWER_POLL_INTERVAL: "60"
+      WATCHTOWER_POLL_INTERVAL: '60'
       # Remove old images after pulling new ones (keeps the Pi disk clean).
-      WATCHTOWER_CLEANUP: "true"
+      WATCHTOWER_CLEANUP: 'true'
       # Only watch these two containers, not watchtower itself.
       WATCHTOWER_SCOPE: dossier
     # Restrict to containers with the com.centurylinklabs.watchtower.scope=dossier label.
