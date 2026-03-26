@@ -9,7 +9,6 @@ Usage:
     python scripts/generate_icons.py
 """
 
-import math
 import sys
 from pathlib import Path
 
@@ -23,7 +22,7 @@ ROOT = Path(__file__).parent.parent
 ICONS_DIR = ROOT / "app" / "static" / "icons"
 STATIC_DIR = ROOT / "app" / "static"
 
-BG_COLOR = (37, 99, 235)   # #2563eb
+BG_COLOR = (37, 99, 235)  # #2563eb
 FG_COLOR = (255, 255, 255)  # white
 CORNER_RADIUS_RATIO = 76 / 512  # matches the SVG rx="76" on a 512 canvas
 
@@ -58,7 +57,7 @@ def make_icon(size: int) -> Image.Image:
         try:
             font = ImageFont.truetype(path, font_size)
             break
-        except (OSError, IOError):
+        except OSError:
             continue
     if font is None:
         # Pillow built-in bitmap font — no sizing control, will look small
@@ -91,11 +90,11 @@ def main() -> None:
         "icon-512.png": 512,
     }
     for filename, size in sizes.items():
-        print(f"Generating {filename} ({size}×{size})…")
+        print(f"Generating {filename} ({size}x{size})…")
         img = make_icon(size)
         save_png(img, ICONS_DIR / filename)
 
-    print("Generating favicon.png (32×32)…")
+    print("Generating favicon.png (32x32)…")
     favicon = make_icon(32)
     save_png(favicon, STATIC_DIR / "favicon.png")
 

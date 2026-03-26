@@ -41,9 +41,7 @@ def upgrade() -> None:
         sa.PrimaryKeyConstraint("id"),
         sa.UniqueConstraint("endpoint"),
     )
-    op.create_index(
-        "ix_push_subscriptions_user_id", "push_subscriptions", ["user_id"]
-    )
+    op.create_index("ix_push_subscriptions_user_id", "push_subscriptions", ["user_id"])
 
 
 def downgrade() -> None:

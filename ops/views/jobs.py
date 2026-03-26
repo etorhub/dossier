@@ -71,10 +71,7 @@ def job_run_log(job_id: int) -> Response:
             job=row,
             log_body="",
             missing=True,
-            reason=(
-                "Log file not found on disk "
-                "(check paths.job_run_logs and worker/ops volume)."
-            ),
+            reason=("Log file not found on disk (check paths.job_run_logs and worker/ops volume)."),
         )
 
     body = path.read_text(encoding="utf-8", errors="replace")

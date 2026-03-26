@@ -21,12 +21,14 @@ from app.services.rewrite_service import (
 
 def test_build_articles_text_for_rewrite_caps_source_count() -> None:
     """Large clusters only send the first N sources to the rewrite model."""
-    arts = [
-        {"title": f"T{i}", "full_text": "body", "raw_text": ""} for i in range(25)
-    ]
+    arts = [{"title": f"T{i}", "full_text": "body", "raw_text": ""} for i in range(25)]
     text, meta = _build_articles_text_for_rewrite(
         arts,
-        {"rewrite_max_sources_per_story": 6, "rewrite_max_chars_per_article": 0, "rewrite_max_articles_text_chars": 0},
+        {
+            "rewrite_max_sources_per_story": 6,
+            "rewrite_max_chars_per_article": 0,
+            "rewrite_max_articles_text_chars": 0,
+        },
     )
     assert meta["sources_total"] == 25
     assert meta["sources_used"] == 6
@@ -235,14 +237,18 @@ def test_parse_cluster_llm_response_incoherent_with_preamble() -> None:
 
 def test_rewrite_story_incoherent_dissolves_story() -> None:
     """rewrite_story calls dissolve_story when LLM returns INCOHERENT: signal."""
-    with patch("app.services.rewrite_service.db_stories") as mock_db, \
-         patch("app.services.rewrite_service.get_provider") as mock_provider_factory:
+    with (
+        patch("app.services.rewrite_service.db_stories") as mock_db,
+        patch("app.services.rewrite_service.get_provider") as mock_provider_factory,
+    ):
         mock_llm = MagicMock()
         mock_llm.complete.return_value = "INCOHERENT: Sources cover unrelated events."
         mock_provider_factory.return_value = mock_llm
 
-        articles = [{"id": "a1", "full_text": "text about politics"},
-                    {"id": "a2", "full_text": "text about cooking"}]
+        articles = [
+            {"id": "a1", "full_text": "text about politics"},
+            {"id": "a2", "full_text": "text about cooking"},
+        ]
         config = {
             "rewriting": {"styles": [{"id": "neutral", "prompt": "rewrite_cluster_neutral"}]},
             "processing": {},
@@ -705,5 +711,9 @@ def test_gather_rewrite_work_uses_bulk_fetch() -> None:
         result = _gather_rewrite_work(variants=[("neutral", "en")], since=None, batch_size=10)
         mock_stories.get_articles_for_stories.assert_called_once_with(["s1", "s2"])
         assert len(result) == 2
-        assert result[0] == ("s1", [{"id": "a1", "raw_text": "text", "full_text": None}], False)
+        assert result[0] == (
+            "s1",
+            [{"id": "a1", "raw_text": "text", "full_text": None}],
+            False,
+        )
         assert result[1][2] is True

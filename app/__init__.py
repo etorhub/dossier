@@ -8,8 +8,8 @@ from pathlib import Path
 import humanize
 from dotenv import load_dotenv
 from flask import Flask, Response, redirect, request, session, url_for
-from markupsafe import Markup
 from flask_babel import Babel
+from markupsafe import Markup
 
 from app.cli import make_admin, seed_sources, show_rewrite_failures
 from app.config import load_config
@@ -44,14 +44,10 @@ def create_app(config_path: str | Path | None = None) -> Flask:
     """Create and configure the Flask application."""
     app = Flask(__name__, template_folder="../templates")
     app.config["CONFIG"] = load_config(config_path)
-    app.config["SECRET_KEY"] = os.environ.get(
-        "SECRET_KEY", "dev-secret-key-change-in-production"
-    )
+    app.config["SECRET_KEY"] = os.environ.get("SECRET_KEY", "dev-secret-key-change-in-production")
     app.config["VAPID_PUBLIC_KEY"] = os.environ.get("VAPID_PUBLIC_KEY", "")
     app.config["VAPID_PRIVATE_KEY"] = os.environ.get("VAPID_PRIVATE_KEY", "")
-    app.config["VAPID_EMAIL"] = os.environ.get(
-        "VAPID_EMAIL", "mailto:admin@example.com"
-    )
+    app.config["VAPID_EMAIL"] = os.environ.get("VAPID_EMAIL", "mailto:admin@example.com")
     # Use absolute path so translations load correctly in Docker and all environments
     _translations_dir = Path(__file__).resolve().parent.parent / "translations"
     app.config["BABEL_TRANSLATION_DIRECTORIES"] = str(_translations_dir)

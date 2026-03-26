@@ -25,9 +25,7 @@ def insert_story(article_ids: list[str]) -> str:
     existing_map = get_story_ids_for_articles(article_ids)
     if existing_map:
         if set(existing_map.keys()) != wanted:
-            raise ValueError(
-                "insert_story: article group mixes assigned and unassigned articles"
-            )
+            raise ValueError("insert_story: article group mixes assigned and unassigned articles")
         story_ids_set = set(existing_map.values())
         if len(story_ids_set) != 1:
             raise ValueError(
@@ -63,8 +61,7 @@ def insert_story(article_ids: list[str]) -> str:
         if (
             set(again.keys()) == wanted
             and len(set(again.values())) == 1
-            and {a["id"] for a in get_articles_in_story(next(iter(set(again.values()))))}
-            == wanted
+            and {a["id"] for a in get_articles_in_story(next(iter(set(again.values()))))} == wanted
         ):
             return next(iter(set(again.values())))
         logger.warning(
@@ -357,7 +354,8 @@ def get_story_rewrites(
         with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
             cur.execute(
                 """
-                SELECT story_id::text, title, summary, full_text, highlighted_full_text, rewrite_failed
+                SELECT story_id::text, title, summary, full_text,
+                       highlighted_full_text, rewrite_failed
                 FROM story_rewrites
                 WHERE style = %s AND language = %s AND story_id::text = ANY(%s)
                 """,
@@ -764,12 +762,8 @@ def get_stories_needing_any_rewrite(
     try:
         with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
             # Build VALUES clause for required variants
-            values_placeholders = ", ".join(
-                "(%s, %s)" for _ in variants
-            )
-            flat_variants = [
-                item for pair in variants for item in pair
-            ]
+            values_placeholders = ", ".join("(%s, %s)" for _ in variants)
+            flat_variants = [item for pair in variants for item in pair]
             required_count = len(variants)
 
             # Cooldown: defer recently-rewritten stories (needs_rewrite=true only)
@@ -854,7 +848,9 @@ def get_stories_needing_any_rewrite(
         return_connection(conn)
 
 
-def get_stories_needing_rewrite(style: str, language: str, since: datetime | None) -> list[dict[str, Any]]:
+def get_stories_needing_rewrite(
+    style: str, language: str, since: datetime | None
+) -> list[dict[str, Any]]:
     """Return stories that need rewrite: either no rewrite or needs_rewrite=True."""
     conn = get_connection()
     try:

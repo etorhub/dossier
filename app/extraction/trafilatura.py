@@ -50,9 +50,7 @@ def _extract_og_image(html: str) -> str | None:
     return None
 
 
-def extract_article(
-    url: str, timeout: int = 30
-) -> tuple[str | None, str | None, str | None]:
+def extract_article(url: str, timeout: int = 30) -> tuple[str | None, str | None, str | None]:
     """Fetch URL and extract main article body as plain text.
 
     Returns (extracted_text, article_body_image_url, og_image_url).

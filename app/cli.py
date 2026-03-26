@@ -7,7 +7,9 @@ from app.db import sources as sources_db
 
 
 def run_seed_sources(sources_path: str | None = None) -> None:
-    """Load config/sources.yaml into news_sources and source_feeds tables. Shared by CLI and run-pipeline."""
+    """Load config/sources.yaml into news_sources and source_feeds tables.
+
+    Shared by CLI and run-pipeline."""
     sources = load_sources(sources_path)
     if not sources:
         click.echo("No sources found in YAML.")
@@ -79,17 +81,15 @@ def show_rewrite_failures(hours: int, limit: int) -> None:
 
     failures = admin_db.get_recent_rewrite_failures(hours=hours, limit=limit)
     if not failures:
-        click.echo("No rewrite failures in the last %d hours." % hours)
+        click.echo(f"No rewrite failures in the last {hours} hours.")
         return
 
-    click.echo("Rewrite failures (last %d hours): %d" % (hours, len(failures)))
+    click.echo(f"Rewrite failures (last {hours} hours): {len(failures)}")
     click.echo()
     for f in failures:
         reason = f.get("error_message") or "(reason not stored — failures before error tracking)"
         created = f.get("created_at")
         ts = created.strftime("%Y-%m-%d %H:%M") if created else "—"
-        click.echo("  %s  %s" % (ts, f.get("cluster_id", "?")[:8]))
+        click.echo("  {}  {}".format(ts, f.get("cluster_id", "?")[:8]))
         click.echo("    %s" % (reason[:100] + "…" if len(str(reason)) > 100 else reason))
         click.echo()
-
-

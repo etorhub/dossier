@@ -22,9 +22,7 @@ depends_on: str | Sequence[str] | None = None
 def upgrade() -> None:
     """Create default admin user if not exists. Idempotent."""
     conn = op.get_bind()
-    password_hash = bcrypt.hashpw(
-        b"admin", bcrypt.gensalt()
-    ).decode("utf-8")
+    password_hash = bcrypt.hashpw(b"admin", bcrypt.gensalt()).decode("utf-8")
 
     conn.execute(
         text("""
@@ -39,6 +37,4 @@ def upgrade() -> None:
 def downgrade() -> None:
     """Remove default admin user."""
     conn = op.get_bind()
-    conn.execute(
-        text("DELETE FROM users WHERE email = 'admin@admin.com'")
-    )
+    conn.execute(text("DELETE FROM users WHERE email = 'admin@admin.com'"))

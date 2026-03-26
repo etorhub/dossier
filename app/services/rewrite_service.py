@@ -42,15 +42,18 @@ def _llm_host_for_logging(config: dict[str, Any]) -> str:
     llm = config.get("llm") or {}
     return str(llm.get("host") or os.environ.get("OLLAMA_HOST") or "http://ollama:11434")
 
+
 _rewrite_progress_lock = threading.Lock()
 
-# Prepended to merge-source rewrite prompts so small models keep TITLE:/SUMMARY:/FULL: in {language}.
+# Prepended to merge-source rewrite prompts so small models keep
+# TITLE:/SUMMARY:/FULL: in {language}.
 _REWRITE_OUTPUT_CONTRACT_PREFIX = (
     "[Output contract — highest priority]\n"
     "Line 1 of your reply must be TITLE: (character T first). No preamble, markdown headings, "
     "or numbered summaries per source. Use TITLE:, SUMMARY:, FULL: then write only in {language}.\n"
     "TITLE, SUMMARY, and FULL must read as published news: report facts directly. "
-    "Do not describe the text, an 'update', a 'summary', or 'multiple news items'—no meta framing.\n\n"
+    "Do not describe the text, an 'update', a 'summary', or 'multiple news items'"
+    "—no meta framing.\n\n"
 )
 
 
@@ -216,7 +219,7 @@ def _parse_story_llm_response(text: str) -> tuple[str, str, str]:
     """
     stripped = text.strip()
     if stripped.upper().startswith("INCOHERENT:"):
-        reason = stripped[len("INCOHERENT:"):].strip()
+        reason = stripped[len("INCOHERENT:") :].strip()
         raise StoryIncoherentError(reason or "LLM indicated articles are unrelated")
     text = _normalize_story_llm_section_headers(text)
     text = _strip_preamble_before_first_title(text)
@@ -325,7 +328,8 @@ def _build_articles_text_for_rewrite(
 
 
 def _build_article_text_from_rewrite(rewrite: dict[str, Any]) -> str:
-    """Build article text from a rewrite (title, summary, full_text) for simplify/translate prompts."""
+    """Build article text from a rewrite (title, summary, full_text)
+    for simplify/translate prompts."""
     title = (rewrite.get("title") or "").strip()
     summary = (rewrite.get("summary") or "").strip()
     full_text = (rewrite.get("full_text") or "").strip()
@@ -730,16 +734,16 @@ def _rewrite_story_cascading(
     *,
     translation_max_workers: int = 1,
 ) -> tuple[int, int]:
-    """Cascade: neutral in base_language, optional simplify for simple, then translate configured styles."""
+    """Cascade: neutral in base_language, optional simplify for simple,
+    then translate configured styles."""
     succeeded = 0
     failed = 0
     style_ids = _configured_style_ids(config)
 
     # Step 1: Neutral in base language (merge sources)
     neutral_key = ("neutral", base_language)
-    has_valid_neutral = (
-        neutral_key in existing_rewrites
-        and bool(existing_rewrites[neutral_key].get("title"))
+    has_valid_neutral = neutral_key in existing_rewrites and bool(
+        existing_rewrites[neutral_key].get("title")
     )
     if not has_valid_neutral:
         ok = rewrite_story(
@@ -794,10 +798,7 @@ def _rewrite_story_cascading(
             key = (style, lang_id)
             if not (needs_full_regen or key not in existing_rewrites):
                 continue
-            if style == "neutral":
-                source = neutral_rewrite
-            else:
-                source = simple_rewrite or {}
+            source = neutral_rewrite if style == "neutral" else simple_rewrite or {}
             if not source or not source.get("title"):
                 continue
             translation_jobs.append((style, lang_id, source))
@@ -1022,11 +1023,7 @@ def run_rewrite_batch(config: dict[str, Any]) -> RewriteReport:
     style_ids = _configured_style_ids(config)
     processing = config.get("processing", {})
     window_hours = processing.get("cluster_window_hours", 24)
-    since = (
-        datetime.now(UTC) - timedelta(hours=window_hours)
-        if window_hours
-        else None
-    )
+    since = datetime.now(UTC) - timedelta(hours=window_hours) if window_hours else None
     schedule_cfg = config.get("schedule", {})
     batch_size = int(schedule_cfg.get("rewrite_batch_size") or 0)
     cooldown_minutes = int(processing.get("rewrite_cooldown_minutes") or 0)
@@ -1100,11 +1097,7 @@ def run_rewrite_all_stories(config: dict[str, Any]) -> RewriteReport:
     style_ids = _configured_style_ids(config)
     processing = config.get("processing", {})
     window_hours = processing.get("cluster_window_hours", 24)
-    since = (
-        datetime.now(UTC) - timedelta(hours=window_hours)
-        if window_hours
-        else None
-    )
+    since = datetime.now(UTC) - timedelta(hours=window_hours) if window_hours else None
     schedule_cfg = config.get("schedule", {})
     batch_size = int(schedule_cfg.get("rewrite_batch_size") or 0)
 
@@ -1169,5 +1162,3 @@ def run_rewrite_all_stories(config: dict[str, Any]) -> RewriteReport:
 
 # Backwards compatibility alias
 rewrite_cluster = rewrite_story
-
-

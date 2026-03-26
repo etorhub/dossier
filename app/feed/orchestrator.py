@@ -59,11 +59,7 @@ def fetch_all_due_feeds(config: dict[str, Any] | None = None) -> FetchReport:
 
     feeds = sources_db.get_all_active_feeds()
     now = datetime.now(UTC)
-    cutoff = (
-        now - timedelta(hours=max_age_hours)
-        if max_age_hours and max_age_hours > 0
-        else None
-    )
+    cutoff = now - timedelta(hours=max_age_hours) if max_age_hours and max_age_hours > 0 else None
     due_feeds = [f for f in feeds if _is_feed_due(f, now)]
 
     report = FetchReport(
@@ -108,9 +104,7 @@ def fetch_all_due_feeds(config: dict[str, Any] | None = None) -> FetchReport:
             continue
 
         if result.status_code != 200 or result.content is None:
-            logger.warning(
-                "Feed %s returned %s", feed_url, result.status_code
-            )
+            logger.warning("Feed %s returned %s", feed_url, result.status_code)
             failures = (feed.get("consecutive_failures") or 0) + 1
             sources_db.update_feed(feed_id, consecutive_failures=failures)
             if failures >= threshold:

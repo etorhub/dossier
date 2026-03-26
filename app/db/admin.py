@@ -223,7 +223,8 @@ def get_overview_stats() -> dict[str, Any]:
                 SELECT
                     (SELECT COUNT(*) FROM users) AS total_users,
                     (SELECT COUNT(*) FROM users WHERE is_active = true) AS active_users,
-                    (SELECT COUNT(*) FROM articles WHERE fetched_at::date = CURRENT_DATE) AS articles_today,
+                    (SELECT COUNT(*) FROM articles
+                     WHERE fetched_at::date = CURRENT_DATE) AS articles_today,
                     (SELECT COUNT(*) FROM articles
                      WHERE fetched_at::date = CURRENT_DATE
                        AND article_type = 'non_news') AS non_news_today,
@@ -342,7 +343,11 @@ def get_clustering_stats() -> dict[str, Any]:
                 """
             )
             rewrite_coverage_by_variant = [
-                {"style": row["style"], "language": row["language"], "count": row["cnt"]}
+                {
+                    "style": row["style"],
+                    "language": row["language"],
+                    "count": row["cnt"],
+                }
                 for row in cur.fetchall()
             ]
 
@@ -370,7 +375,8 @@ def get_clustering_stats() -> dict[str, Any]:
 
 
 def get_recent_rewrite_failures(hours: int = 24, limit: int = 50) -> list[dict[str, Any]]:
-    """Return recent story rewrite failures with story_id, style, language, created_at, error_message."""
+    """Return recent story rewrite failures with story_id, style, language, created_at,
+    error_message."""
     conn = get_connection()
     try:
         with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
@@ -464,11 +470,7 @@ def get_admin_users() -> list[dict[str, Any]]:
 
 def get_incidents(config: dict[str, Any]) -> list[dict[str, Any]]:
     """Return auto-detected incidents for the incidents panel."""
-    threshold = (
-        config.get("schedule", {})
-        .get("fetcher", {})
-        .get("circuit_breaker_threshold", 5)
-    )
+    threshold = config.get("schedule", {}).get("fetcher", {}).get("circuit_breaker_threshold", 5)
     incidents: list[dict[str, Any]] = []
 
     conn = get_connection()
@@ -490,7 +492,10 @@ def get_incidents(config: dict[str, Any]) -> list[dict[str, Any]]:
                     {
                         "type": "feed_deactivated",
                         "title": f"Feed deactivated: {row['source_name']}",
-                        "detail": f"{row['feed_url']} — {row['consecutive_failures']} consecutive failures",
+                        "detail": (
+                            f"{row['feed_url']} — "
+                            f"{row['consecutive_failures']} consecutive failures"
+                        ),
                         "severity": "warning",
                     }
                 )
@@ -593,9 +598,7 @@ def get_admin_articles(
         elif has_embedding is False:
             conditions.append("a.embedding IS NULL")
         if in_story is True:
-            conditions.append(
-                "EXISTS (SELECT 1 FROM story_articles sa WHERE sa.article_id = a.id)"
-            )
+            conditions.append("EXISTS (SELECT 1 FROM story_articles sa WHERE sa.article_id = a.id)")
         elif in_story is False:
             conditions.append(
                 "NOT EXISTS (SELECT 1 FROM story_articles sa WHERE sa.article_id = a.id)"
@@ -984,7 +987,7 @@ def get_clustering_feedback(
             else:
                 order_clause = "ORDER BY cf.flagged_at DESC"
 
-            params = params_head + [limit, offset]
+            params = [*params_head, limit, offset]
             cur.execute(
                 f"""
                 SELECT cf.id, cf.article_id, cf.story_id::text AS story_id,
@@ -1149,7 +1152,7 @@ def get_stories_with_rewrite_status(
     rewrite_matrix: dict mapping (style, language) -> "done" | "failed" | "missing"
     """
     styles = [s["id"] for s in config.get("rewriting", {}).get("styles", [])]
-    languages = [l["id"] for l in config.get("rewriting", {}).get("languages", [])]
+    languages = [lang["id"] for lang in config.get("rewriting", {}).get("languages", [])]
     if not styles:
         styles = ["neutral"]
     if not languages:
@@ -1239,9 +1242,13 @@ def get_user_usage_stats() -> list[dict[str, Any]]:
                 """
                 SELECT u.id, u.email, u.is_active, u.is_admin, u.created_at, u.last_login_at,
                        up.language, up.preferred_style, up.rewrite_tone, up.location,
-                       (SELECT COUNT(*) FROM user_read_stories urs WHERE urs.user_id = u.id) AS read_stories_count,
-                       (SELECT COALESCE(array_agg(ut.topic_id ORDER BY ut.topic_id), ARRAY[]::text[])
-                        FROM user_topics ut WHERE ut.user_id = u.id AND ut.enabled = true) AS enabled_topics
+                       (SELECT COUNT(*) FROM user_read_stories urs
+                        WHERE urs.user_id = u.id) AS read_stories_count,
+                       (SELECT COALESCE(
+                            array_agg(ut.topic_id ORDER BY ut.topic_id),
+                            ARRAY[]::text[]
+                        ) FROM user_topics ut
+                        WHERE ut.user_id = u.id AND ut.enabled = true) AS enabled_topics
                 FROM users u
                 LEFT JOIN user_profiles up ON up.user_id = u.id
                 ORDER BY u.created_at DESC

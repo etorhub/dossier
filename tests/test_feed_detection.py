@@ -7,9 +7,7 @@ from app.discovery.feed_detection import validate_feed
 
 def test_validate_feed_invalid_url() -> None:
     """Invalid or unreachable URL returns error."""
-    result = validate_feed(
-        "https://invalid-domain-that-does-not-resolve-12345.invalid/feed"
-    )
+    result = validate_feed("https://invalid-domain-that-does-not-resolve-12345.invalid/feed")
     assert result["ok"] is False
     assert result["error"] is not None
 

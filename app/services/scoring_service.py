@@ -68,9 +68,7 @@ def _content_quality_score(articles: list[dict[str, Any]]) -> float:
     """Fraction of articles with full_text extracted."""
     if not articles:
         return 0.0
-    extracted = sum(
-        1 for a in articles if a.get("extraction_status") == "extracted"
-    )
+    extracted = sum(1 for a in articles if a.get("extraction_status") == "extracted")
     return extracted / len(articles)
 
 
@@ -80,7 +78,7 @@ def score_story(
     sources_catalog: dict[str, dict[str, Any]],
     config: dict[str, Any],
 ) -> float:
-    """Compute composite relevance score (0.0–1.0) for a story.
+    """Compute composite relevance score (0.0-1.0) for a story.
 
     Weighted combination of recency, multi-source coverage, topic alignment (explicit
     profile topics only), and content extraction quality. No behavioral or source-list

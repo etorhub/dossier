@@ -113,7 +113,7 @@ def classify_article(title: str, text: str) -> str:
         if phrase in title_lower:
             return "non_news"
 
-    content = (title_lower + " " + (text or "")[:500].lower())
+    content = title_lower + " " + (text or "")[:500].lower()
     for group in _SIGNAL_GROUPS:
         hits = sum(1 for signal in group if signal in content)
         if hits >= 2:

@@ -1,4 +1,5 @@
 """Push notification service — sends web push messages to subscribed users."""
+
 from __future__ import annotations
 
 import json
@@ -66,11 +67,7 @@ def notify_users_with_new_stories(story_count: int, app: object = None) -> None:
         except WebPushException as ex:
             if ex.response is not None and ex.response.status_code in (404, 410):
                 # Subscription is expired/invalid — remove it
-                logger.info(
-                    "Removing dead push subscription: %s", sub["endpoint"][:50]
-                )
+                logger.info("Removing dead push subscription: %s", sub["endpoint"][:50])
                 push_db.delete_subscription(sub["endpoint"])
             else:
-                logger.warning(
-                    "Push failed for endpoint %s: %s", sub["endpoint"][:50], ex
-                )
+                logger.warning("Push failed for endpoint %s: %s", sub["endpoint"][:50], ex)

@@ -136,9 +136,7 @@ def _ensure_user(email: str, password: str) -> int:
     existing = db_users.get_user_by_email(email)
     if existing:
         return int(existing["id"])
-    password_hash = bcrypt.hashpw(password.encode("utf-8"), bcrypt.gensalt()).decode(
-        "utf-8"
-    )
+    password_hash = bcrypt.hashpw(password.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
     return db_users.create_user(email, password_hash)
 
 
@@ -216,9 +214,7 @@ def seed_mock_db(
 
     catalog = load_sources(sources_path)
     if not catalog:
-        raise SystemExit(
-            "No sources in YAML — point --sources-path at a valid sources.yaml."
-        )
+        raise SystemExit("No sources in YAML — point --sources-path at a valid sources.yaml.")
 
     if source_a and source_b:
         ids = {s["id"] for s in catalog}
@@ -242,9 +238,7 @@ def seed_mock_db(
     else:
         overlap = _first_overlapping_source_pair(catalog)
         if not overlap:
-            raise SystemExit(
-                "Could not pick two sources from YAML; use --source-a and --source-b."
-            )
+            raise SystemExit("Could not pick two sources from YAML; use --source-a and --source-b.")
         sid_a, sid_b, topic_set = overlap
 
     topic_list = sorted(topic_set) if topic_set else ["general"]
@@ -253,9 +247,7 @@ def seed_mock_db(
             "MOCK_EMAIL",
             os.environ.get("DEV_EMAIL", "dev@localhost"),
         )
-        password = os.environ.get(
-            "MOCK_PASSWORD", os.environ.get("DEV_PASSWORD", "devpassword")
-        )
+        password = os.environ.get("MOCK_PASSWORD", os.environ.get("DEV_PASSWORD", "devpassword"))
         user_id = _ensure_user(email, password)
         _ensure_profile_and_topics(user_id, topic_list)
     else:
@@ -313,9 +305,7 @@ def seed_mock_db(
         story_ids_out.append(story_id)
 
         title = f"[Mock {i}] Rewritten bundle (synthetic)"
-        summary = (
-            f"Mock summary for story {i}: two synthetic sources merged for UI tests."
-        )
+        summary = f"Mock summary for story {i}: two synthetic sources merged for UI tests."
         full_text = (
             f"First paragraph of mock rewrite for story {i}.\n\n"
             "This text stands in for worker output; no LLM was called."
@@ -341,10 +331,7 @@ def seed_mock_db(
             "MOCK_EMAIL",
             os.environ.get("DEV_EMAIL", "dev@localhost"),
         )
-        print(
-            f"  Log in as {login_email!r} "
-            f"(password MOCK_PASSWORD / DEV_PASSWORD or default)."
-        )
+        print(f"  Log in as {login_email!r} (password MOCK_PASSWORD / DEV_PASSWORD or default).")
     print(f"  Story ids: {', '.join(story_ids_out)}")
 
 

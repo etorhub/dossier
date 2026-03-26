@@ -41,7 +41,9 @@ def register() -> Any:
     password = request.form.get("password", "")
     if not email or not password:
         return render_template(
-            "register.html", error=gettext("Email and password are required."), email=email
+            "register.html",
+            error=gettext("Email and password are required."),
+            email=email,
         )
     if len(password) < 8:
         return render_template(

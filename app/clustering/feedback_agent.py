@@ -9,14 +9,13 @@ from dataclasses import dataclass
 from typing import Any
 
 from app.clustering.retroactive_rules import apply_article_pair_rules_retroactively
+from app.clustering.vectors import cosine_similarity, embedding_from_article
 from app.config import load_config
 from app.db import admin as admin_db
 from app.db import articles as articles_db
 from app.db import stories as stories_db
 from app.llm.prompts import load_prompt
 from app.llm.provider import LLMProviderError, get_provider
-
-from app.clustering.vectors import cosine_similarity, embedding_from_article
 
 logger = logging.getLogger(__name__)
 
@@ -242,9 +241,7 @@ def _process_one_pending(feedback_id: str, article_id: str, story_id: str) -> bo
                 agent_recommendation=recommendation,
             )
             return False
-        admin_db.insert_clustering_exclusion_rule(
-            feedback_id, "article_pair", clean, desc
-        )
+        admin_db.insert_clustering_exclusion_rule(feedback_id, "article_pair", clean, desc)
         _finalize_feedback(
             feedback_id,
             status="reviewed",
@@ -264,9 +261,7 @@ def _process_one_pending(feedback_id: str, article_id: str, story_id: str) -> bo
                 agent_recommendation=recommendation,
             )
             return False
-        admin_db.insert_clustering_exclusion_rule(
-            feedback_id, "source_pair", clean, desc
-        )
+        admin_db.insert_clustering_exclusion_rule(feedback_id, "source_pair", clean, desc)
         _finalize_feedback(
             feedback_id,
             status="reviewed",
@@ -312,7 +307,8 @@ def _process_one_pending(feedback_id: str, article_id: str, story_id: str) -> bo
 
 
 def run_feedback_review() -> FeedbackReviewReport:
-    """Process pending and failed clustering_feedback rows; apply article_pair rules retroactively."""
+    """Process pending and failed clustering_feedback rows; apply article_pair rules
+    retroactively."""
     pending = admin_db.get_pending_clustering_feedback()
     rules = 0
     n_processed = 0
@@ -334,7 +330,10 @@ def run_feedback_review() -> FeedbackReviewReport:
 
     retro = apply_article_pair_rules_retroactively()
     if retro:
-        logger.info("Retroactive article_pair enforcement: %d story membership(s) removed", retro)
+        logger.info(
+            "Retroactive article_pair enforcement: %d story membership(s) removed",
+            retro,
+        )
 
     return FeedbackReviewReport(
         rows_processed=n_processed,

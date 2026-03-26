@@ -131,9 +131,7 @@ def enrich_articles(
                         continue
 
                     # Trafilatura: body image from main content; og:image as fallback
-                    extracted, body_image_url, og_image_url = extract_article(
-                        url, timeout=timeout
-                    )
+                    extracted, body_image_url, og_image_url = extract_article(url, timeout=timeout)
 
                     existing_src = (art.get("image_source") or "").strip()
                     existing_url = art.get("image_url")
@@ -169,9 +167,7 @@ def enrich_articles(
                         # that slipped through the title/raw_text check at fetch.
                         if classify_article(title, extracted) == "non_news":
                             db_articles.update_article_type(article_id, "non_news")
-                            logger.debug(
-                                "Re-classified as non_news after extraction: %s", url
-                            )
+                            logger.debug("Re-classified as non_news after extraction: %s", url)
                     else:
                         # Keep raw_text as fallback, mark failed
                         fallback = full_text or raw_text

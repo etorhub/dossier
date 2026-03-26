@@ -40,7 +40,7 @@ DEFAULTS: dict[str, Any] = {
         "batch_size": 30,
         "rate_limit_per_domain": 2.0,
         "timeout": 30,
-        "abandon_after_hours": 4,       # articles pending longer than this are abandoned
+        "abandon_after_hours": 4,  # articles pending longer than this are abandoned
         "cluster_gate_max_pending": 5,  # tolerate up to N pending before blocking cluster
     },
     "schedule": {

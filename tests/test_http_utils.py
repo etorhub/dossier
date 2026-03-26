@@ -47,14 +47,16 @@ def test_run_with_retries_retry_if_false_raises_immediately() -> None:
     def fn() -> None:
         raise ValueError("fatal")
 
-    with patch("app.llm.http_utils.time.sleep") as mock_sleep:
-        with pytest.raises(ValueError, match="fatal"):
-            run_with_retries(
-                fn,
-                max_retries=3,
-                label="test",
-                retry_if=lambda e: False,
-            )
+    with (
+        patch("app.llm.http_utils.time.sleep") as mock_sleep,
+        pytest.raises(ValueError, match="fatal"),
+    ):
+        run_with_retries(
+            fn,
+            max_retries=3,
+            label="test",
+            retry_if=lambda e: False,
+        )
     mock_sleep.assert_not_called()
 
 
@@ -73,9 +75,11 @@ def test_run_with_retries_raises_after_exhausted() -> None:
     def fail() -> None:
         raise RuntimeError("always fails")
 
-    with patch("app.llm.http_utils.time.sleep"):
-        with pytest.raises(RuntimeError, match="always fails"):
-            run_with_retries(fail, max_retries=2, label="test")
+    with (
+        patch("app.llm.http_utils.time.sleep"),
+        pytest.raises(RuntimeError, match="always fails"),
+    ):
+        run_with_retries(fail, max_retries=2, label="test")
 
 
 def test_run_with_retries_at_least_one_attempt() -> None:
@@ -84,9 +88,11 @@ def test_run_with_retries_at_least_one_attempt() -> None:
     def fail() -> None:
         raise ValueError("nope")
 
-    with patch("app.llm.http_utils.time.sleep"):
-        with pytest.raises(ValueError, match="nope"):
-            run_with_retries(fail, max_retries=0, label="test")
+    with (
+        patch("app.llm.http_utils.time.sleep"),
+        pytest.raises(ValueError, match="nope"),
+    ):
+        run_with_retries(fail, max_retries=0, label="test")
 
 
 def test_quiet_http_library_info_logs_restores_levels() -> None:

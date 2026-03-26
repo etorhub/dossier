@@ -9,16 +9,22 @@ from datetime import UTC, datetime, timedelta
 from typing import Any
 
 from app.clustering.vectors import (
-    compute_centroid as _compute_centroid,
     cosine_similarity as _cosine_similarity,
+)
+from app.clustering.vectors import (
     embedding_from_article as _embedding_from_article,
+)
+from app.clustering.vectors import (
     recompute_story_centroid as _update_story_centroid,
 )
 from app.config import load_config
 from app.db import articles as db_articles
 from app.db import stories as db_stories
 from app.llm.embeddings import EmbeddingProviderError, get_embedding_provider
-from app.llm.http_utils import is_ollama_connection_failure, quiet_http_library_info_logs
+from app.llm.http_utils import (
+    is_ollama_connection_failure,
+    quiet_http_library_info_logs,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -35,9 +41,9 @@ def _render_embedding_progress(
         return
     spin = "⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏"
     ch = spin[frame % len(spin)]
-    pct = min(100, int(round(100.0 * done / total))) if total else 0
+    pct = min(100, round(100.0 * done / total)) if total else 0
     bar_w = min(28, max(12, shutil.get_terminal_size((88, 24)).columns - 46))
-    filled = min(bar_w, max(0, int(round(bar_w * done / total))))
+    filled = min(bar_w, max(0, round(bar_w * done / total)))
     bar_f = "█" * filled + "░" * (bar_w - filled)
     safe = (title or "").replace("\n", " ").strip() or "—"
     if len(safe) > 40:
@@ -170,9 +176,7 @@ def _text_to_embed(article: dict[str, Any]) -> str:
 
     src_topics: list[str] = article.get("_source_topics") or []
     rss_cats: list[str] = [
-        str(c).strip()
-        for c in (article.get("categories") or [])
-        if c and str(c).strip()
+        str(c).strip() for c in (article.get("categories") or []) if c and str(c).strip()
     ][:5]
 
     parts: list[str] = []
@@ -226,8 +230,7 @@ def _assign_to_existing_stories_ann(
                 source_ids_cache[sid] = {a["source_id"] for a in members if a.get("source_id")}
             if rules.article_pairs:
                 blocked = any(
-                    _article_pair_blocked(rules, art["id"], mid)
-                    for mid in member_ids_cache[sid]
+                    _article_pair_blocked(rules, art["id"], mid) for mid in member_ids_cache[sid]
                 )
                 if blocked:
                     continue
@@ -413,15 +416,13 @@ def _run_embed_pass(
         has_embedding_provider = False
     else:
         emb_cfg = cfg.get("embeddings", {})
-        ollama_host = (
-            emb_cfg.get("host")
-            or os.environ.get("OLLAMA_HOST")
-            or "http://ollama:11434"
-        )
+        ollama_host = emb_cfg.get("host") or os.environ.get("OLLAMA_HOST") or "http://ollama:11434"
         to_embed = db_articles.get_recent_articles_without_embedding(since, limit=embed_limit)
         eligible: list[tuple[int, dict[str, Any], str]] = []
         for i, article in enumerate(to_embed):
-            article["_source_topics"] = list(source_topics.get(article.get("source_id") or "", frozenset()))
+            article["_source_topics"] = list(
+                source_topics.get(article.get("source_id") or "", frozenset())
+            )
             text = _text_to_embed(article)
             if text:
                 eligible.append((i, article, text))
@@ -445,7 +446,8 @@ def _run_embed_pass(
                             deferred = max(0, len(to_embed) - i)
                             logger.warning(
                                 "Ollama unreachable at %s (%s); stopping this embed run "
-                                "(%d article(s) deferred). Start Ollama or set embeddings.host / OLLAMA_HOST.",
+                                "(%d article(s) deferred). "
+                                "Start Ollama or set embeddings.host / OLLAMA_HOST.",
                                 ollama_host,
                                 e,
                                 deferred,
@@ -461,7 +463,8 @@ def _run_embed_pass(
 
 
 def run_cluster_and_embed(config: dict[str, Any] | None = None) -> StoryReport:
-    """Embed articles without embeddings, then assign unassigned articles to stories, create stories.
+    """Embed articles without embeddings, then assign unassigned articles to stories,
+    create stories.
 
     Only creates stories for groups with at least 2 distinct sources.
     Single-source groups are skipped (wait for second source).
@@ -470,7 +473,10 @@ def run_cluster_and_embed(config: dict[str, Any] | None = None) -> StoryReport:
     cfg = config or load_config()
     processing = cfg.get("processing", {})
     window_hours = processing.get("cluster_window_hours", 24)
-    threshold = processing.get("story_similarity_threshold", processing.get("cluster_similarity_threshold", 0.90))
+    threshold = processing.get(
+        "story_similarity_threshold",
+        processing.get("cluster_similarity_threshold", 0.90),
+    )
     assignment_threshold = processing.get("story_assignment_threshold", max(threshold, 0.95))
     min_sources = processing.get("story_min_sources", 2)
 
@@ -481,7 +487,8 @@ def run_cluster_and_embed(config: dict[str, Any] | None = None) -> StoryReport:
     if window_hours == 0:
         logger.warning(
             "cluster_window_hours=0: considering all articles ever stored. "
-            "This can be slow for large datasets. Set cluster_window_hours in config for normal operation."
+            "This can be slow for large datasets. "
+            "Set cluster_window_hours in config for normal operation."
         )
     exclusion_rules = _load_exclusion_rules()
     source_topics = _build_source_topics_index()
@@ -489,8 +496,12 @@ def run_cluster_and_embed(config: dict[str, Any] | None = None) -> StoryReport:
     # 1. Embed articles without embeddings (always runs)
     embed_n = int(processing.get("embed_batch_size") or 0)
     embed_limit: int | None = None if embed_n <= 0 else embed_n
-    articles_embedded, has_embedding_provider = _run_embed_pass(cfg, since, embed_limit, source_topics)
-    report = StoryReport(articles_embedded=articles_embedded, articles_clustered=0, stories_created=0)
+    articles_embedded, has_embedding_provider = _run_embed_pass(
+        cfg, since, embed_limit, source_topics
+    )
+    report = StoryReport(
+        articles_embedded=articles_embedded, articles_clustered=0, stories_created=0
+    )
 
     # Cluster gate: skip if too many articles still pending extraction
     max_pending = cfg.get("extraction", {}).get("cluster_gate_max_pending", 5)
@@ -527,7 +538,12 @@ def run_cluster_and_embed(config: dict[str, Any] | None = None) -> StoryReport:
     if has_embedding_provider:
         if use_ann:
             assigned, to_cluster = _assign_to_existing_stories_ann(
-                to_cluster, since, assignment_threshold, ann_k, exclusion_rules, source_topics,
+                to_cluster,
+                since,
+                assignment_threshold,
+                ann_k,
+                exclusion_rules,
+                source_topics,
             )
         else:
             existing = db_stories.get_stories_with_centroid_in_window(since)
@@ -539,8 +555,13 @@ def run_cluster_and_embed(config: dict[str, Any] | None = None) -> StoryReport:
                 story_member_ids[sid] = [a["id"] for a in members]
                 story_source_ids[sid] = {a["source_id"] for a in members if a.get("source_id")}
             assigned, to_cluster = _assign_to_existing_stories(
-                to_cluster, existing, assignment_threshold, story_member_ids, exclusion_rules,
-                source_topics, story_source_ids,
+                to_cluster,
+                existing,
+                assignment_threshold,
+                story_member_ids,
+                exclusion_rules,
+                source_topics,
+                story_source_ids,
             )
         for article_id, story_id in assigned:
             db_stories.add_article_to_story(story_id, article_id)
@@ -553,7 +574,11 @@ def run_cluster_and_embed(config: dict[str, Any] | None = None) -> StoryReport:
             report.stories_created += 0  # no new story, but article assigned
 
     # 4. Batch cluster remaining articles
-    groups = _cluster_articles(to_cluster, threshold, exclusion_rules, source_topics) if to_cluster else []
+    groups = (
+        _cluster_articles(to_cluster, threshold, exclusion_rules, source_topics)
+        if to_cluster
+        else []
+    )
 
     # 5. Create story records only for groups with >= min_sources distinct sources
     for article_ids in groups:

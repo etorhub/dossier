@@ -1,4 +1,5 @@
 """PWA support routes — push notification subscription management."""
+
 from __future__ import annotations
 
 import json

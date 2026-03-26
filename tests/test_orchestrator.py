@@ -145,15 +145,12 @@ def test_fetch_all_due_feeds_circuit_breaker(
     ]
     mock_fetch.side_effect = Exception("Connection refused")
 
-    report = fetch_all_due_feeds(
-        {"schedule": {"fetcher": {"circuit_breaker_threshold": 5}}}
-    )
+    report = fetch_all_due_feeds({"schedule": {"fetcher": {"circuit_breaker_threshold": 5}}})
 
     assert report.feeds_deactivated == 1
     mock_sources.update_feed.assert_called()
     deactivate_call = next(
-        c for c in mock_sources.update_feed.call_args_list
-        if c[1].get("feed_active") is False
+        c for c in mock_sources.update_feed.call_args_list if c[1].get("feed_active") is False
     )
     assert deactivate_call is not None
 

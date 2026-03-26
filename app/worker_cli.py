@@ -1,4 +1,6 @@
-"""Standalone CLI for pipeline processing. Run in worker container: python -m app.worker_cli <cmd>."""
+"""Standalone CLI for pipeline processing.
+
+Run in worker container: python -m app.worker_cli <cmd>."""
 
 import logging
 import os
@@ -87,8 +89,8 @@ def score_sources_cmd() -> None:
 @worker_cli.command("fetch-feeds")
 def fetch_feeds_cmd() -> None:
     """Run the feed fetcher once (fetch all due feeds)."""
-    from app.scheduler import _run_tracked_job
     from app.feed.orchestrator import fetch_all_due_feeds
+    from app.scheduler import _run_tracked_job
 
     _run_tracked_job("fetch_feeds", fetch_all_due_feeds, trigger="manual")
     click.echo("Fetch job completed. Check ops dashboard for details.")
@@ -97,8 +99,8 @@ def fetch_feeds_cmd() -> None:
 @worker_cli.command("enrich-articles")
 def enrich_articles_cmd() -> None:
     """Extract full article content for pending articles (enrichment job)."""
-    from app.scheduler import _run_tracked_job
     from app.extraction.extractor import enrich_all_articles
+    from app.scheduler import _run_tracked_job
 
     _run_tracked_job("enrich_articles", enrich_all_articles, trigger="manual")
     click.echo("Enrichment job completed. Check ops dashboard for details.")
@@ -107,8 +109,8 @@ def enrich_articles_cmd() -> None:
 @worker_cli.command("cluster-articles")
 def cluster_articles_cmd() -> None:
     """Embed and cluster today's articles (cluster job)."""
-    from app.scheduler import _run_tracked_job
     from app.clustering.service import run_cluster_and_embed
+    from app.scheduler import _run_tracked_job
 
     _run_tracked_job("cluster_articles", run_cluster_and_embed, trigger="manual")
     click.echo("Cluster job completed. Check ops dashboard for details.")
@@ -121,7 +123,8 @@ def review_clustering_cmd() -> None:
 
     result = run_feedback_review()
     click.echo(
-        f"Processed {result.rows_processed} feedback row(s), created {result.rules_created} exclusion rule(s), "
+        f"Processed {result.rows_processed} feedback row(s), "
+        f"created {result.rules_created} exclusion rule(s), "
         f"retroactive article_pair removals: {result.retroactive_removals}."
     )
 
@@ -164,7 +167,7 @@ def rewrite_articles_cmd() -> None:
         _run_tracked_job("rewrite_articles", run_rewrite_batch, trigger="manual")
     except Exception as e:
         click.echo(f"Rewrite job failed: {e}", err=True)
-        raise SystemExit(1)
+        raise SystemExit(1) from e
     click.echo("Rewrite job completed. Check ops dashboard for details.")
 
 
@@ -178,7 +181,7 @@ def rewrite_all_stories_cmd() -> None:
         _run_tracked_job("rewrite_all_stories", run_rewrite_all_stories, trigger="manual")
     except Exception as e:
         click.echo(f"Rewrite-all job failed: {e}", err=True)
-        raise SystemExit(1)
+        raise SystemExit(1) from e
     click.echo("Rewrite-all job completed. Check ops dashboard for details.")
 
 
@@ -192,7 +195,7 @@ def highlight_stories_cmd() -> None:
         _run_tracked_job("highlight_stories", run_highlight_batch, trigger="manual")
     except Exception as e:
         click.echo(f"Highlight job failed: {e}", err=True)
-        raise SystemExit(1)
+        raise SystemExit(1) from e
     click.echo("Highlight job completed. Check ops dashboard for details.")
 
 
@@ -205,10 +208,10 @@ def highlight_stories_cmd() -> None:
 )
 def run_pipeline_cmd(sources_path: str | None) -> None:
     """Run the full pipeline once: seed → fetch → enrich → cluster → rewrite → highlight."""
-    from app.scheduler import _run_tracked_job
     from app.clustering.service import run_cluster_and_embed
     from app.extraction.extractor import enrich_all_articles
     from app.feed.orchestrator import fetch_all_due_feeds
+    from app.scheduler import _run_tracked_job
     from app.services.highlight_service import run_highlight_batch
     from app.services.rewrite_service import run_rewrite_batch
 
@@ -225,13 +228,13 @@ def run_pipeline_cmd(sources_path: str | None) -> None:
         _run_tracked_job("rewrite_articles", run_rewrite_batch, trigger="manual")
     except Exception as e:
         click.echo(f"Rewrite failed: {e}", err=True)
-        raise SystemExit(1)
+        raise SystemExit(1) from e
     click.echo("Running highlight...")
     try:
         _run_tracked_job("highlight_stories", run_highlight_batch, trigger="manual")
     except Exception as e:
         click.echo(f"Highlight failed: {e}", err=True)
-        raise SystemExit(1)
+        raise SystemExit(1) from e
     click.echo("Pipeline complete.")
 
 

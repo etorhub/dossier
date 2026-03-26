@@ -66,9 +66,7 @@ def test_coverage_score_four_sources() -> None:
 
 def test_coverage_score_capped() -> None:
     """More than cap sources still scores 1.0."""
-    articles = [
-        {"source_id": f"s{i}"} for i in range(10)
-    ]
+    articles = [{"source_id": f"s{i}"} for i in range(10)]
     assert _coverage_score(articles, 4) == 1.0
 
 
@@ -242,10 +240,6 @@ def test_score_cluster_default_weights_favor_coverage() -> None:
     user_topics = {"politics"}
     config = {}  # defaults: recency 0.30, coverage 0.40, etc.
 
-    score_singleton = score_cluster(
-        singleton, user_topics, sources, config
-    )
-    score_multi = score_cluster(
-        multi_source, user_topics, sources, config
-    )
+    score_singleton = score_cluster(singleton, user_topics, sources, config)
+    score_multi = score_cluster(multi_source, user_topics, sources, config)
     assert score_multi > score_singleton

@@ -91,7 +91,9 @@ def _get_rewrite_with_fallback(
     default_style = rewriting.get("default_style", "neutral")
     default_language = rewriting.get("default_language", "ca")
 
-    missing = [sid for sid in story_ids if sid not in rewrites or not rewrites[sid].get("full_text")]
+    missing = [
+        sid for sid in story_ids if sid not in rewrites or not rewrites[sid].get("full_text")
+    ]
     if missing and (default_style != style or default_language != language):
         fallback = db_stories.get_story_rewrites(missing, default_style, default_language)
         for sid, rw in fallback.items():
@@ -147,9 +149,7 @@ def get_feed(
     min_sources = config.get("relevance", {}).get("min_sources", 2)
 
     since: datetime | None = (
-        datetime.now(UTC) - timedelta(hours=window_hours)
-        if window_hours
-        else None
+        datetime.now(UTC) - timedelta(hours=window_hours) if window_hours else None
     )
     story_rows = db_stories.get_stories_with_articles_in_window(since)
     # Filter stories: keep only if >=1 article's source overlaps user topics
@@ -157,9 +157,7 @@ def get_feed(
     visible_stories: list[dict[str, Any]] = []
     for row in story_rows:
         story_id = row["story_id"]
-        articles = exclude_promoted_articles(
-            db_stories.get_articles_in_story(story_id), config
-        )
+        articles = exclude_promoted_articles(db_stories.get_articles_in_story(story_id), config)
         distinct_sources = len({a["source_id"] for a in articles})
         if distinct_sources < min_sources:
             continue
@@ -168,9 +166,7 @@ def get_feed(
             src = sources.get(sid, {})
             src_topics = set(src.get("topics", []))
             if topic_ids & src_topics:
-                visible_stories.append(
-                    {"story_id": story_id, "articles": articles}
-                )
+                visible_stories.append({"story_id": story_id, "articles": articles})
                 break
 
     # Score each story (non-behavioral signals only; see scoring_service)
@@ -256,9 +252,7 @@ def get_expanded_story(
     """Return story with full rewritten text for expansion. None if not found."""
     if not db_stories.story_exists(story_id):
         return None
-    articles = exclude_promoted_articles(
-        db_stories.get_articles_in_story(story_id), config
-    )
+    articles = exclude_promoted_articles(db_stories.get_articles_in_story(story_id), config)
     if not articles:
         return None
     rewrites_map = _get_rewrite_with_fallback([story_id], style, language, config)

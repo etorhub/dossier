@@ -58,9 +58,7 @@ class OllamaProvider(LLMProvider):
         self._max_retries = max_retries
         self._timeout = timeout
 
-    def _complete_once(
-        self, prompt: str, max_tokens: int, temperature: float | None
-    ) -> str:
+    def _complete_once(self, prompt: str, max_tokens: int, temperature: float | None) -> str:
         import ollama
 
         try:
@@ -123,10 +121,7 @@ def get_provider(
     llm = config.get("llm", {})
     provider_name = (llm.get("provider") or "ollama").lower()
     fallback_model = llm.get("model") or "qwen2.5:7b"
-    if task:
-        model = llm.get(f"{task}_model") or fallback_model
-    else:
-        model = fallback_model
+    model = llm.get(f"{task}_model") or fallback_model if task else fallback_model
 
     if provider_name == "ollama":
         host = llm.get("host") or os.environ.get("OLLAMA_HOST") or "http://ollama:11434"

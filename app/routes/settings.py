@@ -45,7 +45,11 @@ def settings_page() -> Any:
         config = load_config()
         languages = config.get("rewriting", {}).get(
             "languages",
-            [{"id": "ca", "label": "Catalan"}, {"id": "es", "label": "Spanish"}, {"id": "en", "label": "English"}],
+            [
+                {"id": "ca", "label": "Catalan"},
+                {"id": "es", "label": "Spanish"},
+                {"id": "en", "label": "English"},
+            ],
         )
         topic_infos = _topic_infos(topics, config)
         return render_template(
@@ -81,9 +85,7 @@ def settings_page() -> Any:
     }
 
     confirm_regenerate = request.form.get("confirm_regenerate") == "1"
-    needs_regeneration = profile_service.regeneration_needed(
-        profile, form_data, topic_ids
-    )
+    needs_regeneration = profile_service.regeneration_needed(profile, form_data, topic_ids)
 
     if needs_regeneration and not confirm_regenerate:
         display_profile = {
@@ -97,7 +99,11 @@ def settings_page() -> Any:
         }
         languages = config.get("rewriting", {}).get(
             "languages",
-            [{"id": "ca", "label": "Catalan"}, {"id": "es", "label": "Spanish"}, {"id": "en", "label": "English"}],
+            [
+                {"id": "ca", "label": "Catalan"},
+                {"id": "es", "label": "Spanish"},
+                {"id": "en", "label": "English"},
+            ],
         )
         topic_infos = _topic_infos(topics, config)
         return render_template(

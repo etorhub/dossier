@@ -37,7 +37,7 @@ def get_reading_variant(
     """Return (style, language) for feed selection, with config fallback."""
     rewriting = config.get("rewriting", {})
     styles = [s["id"] for s in rewriting.get("styles", [])]
-    languages = [l["id"] for l in rewriting.get("languages", [])]
+    languages = [lang["id"] for lang in rewriting.get("languages", [])]
     default_style = rewriting.get("default_style", "neutral")
     default_language = rewriting.get("default_language", "ca")
 
@@ -78,7 +78,11 @@ def save_setup(
     """Create or update profile and save topic selections."""
     style = form_data.get("preferred_style", "neutral")
     tone_map = {
-        "neutral": "Journalistic style. Formal and well-written. Do not simplify; preserve original complexity and nuance. Avoid spoilers in headlines or summaries.",
+        "neutral": (
+            "Journalistic style. Formal and well-written. Do not simplify; "
+            "preserve original complexity and nuance. "
+            "Avoid spoilers in headlines or summaries."
+        ),
         "simple": "Short sentences. Simple vocabulary. No jargon.",
     }
     profile_data = {

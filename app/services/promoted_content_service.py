@@ -36,9 +36,7 @@ def article_looks_promoted(article: dict[str, Any], config: dict[str, Any]) -> b
     if not pc.get("enabled", True):
         return False
     patterns = pc.get("patterns") or []
-    norm_patterns = [
-        _normalize_for_match(p) for p in patterns if isinstance(p, str) and p.strip()
-    ]
+    norm_patterns = [_normalize_for_match(p) for p in patterns if isinstance(p, str) and p.strip()]
     if not norm_patterns:
         return False
     prefix_len = int(pc.get("body_prefix_chars", 400))

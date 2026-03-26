@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 import logging
 from collections.abc import Iterator
-from contextlib import contextmanager
+from contextlib import contextmanager, suppress
 from pathlib import Path
 from typing import Any
 
@@ -93,10 +93,8 @@ def job_run_file_logging(
     handler = logging.FileHandler(full, mode="a", encoding="utf-8")
     stream = getattr(handler, "stream", None)
     if stream is not None and hasattr(stream, "reconfigure"):
-        try:
+        with suppress(OSError, ValueError, AttributeError):
             stream.reconfigure(line_buffering=True)
-        except (OSError, ValueError, AttributeError):
-            pass
     handler.setFormatter(logging.Formatter(_LOG_FORMAT, _LOG_DATEFMT))
     root_logger = logging.getLogger()
     root_logger.addHandler(handler)

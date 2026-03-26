@@ -72,9 +72,7 @@ def test_get_provider_defaults() -> None:
 
 def test_ollama_provider_complete() -> None:
     """OllamaProvider.complete returns content from mocked client."""
-    mock_response = {
-        "message": {"content": "TITLE:\nTest\n\nSUMMARY:\nOne. Two.\n\nFULL:\nText."}
-    }
+    mock_response = {"message": {"content": "TITLE:\nTest\n\nSUMMARY:\nOne. Two.\n\nFULL:\nText."}}
     mock_client = MagicMock()
     mock_client.chat.return_value = mock_response
 
@@ -97,9 +95,7 @@ def test_ollama_provider_complete() -> None:
 
 def test_ollama_provider_complete_passes_temperature() -> None:
     """OllamaProvider.complete forwards temperature in options when set."""
-    mock_response = {
-        "message": {"content": "TITLE:\nT\n\nSUMMARY:\nS.\n\nFULL:\nF."}
-    }
+    mock_response = {"message": {"content": "TITLE:\nT\n\nSUMMARY:\nS.\n\nFULL:\nF."}}
     mock_client = MagicMock()
     mock_client.chat.return_value = mock_response
 
@@ -165,9 +161,7 @@ def test_ollama_provider_unreachable_fails_fast_without_retries() -> None:
 
 def test_ollama_provider_retries_then_succeeds() -> None:
     """OllamaProvider.complete retries transient failures up to max_retries."""
-    mock_response = {
-        "message": {"content": "TITLE:\nOk\n\nSUMMARY:\nS.\n\nFULL:\nF."}
-    }
+    mock_response = {"message": {"content": "TITLE:\nOk\n\nSUMMARY:\nS.\n\nFULL:\nF."}}
     mock_client = MagicMock()
     mock_client.chat.side_effect = [
         Exception("busy"),

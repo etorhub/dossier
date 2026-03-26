@@ -103,9 +103,7 @@ def test_get_recent_articles() -> None:
         articles_db.insert_article(article)
         recent = articles_db.get_recent_articles(now.replace(year=now.year - 1))
         assert len(recent) >= 1
-        found = next(
-            (a for a in recent if a["source_id"] == "test_article_src_789"), None
-        )
+        found = next((a for a in recent if a["source_id"] == "test_article_src_789"), None)
         assert found is not None
         assert found["title"] == "Recent Test"
 

@@ -20,16 +20,10 @@ depends_on: str | Sequence[str] | None = None
 
 def upgrade() -> None:
     op.add_column("articles", sa.Column("guid", sa.Text(), nullable=True))
-    op.create_unique_constraint(
-        "uq_articles_source_url", "articles", ["source_id", "url"]
-    )
+    op.create_unique_constraint("uq_articles_source_url", "articles", ["source_id", "url"])
 
-    op.add_column(
-        "source_feeds", sa.Column("etag", sa.Text(), nullable=True)
-    )
-    op.add_column(
-        "source_feeds", sa.Column("last_modified", sa.Text(), nullable=True)
-    )
+    op.add_column("source_feeds", sa.Column("etag", sa.Text(), nullable=True))
+    op.add_column("source_feeds", sa.Column("last_modified", sa.Text(), nullable=True))
 
 
 def downgrade() -> None:

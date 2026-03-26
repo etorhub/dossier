@@ -29,7 +29,9 @@ class AvailabilityReport:
 def _check_single_feed(
     feed: dict[str, object], timeout: float, user_agent: str
 ) -> tuple[int, bool, int | None, int | None, str | None]:
-    """Check one feed. Returns (feed_id, is_available, http_status, response_time_ms, error_message)."""
+    """Check one feed.
+
+    Returns (feed_id, is_available, http_status, response_time_ms, error_message)."""
     feed_id = feed["id"]
     feed_url = feed["feed_url"]
     start = time.perf_counter()
@@ -70,7 +72,13 @@ def _check_single_feed(
                 response_time_ms=elapsed_ms,
                 error_message=f"HTTP {resp.status_code}",
             )
-            return (feed_id, False, resp.status_code, elapsed_ms, f"HTTP {resp.status_code}")
+            return (
+                feed_id,
+                False,
+                resp.status_code,
+                elapsed_ms,
+                f"HTTP {resp.status_code}",
+            )
     except Exception as e:
         elapsed_ms = int((time.perf_counter() - start) * 1000)
         err_msg = str(e)
@@ -97,10 +105,7 @@ def check_all_feeds_availability(config: dict | None = None) -> AvailabilityRepo
 
     max_workers = min(10, max(1, len(feeds)))
     with ThreadPoolExecutor(max_workers=max_workers) as executor:
-        futures = {
-            executor.submit(_check_single_feed, f, timeout, user_agent): f
-            for f in feeds
-        }
+        futures = {executor.submit(_check_single_feed, f, timeout, user_agent): f for f in feeds}
         for future in as_completed(futures):
             try:
                 _, is_avail, _, _, _ = future.result()

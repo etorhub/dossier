@@ -71,4 +71,3 @@ def test_exclude_promoted_keeps_clean_articles() -> None:
     dirty = {"title": "Contenido patrocinado", "raw_text": "", "full_text": ""}
     out = exclude_promoted_articles([clean, dirty], _cfg())
     assert out == [clean]
-

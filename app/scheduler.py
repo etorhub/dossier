@@ -22,7 +22,6 @@ from apscheduler.triggers.interval import IntervalTrigger
 
 from app.config import load_config
 from app.db import admin as admin_db
-from app.db import articles as articles_db
 from app.extraction.extractor import enrich_all_articles
 from app.feed.availability import check_all_feeds_availability
 from app.feed.orchestrator import fetch_all_due_feeds

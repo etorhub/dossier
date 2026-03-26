@@ -7,10 +7,10 @@ from pathlib import Path
 from dotenv import load_dotenv
 from flask import Flask
 
+from ops.views.articles import articles_bp
 from ops.views.dashboard import dashboard_bp
 from ops.views.jobs import jobs_bp
 from ops.views.sources import sources_bp
-from ops.views.articles import articles_bp
 from ops.views.stories import stories_bp
 from ops.views.users import users_bp
 
@@ -21,9 +21,7 @@ def create_app() -> Flask:
     """Create and configure the ops Flask application."""
     template_dir = Path(__file__).resolve().parent / "templates"
     app = Flask(__name__, template_folder=str(template_dir))
-    app.config["SECRET_KEY"] = os.environ.get(
-        "SECRET_KEY", "ops-dev-secret-change-in-production"
-    )
+    app.config["SECRET_KEY"] = os.environ.get("SECRET_KEY", "ops-dev-secret-change-in-production")
 
     app.register_blueprint(dashboard_bp, url_prefix="/")
     app.register_blueprint(jobs_bp, url_prefix="/jobs")

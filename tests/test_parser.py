@@ -1,7 +1,5 @@
 """Tests for feed parser."""
 
-
-
 from app.feed.parser import parse_feed
 
 RSS_MINIMAL = b"""<?xml version="1.0" encoding="UTF-8"?>
@@ -110,7 +108,8 @@ RSS_WITH_MEDIA_CONTENT = b"""<?xml version="1.0" encoding="UTF-8"?>
         <title>With Image</title>
         <link>https://example.com/with-image</link>
         <description>Summary</description>
-        <media:content url="https://cdn.example.com/photo.jpg" medium="image" width="800" height="600"/>
+        <media:content url="https://cdn.example.com/photo.jpg" medium="image"
+            width="800" height="600"/>
         <pubDate>Mon, 01 Jan 2024 12:00:00 GMT</pubDate>
     </item>
 </channel>
@@ -140,7 +139,8 @@ RSS_WITH_IMG_IN_CONTENT = b"""<?xml version="1.0" encoding="UTF-8"?>
         <title>With Img</title>
         <link>https://example.com/img</link>
         <description>Summary</description>
-        <content:encoded><![CDATA[<p>Text</p><img src="https://example.com/lead.jpg" alt="Lead" />]]></content:encoded>
+        <content:encoded><![CDATA[<p>Text</p>
+        <img src="https://example.com/lead.jpg" alt="Lead" />]]></content:encoded>
         <pubDate>Mon, 01 Jan 2024 12:00:00 GMT</pubDate>
     </item>
 </channel>
@@ -205,7 +205,8 @@ RSS_MEDIA_CONTENT_SMALL = b"""<?xml version="1.0" encoding="UTF-8"?>
         <title>Small Image</title>
         <link>https://example.com/small</link>
         <description>Summary</description>
-        <media:content url="https://cdn.example.com/icon.jpg" medium="image" width="100" height="100"/>
+        <media:content url="https://cdn.example.com/icon.jpg" medium="image"
+            width="100" height="100"/>
         <pubDate>Mon, 01 Jan 2024 12:00:00 GMT</pubDate>
     </item>
 </channel>

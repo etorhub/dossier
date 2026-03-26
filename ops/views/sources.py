@@ -1,6 +1,6 @@
 """News sources view."""
 
-from flask import Blueprint, Response, render_template, request
+from flask import Blueprint, Response, render_template
 
 from app.db import admin as admin_db
 from app.db import availability as availability_db

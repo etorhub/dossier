@@ -48,9 +48,7 @@ def _cleanup_user_and_requests(user_id: int) -> None:
     try:
         with conn.cursor() as cur:
             cur.execute("DELETE FROM rewrite_requests WHERE user_id = %s", (user_id,))
-            cur.execute(
-                "DELETE FROM users WHERE email = 'test_rewrite_req@example.com'"
-            )
+            cur.execute("DELETE FROM users WHERE email = 'test_rewrite_req@example.com'")
         conn.commit()
     finally:
         db_connection.return_connection(conn)

@@ -60,4 +60,7 @@ def test_bold_md_returns_markup_instance() -> None:
 def test_bold_md_multiple_terms() -> None:
     f = _get_filter()
     result = f("The **president** met with **Prime Minister** today.")
-    assert str(result) == "The <strong>president</strong> met with <strong>Prime Minister</strong> today."
+    assert (
+        str(result)
+        == "The <strong>president</strong> met with <strong>Prime Minister</strong> today."
+    )

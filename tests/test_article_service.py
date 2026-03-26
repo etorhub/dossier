@@ -94,7 +94,13 @@ def test_get_feed_equal_scores_tie_break_by_story_id() -> None:
     sources = {
         "s1": {"id": "s1", "name": "Source 1", "topics": ["politics"]},
     }
-    art = {"id": "a1", "source_id": "s1", "published_at": now, "url": "u1", "title": "T"}
+    art = {
+        "id": "a1",
+        "source_id": "s1",
+        "published_at": now,
+        "url": "u1",
+        "title": "T",
+    }
 
     with (
         patch("app.services.article_service.profile_service") as mock_ps,
@@ -144,12 +150,36 @@ def test_get_feed_backfill_when_few_multi_source() -> None:
     cluster_multi = {
         "cluster_id": "c-multi",
         "articles": [
-            {"id": "a1", "source_id": "s1", "published_at": now, "url": "u1", "title": "M"},
-            {"id": "a2", "source_id": "s2", "published_at": now, "url": "u2", "title": "M"},
+            {
+                "id": "a1",
+                "source_id": "s1",
+                "published_at": now,
+                "url": "u1",
+                "title": "M",
+            },
+            {
+                "id": "a2",
+                "source_id": "s2",
+                "published_at": now,
+                "url": "u2",
+                "title": "M",
+            },
         ],
     }
-    art_s1 = {"id": "a3", "source_id": "s1", "published_at": now, "url": "u3", "title": "S1"}
-    art_s2 = {"id": "a4", "source_id": "s2", "published_at": now, "url": "u4", "title": "S2"}
+    art_s1 = {
+        "id": "a3",
+        "source_id": "s1",
+        "published_at": now,
+        "url": "u3",
+        "title": "S1",
+    }
+    art_s2 = {
+        "id": "a4",
+        "source_id": "s2",
+        "published_at": now,
+        "url": "u4",
+        "title": "S2",
+    }
     cluster_s1 = {"cluster_id": "c-s1", "articles": [art_s1]}
     cluster_s2 = {"cluster_id": "c-s2", "articles": [art_s2]}
 
@@ -197,7 +227,13 @@ def test_get_feed_backfill_when_few_multi_source() -> None:
 def test_get_feed_min_sources_one_disables_filter() -> None:
     """min_sources: 1 treats all clusters as primary (backward compatible)."""
     now = datetime.now(UTC)
-    art = {"id": "a1", "source_id": "s1", "published_at": now, "url": "u1", "title": "T"}
+    art = {
+        "id": "a1",
+        "source_id": "s1",
+        "published_at": now,
+        "url": "u1",
+        "title": "T",
+    }
     cluster_singleton = {"cluster_id": "c1", "articles": [art]}
 
     sources = {"s1": {"id": "s1", "name": "Source 1", "topics": ["politics"]}}
@@ -299,7 +335,13 @@ def test_get_feed_excludes_story_when_promoted_strips_below_min_sources() -> Non
 def test_get_feed_excludes_read_stories() -> None:
     """Stories marked as read are excluded from the feed (when read tracking is implemented)."""
     now = datetime.now(UTC)
-    art = {"id": "a1", "source_id": "s1", "published_at": now, "url": "u1", "title": "T"}
+    art = {
+        "id": "a1",
+        "source_id": "s1",
+        "published_at": now,
+        "url": "u1",
+        "title": "T",
+    }
     story = {"story_id": "c1", "articles": [art]}
 
     sources = {"s1": {"id": "s1", "name": "Source 1", "topics": ["politics"]}}

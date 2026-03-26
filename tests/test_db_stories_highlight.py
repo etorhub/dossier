@@ -10,9 +10,12 @@ def test_update_story_rewrite_highlight_executes_update() -> None:
     mock_conn.cursor.return_value.__enter__ = lambda s: mock_cur
     mock_conn.cursor.return_value.__exit__ = MagicMock(return_value=False)
 
-    with patch("app.db.stories.get_connection", return_value=mock_conn), \
-         patch("app.db.stories.return_connection"):
+    with (
+        patch("app.db.stories.get_connection", return_value=mock_conn),
+        patch("app.db.stories.return_connection"),
+    ):
         from app.db.stories import update_story_rewrite_highlight
+
         update_story_rewrite_highlight("story-1", "neutral", "en", "The **president** spoke.")
 
     mock_cur.execute.assert_called_once()
@@ -27,14 +30,22 @@ def test_get_stories_needing_highlight_returns_list() -> None:
     mock_conn = MagicMock()
     mock_cur = MagicMock()
     mock_cur.fetchall.return_value = [
-        {"story_id": "abc", "style": "neutral", "language": "en", "full_text": "Some text."}
+        {
+            "story_id": "abc",
+            "style": "neutral",
+            "language": "en",
+            "full_text": "Some text.",
+        }
     ]
     mock_conn.cursor.return_value.__enter__ = lambda s: mock_cur
     mock_conn.cursor.return_value.__exit__ = MagicMock(return_value=False)
 
-    with patch("app.db.stories.get_connection", return_value=mock_conn), \
-         patch("app.db.stories.return_connection"):
+    with (
+        patch("app.db.stories.get_connection", return_value=mock_conn),
+        patch("app.db.stories.return_connection"),
+    ):
         from app.db.stories import get_stories_needing_highlight
+
         rows = get_stories_needing_highlight()
 
     assert isinstance(rows, list)
@@ -49,9 +60,12 @@ def test_get_story_rewrites_includes_highlighted_full_text() -> None:
     mock_conn.cursor.return_value.__enter__ = lambda s: mock_cur
     mock_conn.cursor.return_value.__exit__ = MagicMock(return_value=False)
 
-    with patch("app.db.stories.get_connection", return_value=mock_conn), \
-         patch("app.db.stories.return_connection"):
+    with (
+        patch("app.db.stories.get_connection", return_value=mock_conn),
+        patch("app.db.stories.return_connection"),
+    ):
         from app.db.stories import get_story_rewrites
+
         get_story_rewrites(["story-1"], "neutral", "en")
 
     sql = mock_cur.execute.call_args[0][0]
@@ -62,6 +76,7 @@ def test_get_articles_for_stories_empty_list_returns_empty_dict() -> None:
     """get_articles_for_stories([]) returns {} without touching the DB."""
     with patch("app.db.stories.get_connection") as mock_get_conn:
         from app.db.stories import get_articles_for_stories
+
         result = get_articles_for_stories([])
     assert result == {}
     mock_get_conn.assert_not_called()
@@ -71,6 +86,7 @@ def test_get_all_rewrites_for_stories_empty_list_returns_empty_dict() -> None:
     """get_all_rewrites_for_stories([]) returns {} without touching the DB."""
     with patch("app.db.stories.get_connection") as mock_get_conn:
         from app.db.stories import get_all_rewrites_for_stories
+
         result = get_all_rewrites_for_stories([])
     assert result == {}
     mock_get_conn.assert_not_called()

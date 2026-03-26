@@ -52,11 +52,9 @@ def build_embedding_status(config: dict[str, Any] | None = None) -> dict[str, An
     embedded_window = db_articles.count_recent_articles_with_valid_embedding(since)
     articles_in_window = db_articles.count_articles_published_since(since)
 
-    pct: float | None
-    if articles_in_window > 0:
-        pct = 100.0 * embedded_window / articles_in_window
-    else:
-        pct = None
+    pct: float | None = (
+        100.0 * embedded_window / articles_in_window if articles_in_window > 0 else None
+    )
 
     unfinished = admin_db.get_unfinished_job_run("cluster_articles")
     runs = admin_db.get_recent_job_runs(limit=20, job_name="cluster_articles")

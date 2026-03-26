@@ -36,9 +36,7 @@ def check_https(domain: str) -> bool:
         return False
 
 
-def check_robots_txt(
-    domain: str, path: str = "/", user_agent: str = "NewsAggregator/1.0"
-) -> bool:
+def check_robots_txt(domain: str, path: str = "/", user_agent: str = "NewsAggregator/1.0") -> bool:
     """Check if path allowed by robots.txt. True if allowed or unreachable."""
     rp = RobotFileParser()
     rp.set_url(f"https://{domain}/robots.txt")

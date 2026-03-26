@@ -187,7 +187,12 @@ def _parse_date(entry: FeedParserDict) -> datetime | None:
     parsed = entry.get("published_parsed") or entry.get("updated_parsed")
     if parsed:
         return datetime(
-            parsed[0], parsed[1], parsed[2], parsed[3], parsed[4], parsed[5],
+            parsed[0],
+            parsed[1],
+            parsed[2],
+            parsed[3],
+            parsed[4],
+            parsed[5],
             tzinfo=UTC,
         )
     return None
@@ -272,11 +277,7 @@ def _get_image_url(entry: FeedParserDict) -> tuple[str | None, str | None]:
                 continue
             medium = (item.get("medium") or "").lower()
             mime = (item.get("type") or "").lower()
-            looks_image = (
-                medium == "image"
-                or mime.startswith("image/")
-                or _is_image_url(str(url))
-            )
+            looks_image = medium == "image" or mime.startswith("image/") or _is_image_url(str(url))
             if looks_image:
                 width = item.get("width")
                 try:

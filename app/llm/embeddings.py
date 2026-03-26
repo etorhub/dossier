@@ -54,9 +54,7 @@ class GeminiEmbeddingProvider(EmbeddingProvider):
         model = embeddings_cfg.get("model") or DEFAULT_EMBED_MODEL
         raw_base = embeddings_cfg.get("api_base")
         api_base = (
-            raw_base
-            if isinstance(raw_base, str) and raw_base.strip()
-            else DEFAULT_GEMINI_API_BASE
+            raw_base if isinstance(raw_base, str) and raw_base.strip() else DEFAULT_GEMINI_API_BASE
         )
         timeout = float(embeddings_cfg.get("timeout_seconds") or 60.0)
         retries = int(embeddings_cfg.get("max_retries") or 3)
@@ -112,9 +110,7 @@ class OllamaEmbeddingProvider(EmbeddingProvider):
 
         try:
             client = ollama.Client(host=self._host)
-            response = client.embed(
-                model=self._model, input=text[: self._max_input_chars]
-            )
+            response = client.embed(model=self._model, input=text[: self._max_input_chars])
             embeddings = (
                 response.get("embeddings")
                 if isinstance(response, dict)
@@ -144,11 +140,7 @@ def get_embedding_provider(config: dict[str, Any] | None = None) -> EmbeddingPro
     provider_name = (embeddings_cfg.get("provider") or "ollama").lower()
     if provider_name == "ollama":
         model = embeddings_cfg.get("model") or "nomic-embed-text"
-        host = (
-            embeddings_cfg.get("host")
-            or os.environ.get("OLLAMA_HOST")
-            or "http://ollama:11434"
-        )
+        host = embeddings_cfg.get("host") or os.environ.get("OLLAMA_HOST") or "http://ollama:11434"
         retries = int(embeddings_cfg.get("max_retries") or 3)
         max_chars = int(embeddings_cfg.get("max_input_chars") or 8000)
         return OllamaEmbeddingProvider(

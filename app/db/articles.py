@@ -163,7 +163,8 @@ def get_recent_articles_without_embedding(
 
 
 def count_recent_articles_without_embedding(since: datetime | None) -> int:
-    """Count articles with no valid embedding (same filter as get_recent_articles_without_embedding)."""
+    """Count articles with no valid embedding
+    (same filter as get_recent_articles_without_embedding)."""
     conn = get_connection()
     try:
         with conn.cursor() as cur:
@@ -255,7 +256,9 @@ def get_recent_articles_with_embedding(
         return_connection(conn)
 
 
-def get_articles_with_embedding_not_in_story(since: datetime | None) -> list[dict[str, Any]]:
+def get_articles_with_embedding_not_in_story(
+    since: datetime | None,
+) -> list[dict[str, Any]]:
     """Return articles with embeddings not yet in any story, optionally filtered by published_at."""
     return _get_articles_not_in_story(since, require_embedding=True)
 
@@ -332,9 +335,7 @@ def get_pending_extraction_count() -> int:
     conn = get_connection()
     try:
         with conn.cursor() as cur:
-            cur.execute(
-                "SELECT COUNT(*) FROM articles WHERE extraction_status = 'pending'"
-            )
+            cur.execute("SELECT COUNT(*) FROM articles WHERE extraction_status = 'pending'")
             row = cur.fetchone()
             return int(row[0]) if row else 0
     finally:
@@ -457,7 +458,8 @@ def abandon_stale_pending_articles(older_than_hours: int) -> int:
     try:
         with conn.cursor() as cur:
             cur.execute(
-                "UPDATE articles SET extraction_status = 'extraction_failed', extraction_method = 'timeout' "
+                "UPDATE articles "
+                "SET extraction_status = 'extraction_failed', extraction_method = 'timeout' "
                 "WHERE extraction_status = 'pending' "
                 "AND (fetched_at IS NULL OR fetched_at < NOW() - %s::interval)",
                 (f"{older_than_hours} hours",),

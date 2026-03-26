@@ -13,6 +13,7 @@ coherence_reason records the LLM's explanation (one sentence, English).
 from collections.abc import Sequence
 
 import sqlalchemy as sa
+
 from alembic import op
 
 revision: str = "f0a1b2c3d4e5"

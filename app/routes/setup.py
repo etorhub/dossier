@@ -41,7 +41,11 @@ def setup_page() -> Any:
         config = load_config()
         languages = config.get("rewriting", {}).get(
             "languages",
-            [{"id": "ca", "label": "Catalan"}, {"id": "es", "label": "Spanish"}, {"id": "en", "label": "English"}],
+            [
+                {"id": "ca", "label": "Catalan"},
+                {"id": "es", "label": "Spanish"},
+                {"id": "en", "label": "English"},
+            ],
         )
         topic_infos = _topic_infos(topics, config)
         return render_template(

@@ -68,6 +68,7 @@ def _load_spacy() -> Any | None:
     _SPACY_LOAD_ATTEMPTED = True
     try:
         import spacy  # type: ignore[import]
+
         _SPACY_NLP = spacy.load("xx_ent_wiki_sm")
         logger.info("highlight: loaded spaCy xx_ent_wiki_sm")
     except Exception as e:
@@ -77,7 +78,8 @@ def _load_spacy() -> Any | None:
 
 
 def _highlight_ner_regex(full_text: str) -> str:
-    """Regex fallback: bold 2+ consecutive Title Case words not already bolded (first occurrence only)."""
+    """Regex fallback: bold 2+ consecutive Title Case words not already bolded
+    (first occurrence only)."""
     # Matches two or more consecutive words starting with an uppercase letter.
     # Negative lookbehind/lookahead prevents double-wrapping.
     pattern = re.compile(r"(?<!\*)\b([A-Z][a-z]+(?:\s+[A-Z][a-z]+)+)\b(?!\*)")
@@ -164,19 +166,26 @@ def highlight_story(
             if not highlighted:
                 logger.warning(
                     "highlight_story(ner): empty result for story_id=%s style=%s language=%s",
-                    story_id, style, language,
+                    story_id,
+                    style,
+                    language,
                 )
                 return False
             db_stories.update_story_rewrite_highlight(story_id, style, language, highlighted)
             logger.debug(
                 "highlight_story(ner): done story_id=%s style=%s language=%s",
-                story_id, style, language,
+                story_id,
+                style,
+                language,
             )
             return True
         except Exception as e:
             logger.warning(
                 "highlight_story(ner) failed story_id=%s style=%s language=%s: %s",
-                story_id, style, language, e,
+                story_id,
+                style,
+                language,
+                e,
             )
             return False
 
@@ -197,18 +206,26 @@ def highlight_story(
         if not highlighted:
             logger.warning(
                 "highlight_story(llm): empty response for story_id=%s style=%s language=%s",
-                story_id, style, language,
+                story_id,
+                style,
+                language,
             )
             return False
         db_stories.update_story_rewrite_highlight(story_id, style, language, highlighted)
         logger.debug(
-            "highlight_story(llm): done story_id=%s style=%s language=%s", story_id, style, language
+            "highlight_story(llm): done story_id=%s style=%s language=%s",
+            story_id,
+            style,
+            language,
         )
         return True
     except Exception as e:
         logger.warning(
             "highlight_story(llm) failed story_id=%s style=%s language=%s: %s",
-            story_id, style, language, e,
+            story_id,
+            style,
+            language,
+            e,
         )
         return False
 
@@ -238,6 +255,7 @@ def run_highlight_batch(config: dict[str, Any] | None = None) -> HighlightReport
     llm_provider = None
     if method == "llm":
         from app.llm.provider import get_provider
+
         llm_provider = get_provider(config, task="highlight")
 
     try:
@@ -265,6 +283,8 @@ def run_highlight_batch(config: dict[str, Any] | None = None) -> HighlightReport
 
     logger.info(
         "Highlight complete: %d succeeded, %d failed (method=%s)",
-        succeeded, failed, method,
+        succeeded,
+        failed,
+        method,
     )
     return HighlightReport(attempted=attempted, succeeded=succeeded, failed=failed)

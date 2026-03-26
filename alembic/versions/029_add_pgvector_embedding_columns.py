@@ -17,6 +17,7 @@ setting processing.cluster_use_ivfflat: true in config once stories > ~500.
 from collections.abc import Sequence
 
 import sqlalchemy as sa
+
 from alembic import op
 
 # revision identifiers

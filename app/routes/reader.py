@@ -14,10 +14,7 @@ reader_bp = Blueprint("reader", __name__)
 def _sections_for_user(profile: dict[str, Any], config: dict[str, Any]) -> list[dict[str, Any]]:
     """Build section list from user's topic_ids with labels and icons."""
     topic_ids = profile.get("topic_ids", [])
-    return [
-        {"id": tid, **get_topic_info(tid, config)}
-        for tid in sorted(topic_ids)
-    ]
+    return [{"id": tid, **get_topic_info(tid, config)} for tid in sorted(topic_ids)]
 
 
 @reader_bp.route("/")
@@ -158,7 +155,5 @@ def article_page(story_id: str) -> Any:
     style, language = profile_service.get_reading_variant(profile, config)
     story = article_service.get_expanded_story(story_id, style, language, config)
     if not story:
-        return render_template(
-            "article.html", article=None, error=gettext("Article not found.")
-        )
+        return render_template("article.html", article=None, error=gettext("Article not found."))
     return render_template("article.html", article=story)

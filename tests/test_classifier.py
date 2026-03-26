@@ -81,7 +81,8 @@ from app.feed.classifier import classify_article
         ),
         (
             "Scientists discover new species in Amazon rainforest",
-            "Researchers from the University of São Paulo announced the discovery of a new amphibian species.",
+            "Researchers from the University of São Paulo announced the discovery of a new"
+            " amphibian species.",
             "news",
         ),
         # --- Edge: single signal should NOT trigger ---

@@ -83,7 +83,9 @@ def create_profile(user_id: int, data: dict[str, Any]) -> None:
                     data.get("language", "ca"),
                     data.get(
                         "rewrite_tone",
-                        "Journalistic style. Formal and well-written. Do not simplify; preserve original complexity and nuance. Avoid spoilers in headlines or summaries.",
+                        "Journalistic style. Formal and well-written. Do not simplify; "
+                        "preserve original complexity and nuance. "
+                        "Avoid spoilers in headlines or summaries.",
                     ),
                     data.get("high_contrast", False),
                     data.get("preferred_style", "neutral"),
@@ -109,7 +111,7 @@ def update_profile(user_id: int, data: dict[str, Any]) -> None:
                     rewrite_tone = COALESCE(%s, rewrite_tone),
                     high_contrast = COALESCE(%s, high_contrast),
                     preferred_style = COALESCE(%s, preferred_style),
-                    color_scheme = %s,  -- intentionally bare (not COALESCE): NULL means "follow system"
+                    color_scheme = %s,  -- intentionally bare: NULL means "follow system"
                     updated_at = now()
                 WHERE user_id = %s
                 """,

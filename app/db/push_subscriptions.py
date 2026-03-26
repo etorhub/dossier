@@ -1,4 +1,5 @@
 """DB layer for push notification subscriptions."""
+
 from __future__ import annotations
 
 import logging
@@ -58,8 +59,7 @@ def get_all_subscriptions_with_language() -> list[dict]:
             )
             rows = cur.fetchall()
             return [
-                {"endpoint": r[0], "p256dh": r[1], "auth": r[2], "language": r[3]}
-                for r in rows
+                {"endpoint": r[0], "p256dh": r[1], "auth": r[2], "language": r[3]} for r in rows
             ]
     finally:
         return_connection(conn)
