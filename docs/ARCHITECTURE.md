@@ -144,7 +144,7 @@ News source discovery: feed detection, validation, quality scoring.
 
 Business logic. Routes call services; services do the work.
 
-- `article_service.py` — get today's stories for a user, score and filter by topic, select best image; optional `topic_filter` restricts feed to a single section
+- `article_service.py` — get today's stories for a user, score and filter by topic, select best image; optional `topic_filter` restricts feed to a single section. Stories are sorted by two-tier key: primary = recency bucket (6-hour windows, most recent first), secondary = `relevance_score` within the same window
 - `profile_service.py` — create/update user profile, resolve (style, language) reading variant
 - `rewrite_service.py` — cascading rewrite: neutral EN from sources, simplify, translate to all languages; manage cache
 - `auth_service.py` — user registration, login, session management
@@ -273,13 +273,13 @@ processing:
 
 relevance:
   weights:
-    recency: 0.20
-    coverage: 0.35
-    topic_affinity: 0.20
-    source_affinity: 0.15
-    content_quality: 0.10
+    recency: 0.30      # Freshness from latest article published_at (exponential decay)
+    coverage: 0.40     # Distinct outlets in the story (capped at coverage_cap)
+    topic_affinity: 0.20  # Share of articles matching user's selected topics
+    content_quality: 0.10 # Share of articles with full-text extraction
   recency_half_life_hours: 8
   coverage_cap: 4
+  recency_bucket_hours: 6  # Primary sort: most-recent bucket first; relevance_score breaks ties within a bucket
   min_sources: 1
 
 server:
