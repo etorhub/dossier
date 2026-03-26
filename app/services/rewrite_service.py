@@ -26,6 +26,18 @@ class RewriteBatchAbort(Exception):
     """LLM host unreachable; abort the rest of this batch (like cluster embed stop)."""
 
 
+class StoryIncoherentError(Exception):
+    """LLM signalled that the story's articles cover unrelated events (INCOHERENT: marker).
+
+    The story should be dissolved: its article memberships deleted so the articles can be
+    re-clustered on the next clustering run.
+    """
+
+    def __init__(self, reason: str) -> None:
+        super().__init__(reason)
+        self.reason = reason
+
+
 def _llm_host_for_logging(config: dict[str, Any]) -> str:
     llm = config.get("llm") or {}
     return str(llm.get("host") or os.environ.get("OLLAMA_HOST") or "http://ollama:11434")
@@ -197,7 +209,15 @@ def _derive_title_from_summary(summary: str) -> str:
 
 
 def _parse_story_llm_response(text: str) -> tuple[str, str, str]:
-    """Parse LLM output into (title, summary, full_text). Raises ValueError on bad format."""
+    """Parse LLM output into (title, summary, full_text).
+
+    Raises StoryIncoherentError if the LLM returned an INCOHERENT: signal.
+    Raises ValueError on bad format.
+    """
+    stripped = text.strip()
+    if stripped.upper().startswith("INCOHERENT:"):
+        reason = stripped[len("INCOHERENT:"):].strip()
+        raise StoryIncoherentError(reason or "LLM indicated articles are unrelated")
     text = _normalize_story_llm_section_headers(text)
     text = _strip_preamble_before_first_title(text)
     if not re.search(r"TITLE\s*:", text, re.I):
@@ -490,6 +510,14 @@ def rewrite_story(
         response = provider.complete(prompt, max_tokens=max_tokens, temperature=rw_temp)
         try:
             title, summary, full_text = _parse_story_llm_response(response)
+        except StoryIncoherentError as sie:
+            logger.warning(
+                "rewrite_story: incoherent story_id=%s — dissolving. Reason: %s",
+                story_id,
+                sie.reason,
+            )
+            db_stories.dissolve_story(story_id, sie.reason)
+            return False
         except ValueError as ve:
             err_msg = str(ve)[:500]
             db_stories.insert_story_rewrite(

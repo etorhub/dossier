@@ -116,6 +116,34 @@ def add_article_to_story(story_id: str, article_id: str) -> None:
         return_connection(conn)
 
 
+def dissolve_story(story_id: str, reason: str) -> None:
+    """Dissolve an incoherent story: delete its article memberships and mark it coherence_failed.
+
+    The story row is kept for audit. Articles freed here will be eligible for re-clustering
+    on the next clustering run if they are still within cluster_window_hours.
+    """
+    conn = get_connection()
+    try:
+        with conn.cursor() as cur:
+            cur.execute(
+                "DELETE FROM story_articles WHERE story_id = %s::uuid",
+                (story_id,),
+            )
+            cur.execute(
+                """
+                UPDATE stories
+                SET coherence_failed = TRUE,
+                    coherence_reason = %s
+                WHERE id = %s::uuid
+                """,
+                (reason[:500], story_id),
+            )
+        conn.commit()
+        logger.info("dissolve_story: story_id=%s reason=%s", story_id, reason[:120])
+    finally:
+        return_connection(conn)
+
+
 def remove_article_from_story(story_id: str, article_id: str) -> bool:
     """Remove an article from a story. Returns True if a membership row was deleted."""
     conn = get_connection()
@@ -198,6 +226,7 @@ def get_stories_with_articles_in_window(
                     JOIN story_articles sa ON sa.story_id = s.id
                     JOIN articles a ON a.id = sa.article_id
                     WHERE a.published_at >= %s
+                      AND (s.coherence_failed = FALSE OR s.coherence_failed IS NULL)
                     ORDER BY s.created_at DESC
                     """,
                     (since,),
@@ -209,6 +238,7 @@ def get_stories_with_articles_in_window(
                     FROM stories s
                     JOIN story_articles sa ON sa.story_id = s.id
                     JOIN articles a ON a.id = sa.article_id
+                    WHERE (s.coherence_failed = FALSE OR s.coherence_failed IS NULL)
                     ORDER BY s.created_at DESC
                     """
                 )
@@ -370,12 +400,14 @@ def get_stories_needing_highlight(
         with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
             cur.execute(
                 """
-                SELECT story_id::text, style, language, full_text
-                FROM story_rewrites
-                WHERE full_text IS NOT NULL
-                  AND (rewrite_failed = false OR rewrite_failed IS NULL)
-                  AND highlighted_full_text IS NULL
-                ORDER BY story_id
+                SELECT sr.story_id::text, sr.style, sr.language, sr.full_text
+                FROM story_rewrites sr
+                JOIN stories s ON s.id = sr.story_id
+                WHERE sr.full_text IS NOT NULL
+                  AND (sr.rewrite_failed = false OR sr.rewrite_failed IS NULL)
+                  AND sr.highlighted_full_text IS NULL
+                  AND (s.coherence_failed = FALSE OR s.coherence_failed IS NULL)
+                ORDER BY sr.story_id
                 """
                 + (" LIMIT %s" if limit is not None else ""),
                 (limit,) if limit is not None else (),

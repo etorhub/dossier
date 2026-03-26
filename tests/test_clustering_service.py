@@ -147,3 +147,36 @@ def test_run_cluster_and_embed_proceeds_when_pending_within_threshold() -> None:
         mock_rules.return_value = MagicMock(article_pairs=frozenset(), source_pair_thresholds={})
         report = run_cluster_and_embed(config)
         assert report.articles_clustered == 0  # no articles to cluster, but step ran
+
+
+def test_run_cluster_and_embed_uses_assignment_threshold_for_existing_stories() -> None:
+    """Assignment to existing stories uses story_assignment_threshold, not story_similarity_threshold."""
+    config = {
+        "processing": {
+            "story_similarity_threshold": 0.92,
+            "story_assignment_threshold": 0.95,
+            "cluster_use_ivfflat": False,
+        },
+        "extraction": {"cluster_gate_max_pending": 5},
+    }
+    article = {"id": "art1", "embedding": [0.1] * 768, "source_id": "src1"}
+    with patch("app.clustering.service.db_articles.get_recent_articles_without_embedding", return_value=[]), \
+         patch("app.clustering.service.db_articles.get_pending_extraction_count", return_value=0), \
+         patch("app.clustering.service.get_embedding_provider") as mock_prov, \
+         patch("app.clustering.service.db_articles.get_articles_with_embedding_not_in_story", return_value=[article]), \
+         patch("app.clustering.service.db_stories.get_stories_with_articles_in_window", return_value=[]), \
+         patch("app.clustering.service.db_stories.get_stories_with_centroid_in_window", return_value=[]), \
+         patch("app.clustering.service._assign_to_existing_stories") as mock_assign, \
+         patch("app.clustering.service._cluster_articles", return_value=[]), \
+         patch("app.clustering.service._load_exclusion_rules") as mock_rules, \
+         patch("app.clustering.service._build_source_topics_index", return_value={}):
+        mock_prov.return_value = MagicMock()
+        mock_rules.return_value = MagicMock(article_pairs=frozenset(), source_pair_thresholds={})
+        mock_assign.return_value = ([], [article])
+        run_cluster_and_embed(config)
+        # The threshold passed to _assign_to_existing_stories must be the assignment threshold (0.95),
+        # not the story_similarity_threshold (0.92).
+        call_kwargs = mock_assign.call_args
+        # threshold is the 3rd positional argument
+        threshold_used = call_kwargs.args[2]
+        assert threshold_used == 0.95, f"Expected 0.95 but got {threshold_used}"

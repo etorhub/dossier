@@ -471,6 +471,7 @@ def run_cluster_and_embed(config: dict[str, Any] | None = None) -> StoryReport:
     processing = cfg.get("processing", {})
     window_hours = processing.get("cluster_window_hours", 24)
     threshold = processing.get("story_similarity_threshold", processing.get("cluster_similarity_threshold", 0.90))
+    assignment_threshold = processing.get("story_assignment_threshold", max(threshold, 0.95))
     min_sources = processing.get("story_min_sources", 2)
 
     # window_hours=0 means no time filter (same semantics as rewrite when window is 0)
@@ -526,7 +527,7 @@ def run_cluster_and_embed(config: dict[str, Any] | None = None) -> StoryReport:
     if has_embedding_provider:
         if use_ann:
             assigned, to_cluster = _assign_to_existing_stories_ann(
-                to_cluster, since, threshold, ann_k, exclusion_rules, source_topics,
+                to_cluster, since, assignment_threshold, ann_k, exclusion_rules, source_topics,
             )
         else:
             existing = db_stories.get_stories_with_centroid_in_window(since)
@@ -538,7 +539,7 @@ def run_cluster_and_embed(config: dict[str, Any] | None = None) -> StoryReport:
                 story_member_ids[sid] = [a["id"] for a in members]
                 story_source_ids[sid] = {a["source_id"] for a in members if a.get("source_id")}
             assigned, to_cluster = _assign_to_existing_stories(
-                to_cluster, existing, threshold, story_member_ids, exclusion_rules,
+                to_cluster, existing, assignment_threshold, story_member_ids, exclusion_rules,
                 source_topics, story_source_ids,
             )
         for article_id, story_id in assigned:

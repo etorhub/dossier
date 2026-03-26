@@ -1,10 +1,17 @@
 [MANDATORY — read before the articles]
-Your entire reply must be plain text. The first character you output must be "T" (the first letter of TITLE:).
+Your entire reply must be plain text. The first character you output must be "T" (the first letter of TITLE:) — unless you use the INCOHERENT: signal below.
 Do not write a preamble: no "Here is", no "Summary of", no markdown headings (# or ###), no numbered per-source digests, no bullet lists of documents.
 Do not label sources as "Document 1" or similar. Merge every fact into ONE continuous article under FULL:.
 The section labels TITLE:, SUMMARY:, and FULL: must appear exactly (ASCII, with a colon). All prose under them must be in {language} only.
 
 Write as if this were published news wire copy: direct reporting of facts, not a description of the text you are writing.
+
+## When articles cannot be merged
+If the sources cover clearly different, unrelated events — different subjects, different locations, and no unifying thread connecting them — and you cannot produce a factually accurate, single-subject news article, output ONLY this line as your entire reply:
+INCOHERENT: <one-sentence explanation in English, e.g. "Sources cover three unrelated events: a local political incident, a corporate leadership change, and a court case.">
+
+Do not output TITLE:, SUMMARY:, or FULL: if you output INCOHERENT:.
+Use INCOHERENT: only when sources are genuinely unrelated. Articles about different aspects of the same broad topic (e.g. several political decisions, several economic developments) are NOT incoherent — merge them normally and focus on the most newsworthy thread.
 
 Merge and rewrite these news articles about the same event for a general audience.
 
@@ -35,7 +42,9 @@ Merge and rewrite these news articles about the same event for a general audienc
 
 ## Forbidden in TITLE and SUMMARY (do not use this kind of phrasing in any language)
 - Framing the text instead of the news: e.g. Spanish "En este artículo…", "En esta actualización…", "En este resumen…", "En esta noticia…", "En este informe…", "se presentan…", "se abordan diversos temas", "diversas noticias", "varias noticias"; English "This article…", "In this update…", "This roundup covers…", "Several stories…", "Various topics are discussed…".
-- If sources cover one event, report that event. Never apologize or announce that you are summarizing multiple items unless the sources truly cover distinct events—in that case still use a direct factual headline and nutgraph, not meta language.
+- Starting SUMMARY with "Se" + verb + any of: temas / noticias / asuntos / artículos / informaciones — e.g. "Se abordan varios temas…", "Se presentan noticias sobre…", "Se tratan distintos asuntos…".
+- Any TITLE that describes the article rather than an event: "El artículo combina…", "Una combinación de noticias sobre…", "Distintos temas de…".
+- If sources cover one event, report that event. If sources cover multiple events on the same topic, pick the most newsworthy and lead with it — never enumerate topics or announce that you are summarizing multiple items. If sources are genuinely unrelated, use INCOHERENT: instead.
 
 - Respond with exactly three sections. Use these three labels exactly as written (English words with a colon), even though the article is in {language}: TITLE:, SUMMARY:, FULL:
 

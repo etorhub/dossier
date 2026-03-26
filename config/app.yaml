@@ -115,10 +115,13 @@ processing:
   # Time window for clustering: only articles within this window participate (48h = 2 days of articles).
   # 0 = all stories regardless of freshness (for manual backfill runs only; set to 0 temporarily, then revert)
   cluster_window_hours: 48
-  # Minimum cosine similarity for two articles to belong to the same story.
+  # Minimum cosine similarity for two articles to belong to the same story (new cluster formation).
   # Higher = stricter; only articles about the same specific event are grouped.
-  # Recommended range: 0.88–0.95. Default: 0.90.
+  # Recommended range: 0.88–0.95. Default: 0.92.
   story_similarity_threshold: 0.92
+  # Minimum cosine similarity for adding a new article to an existing story (centroid-based check).
+  # Should be >= story_similarity_threshold; higher prevents centroid drift from admitting outliers.
+  story_assignment_threshold: 0.95
   story_min_sources: 2
   # 0 = embed every pending article in the window each cluster run; >0 caps per run
   embed_batch_size: 0

@@ -6,6 +6,7 @@ import pytest
 
 from app.services.rewrite_service import (
     RewriteReport,
+    StoryIncoherentError,
     _build_articles_text_for_rewrite,
     _get_language_writing_note,
     _llm_task_temperature,
@@ -207,6 +208,53 @@ def test_parse_cluster_llm_response_empty_sections_raises() -> None:
     text = "TITLE:\n\nSUMMARY:\n\nFULL:\n"
     with pytest.raises(ValueError, match="Empty"):
         _parse_cluster_llm_response(text)
+
+
+def test_parse_cluster_llm_response_incoherent_raises() -> None:
+    """_parse_cluster_llm_response raises StoryIncoherentError on INCOHERENT: signal."""
+    text = "INCOHERENT: Sources cover three unrelated events."
+    with pytest.raises(StoryIncoherentError) as exc_info:
+        _parse_cluster_llm_response(text)
+    assert "three unrelated events" in exc_info.value.reason
+
+
+def test_parse_cluster_llm_response_incoherent_case_insensitive() -> None:
+    """INCOHERENT: detection is case-insensitive."""
+    text = "incoherent: Different subjects and locations."
+    with pytest.raises(StoryIncoherentError):
+        _parse_cluster_llm_response(text)
+
+
+def test_parse_cluster_llm_response_incoherent_with_preamble() -> None:
+    """INCOHERENT: with leading whitespace is still detected."""
+    text = "  INCOHERENT: Articles about politics and a recipe."
+    with pytest.raises(StoryIncoherentError) as exc_info:
+        _parse_cluster_llm_response(text)
+    assert "recipe" in exc_info.value.reason
+
+
+def test_rewrite_story_incoherent_dissolves_story() -> None:
+    """rewrite_story calls dissolve_story when LLM returns INCOHERENT: signal."""
+    with patch("app.services.rewrite_service.db_stories") as mock_db, \
+         patch("app.services.rewrite_service.get_provider") as mock_provider_factory:
+        mock_llm = MagicMock()
+        mock_llm.complete.return_value = "INCOHERENT: Sources cover unrelated events."
+        mock_provider_factory.return_value = mock_llm
+
+        articles = [{"id": "a1", "full_text": "text about politics"},
+                    {"id": "a2", "full_text": "text about cooking"}]
+        config = {
+            "rewriting": {"styles": [{"id": "neutral", "prompt": "rewrite_cluster_neutral"}]},
+            "processing": {},
+            "llm": {},
+        }
+        result = rewrite_story("story-99", articles, "neutral", "es", config)
+
+        assert result is False
+        mock_db.dissolve_story.assert_called_once_with(
+            "story-99", "Sources cover unrelated events."
+        )
+        mock_db.insert_story_rewrite.assert_not_called()
 
 
 def test_rewrite_cluster_empty_articles_stores_failed() -> None:
