@@ -4,7 +4,7 @@ const STATIC_ASSETS = [
   '/static/manifest.json',
   '/static/icons/icon-192.png'
 ];
-const STATIC_EXTS = ['.png', '.jpg', '.ico', '.woff2', '.woff', '.ttf'];
+const STATIC_EXTS = ['.png', '.jpg', '.ico', '.woff2', '.woff', '.ttf', '.css', '.js', '.svg'];
 
 self.addEventListener('install', function(e) {
   e.waitUntil(
@@ -47,9 +47,15 @@ self.addEventListener('fetch', function(e) {
       })
     );
   } else {
-    /* Network-first for HTML pages — fall back to cache if offline */
+    /* Network-first for HTML pages — cache on success, fall back if offline */
     e.respondWith(
-      fetch(e.request).catch(function() {
+      fetch(e.request).then(function(res) {
+        if (res.ok) {
+          var clone = res.clone();
+          caches.open(STATIC_CACHE).then(function(cache) { cache.put(e.request, clone); });
+        }
+        return res;
+      }).catch(function() {
         return caches.match(e.request);
       })
     );

@@ -1,16 +1,35 @@
-"""PWA support routes — push notification subscription management."""
+"""PWA support routes — service worker, push notification subscription management."""
 
 from __future__ import annotations
 
 import json
 import logging
 
-from flask import Blueprint, render_template_string, request, session
+from flask import Blueprint, current_app, make_response, render_template_string, request, send_from_directory, session
 
 from app.db import push_subscriptions as push_db
 
 logger = logging.getLogger(__name__)
 bp = Blueprint("pwa", __name__, url_prefix="/pwa")
+
+# Root-level blueprint for the service worker — must be served from / scope
+bp_root = Blueprint("pwa_root", __name__)
+
+
+@bp_root.get("/sw.js")
+def service_worker():  # type: ignore[return]
+    """Serve the service worker with an expanded scope header.
+
+    The SW file lives in /static/ but must control the entire app (/).
+    The Service-Worker-Allowed header grants that permission.
+    """
+    response = make_response(
+        send_from_directory(current_app.static_folder, "sw.js")  # type: ignore[arg-type]
+    )
+    response.headers["Service-Worker-Allowed"] = "/"
+    response.headers["Content-Type"] = "application/javascript"
+    response.headers["Cache-Control"] = "no-cache"
+    return response
 
 
 def _require_login() -> int | None:
