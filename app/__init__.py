@@ -16,6 +16,7 @@ from app.config import load_config
 from app.db import users as db_users
 from app.routes.auth import auth_bp
 from app.routes.pwa import bp as pwa_bp
+from app.routes.pwa import bp_root as pwa_root_bp
 from app.routes.reader import reader_bp
 from app.routes.settings import settings_bp
 from app.routes.setup import setup_bp
@@ -23,7 +24,7 @@ from app.services import profile_service
 
 load_dotenv()
 
-PUBLIC_ENDPOINTS = {"auth.login", "auth.register", "health", "favicon"}
+PUBLIC_ENDPOINTS = {"auth.login", "auth.register", "health", "favicon", "pwa_root.service_worker"}
 
 babel = Babel()
 
@@ -107,6 +108,7 @@ def create_app(config_path: str | Path | None = None) -> Flask:
     app.register_blueprint(settings_bp)
     app.register_blueprint(reader_bp)
     app.register_blueprint(pwa_bp)
+    app.register_blueprint(pwa_root_bp)
 
     @app.context_processor
     def inject_admin_flag():  # type: ignore[no-untyped-def]

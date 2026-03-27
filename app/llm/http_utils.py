@@ -123,7 +123,7 @@ def request_json_with_retries(
     raise RuntimeError("request_json_with_retries: no attempts made")
 
 
-def run_with_retries[T](
+def run_with_retries(
     fn: Callable[[], T],
     *,
     max_retries: int = 3,

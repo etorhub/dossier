@@ -767,7 +767,7 @@
   data-tts-volume="{{ _('Volume') }}"
   data-tts-read-aloud="{{ _('Read article aloud') }}"
   data-vapid-key="{{ vapid_public_key or '' }}"
-  data-sw-url="{{ url_for('static', filename='sw.js') }}">
+  data-sw-url="{{ url_for('pwa_root.service_worker') }}">
   <nav>
     {% if session.get('user_id') %}
       <div>
@@ -823,7 +823,7 @@
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', function() {
         var swUrl = document.body.dataset.swUrl;
-        if (swUrl) navigator.serviceWorker.register(swUrl).catch(function() {});
+        if (swUrl) navigator.serviceWorker.register(swUrl, {scope: '/'}).catch(function() {});
       });
     }
 

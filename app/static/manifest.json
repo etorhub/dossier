@@ -4,6 +4,7 @@
   "short_name": "Dossier",
   "description": "Your personal AI news digest",
   "start_url": "/",
+  "scope": "/",
   "display": "standalone",
   "background_color": "#ffffff",
   "theme_color": "#2563eb",
