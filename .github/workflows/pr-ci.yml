@@ -12,6 +12,10 @@ jobs:
     name: Lint, type check, test
     runs-on: ubuntu-latest
 
+    permissions:
+      contents: read
+      checks: write
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -34,4 +38,12 @@ jobs:
         run: uv run mypy app/
 
       - name: Test (pytest)
-        run: uv run pytest
+        run: uv run pytest --junitxml=test-results.xml
+
+      - name: Publish test results
+        uses: dorny/test-reporter@v3
+        if: always()
+        with:
+          name: pytest
+          path: test-results.xml
+          reporter: java-junit
