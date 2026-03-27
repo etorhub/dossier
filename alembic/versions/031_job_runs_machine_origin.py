@@ -1,6 +1,6 @@
 """Add origin_hostname, origin_ip, origin_mode to job_runs
 
-Revision ID: a1b2c3d4e5f6
+Revision ID: 031
 Revises: f0a1b2c3d4e5
 Create Date: 2026-03-27
 
@@ -15,7 +15,7 @@ import sqlalchemy as sa
 
 from alembic import op
 
-revision: str = "a1b2c3d4e5f6"
+revision: str = "031"
 down_revision: str | None = "f0a1b2c3d4e5"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
