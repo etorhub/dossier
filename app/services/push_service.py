@@ -4,6 +4,10 @@ from __future__ import annotations
 
 import json
 import logging
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from flask import Flask
 
 logger = logging.getLogger(__name__)
 
@@ -15,7 +19,7 @@ _NOTIFICATION_BODIES: dict[str, str] = {
 }
 
 
-def notify_users_with_new_stories(story_count: int, app: object = None) -> None:
+def notify_users_with_new_stories(story_count: int, app: Flask | None = None) -> None:
     """Send push notifications to all subscribed users.
 
     Must be called with a Flask app instance (or from within app context) so that
@@ -36,10 +40,10 @@ def notify_users_with_new_stories(story_count: int, app: object = None) -> None:
     if app is None:
         from flask import current_app
 
-        app = current_app._get_current_object()
+        app = current_app._get_current_object()  # type: ignore[attr-defined]
 
-    vapid_private_key = app.config.get("VAPID_PRIVATE_KEY")  # type: ignore[union-attr]
-    vapid_email = app.config.get("VAPID_EMAIL", "mailto:admin@example.com")  # type: ignore[union-attr]
+    vapid_private_key = app.config.get("VAPID_PRIVATE_KEY")
+    vapid_email = app.config.get("VAPID_EMAIL", "mailto:admin@example.com")
 
     if not vapid_private_key:
         logger.warning("VAPID_PRIVATE_KEY not configured — push notifications skipped")

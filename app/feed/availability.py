@@ -4,6 +4,7 @@ import logging
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
+from typing import Any
 
 import httpx
 
@@ -27,7 +28,7 @@ class AvailabilityReport:
 
 
 def _check_single_feed(
-    feed: dict[str, object], timeout: float, user_agent: str
+    feed: dict[str, Any], timeout: float, user_agent: str
 ) -> tuple[int, bool, int | None, int | None, str | None]:
     """Check one feed.
 
@@ -90,7 +91,7 @@ def _check_single_feed(
         return (feed_id, False, None, elapsed_ms, err_msg)
 
 
-def check_all_feeds_availability(config: dict | None = None) -> AvailabilityReport:
+def check_all_feeds_availability(config: dict[str, Any] | None = None) -> AvailabilityReport:
     """Check all active feeds. Stores results in source_availability_checks."""
     cfg = config or load_config()
     fetcher_cfg = cfg.get("schedule", {}).get("fetcher", {})

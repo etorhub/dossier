@@ -34,10 +34,11 @@ def get_locale() -> str:
     if user_id:
         profile = db_users.get_profile(user_id)
         if profile and profile.get("language"):
-            return profile["language"]
+            return str(profile["language"])
     config = load_config()
-    default = config.get("rewriting", {}).get("default_language", "ca")
-    return request.accept_languages.best_match(["ca", "es", "en"], default=default)
+    default: str = str(config.get("rewriting", {}).get("default_language", "ca"))
+    matched = request.accept_languages.best_match(["ca", "es", "en"], default=default)
+    return matched if matched is not None else default
 
 
 def create_app(config_path: str | Path | None = None) -> Flask:

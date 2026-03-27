@@ -4,7 +4,7 @@ import json
 import logging
 import uuid
 from datetime import datetime
-from typing import Any
+from typing import Any, cast
 
 import psycopg2.extras
 from psycopg2.errors import UniqueViolation
@@ -153,7 +153,7 @@ def remove_article_from_story(story_id: str, article_id: str) -> bool:
                 """,
                 (story_id, article_id),
             )
-            deleted = cur.rowcount > 0
+            deleted = bool(cur.rowcount > 0)
         conn.commit()
         return deleted
     finally:
@@ -442,7 +442,7 @@ def get_story_centroid(story_id: str) -> list[float] | None:
             if isinstance(emb, list):
                 return emb
             if isinstance(emb, str):
-                return json.loads(emb)
+                return cast(list[float], json.loads(emb))
             return None
     finally:
         return_connection(conn)

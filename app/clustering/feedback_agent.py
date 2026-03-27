@@ -6,7 +6,7 @@ import json
 import logging
 import re
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, cast
 
 from app.clustering.retroactive_rules import apply_article_pair_rules_retroactively
 from app.clustering.vectors import cosine_similarity, embedding_from_article
@@ -43,13 +43,13 @@ def _parse_llm_json(text: str) -> dict[str, Any] | None:
     if fence:
         raw = fence.group(1).strip()
     try:
-        return json.loads(raw)
+        return cast(dict[str, Any], json.loads(raw))
     except json.JSONDecodeError:
         start = raw.find("{")
         end = raw.rfind("}")
         if start >= 0 and end > start:
             try:
-                return json.loads(raw[start : end + 1])
+                return cast(dict[str, Any], json.loads(raw[start : end + 1]))
             except json.JSONDecodeError:
                 pass
     return None

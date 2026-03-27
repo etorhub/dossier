@@ -2,21 +2,25 @@ pre-commit:
   commands:
     ruff-check:
       glob: "*.py"
-      run: ruff check --fix {staged_files}
+      run: uv run ruff check --fix {staged_files}
       stage_fixed: true
+      env:
+        RUFF_CACHE_DIR: /tmp/ruff-cache
     ruff-format:
       glob: "*.py"
-      run: ruff format --check {staged_files}
+      run: uv run ruff format --check {staged_files}
+      env:
+        RUFF_CACHE_DIR: /tmp/ruff-cache
     mypy:
       glob: "*.py"
-      run: mypy .
+      run: uv run mypy app/
 
 pre-push:
   commands:
     pytest:
-      run: pytest
+      run: uv run pytest
 
 commit-msg:
   commands:
     commitizen:
-      run: cz check --commit-msg-file {1}
+      run: uv run cz check --commit-msg-file {1}

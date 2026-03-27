@@ -5,6 +5,7 @@ import shutil
 import sys
 import time
 from dataclasses import dataclass
+from typing import Any
 from urllib.parse import urlparse
 
 from app.db import articles as db_articles
@@ -65,7 +66,7 @@ def _domain_from_url(url: str) -> str:
 
 
 def enrich_articles(
-    config: dict,
+    config: dict[str, Any],
     *,
     progress_offset: int = 0,
     progress_total: int = 0,
@@ -89,7 +90,7 @@ def enrich_articles(
         return EnrichmentReport(0, 0, 0, 0)
 
     # Group by domain for rate limiting
-    by_domain: dict[str, list[dict]] = {}
+    by_domain: dict[str, list[dict[str, Any]]] = {}
     for art in candidates:
         domain = _domain_from_url(art["url"])
         by_domain.setdefault(domain, []).append(art)
@@ -205,7 +206,7 @@ def enrich_articles(
     return report
 
 
-def enrich_all_articles(config: dict) -> EnrichmentReport:
+def enrich_all_articles(config: dict[str, Any]) -> EnrichmentReport:
     """Process all pending articles in batches until none remain or max rounds hit.
 
     Returns aggregate EnrichmentReport. Used by scheduler so clustering never

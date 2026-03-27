@@ -65,8 +65,9 @@ def regeneration_needed(
         return True
     if old_profile.get("language", "ca") != new_form_data.get("language", "ca"):
         return True
-    return old_profile.get("preferred_style", "neutral") != new_form_data.get(
-        "preferred_style", "neutral"
+    return bool(
+        old_profile.get("preferred_style", "neutral")
+        != new_form_data.get("preferred_style", "neutral")
     )
 
 
