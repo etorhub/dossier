@@ -25,6 +25,7 @@ dev = [
     "ruff",
     "pytest",
     "commitizen",
+    "lefthook",
 ]
 
 [tool.ruff]
