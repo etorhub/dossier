@@ -2,11 +2,12 @@
 
 from typing import Any
 
-from flask import Blueprint, redirect, render_template, request, session, url_for
+from flask import Blueprint, abort, redirect, render_template, request, session, url_for
 from flask_babel import gettext
 
 from app.db import users as db_users
 from app.services import auth_service
+from app.services.csrf import validate_csrf_token
 
 auth_bp = Blueprint("auth", __name__)
 
@@ -16,6 +17,8 @@ def login() -> Any:
     """GET: show login form. POST: authenticate and redirect to /."""
     if request.method == "GET":
         return render_template("login.html")
+    if not validate_csrf_token(request.form.get("csrf_token", "")):
+        abort(403)
     email = request.form.get("email", "").strip()
     password = request.form.get("password", "")
     if not email or not password:
@@ -37,6 +40,8 @@ def register() -> Any:
     """GET: show registration form. POST: create user and redirect to /setup."""
     if request.method == "GET":
         return render_template("register.html")
+    if not validate_csrf_token(request.form.get("csrf_token", "")):
+        abort(403)
     email = request.form.get("email", "").strip()
     password = request.form.get("password", "")
     if not email or not password:
@@ -64,5 +69,7 @@ def register() -> Any:
 @auth_bp.route("/logout", methods=["POST"])
 def logout() -> Any:
     """Clear session and redirect to login."""
+    if not validate_csrf_token(request.form.get("csrf_token", "")):
+        abort(403)
     session.clear()
     return redirect(url_for("auth.login"))

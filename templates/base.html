@@ -777,6 +777,7 @@
       <div class="nav-right">
         {% if current_user_email %}<span>{{ current_user_email }}</span>{% endif %}
         <form method="post" action="{{ url_for('auth.logout') }}" style="display:inline;">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
           <button type="submit">{{ _('Log out') }}</button>
         </form>
       </div>

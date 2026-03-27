@@ -22,6 +22,7 @@ from app.routes.reader import reader_bp
 from app.routes.settings import settings_bp
 from app.routes.setup import setup_bp
 from app.services import profile_service
+from app.services.csrf import generate_csrf_token
 
 load_dotenv()
 
@@ -131,6 +132,11 @@ def create_app(config_path: str | Path | None = None) -> Flask:
             "profile": profile,
             "locale": get_locale(),
         }
+
+    @app.context_processor
+    def inject_csrf_token():  # type: ignore[no-untyped-def]
+        """Inject csrf_token() callable into all templates."""
+        return {"csrf_token": generate_csrf_token}
 
     @app.context_processor
     def inject_vapid_key():  # type: ignore[no-untyped-def]
