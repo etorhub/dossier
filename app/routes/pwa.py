@@ -7,6 +7,7 @@ import logging
 
 from flask import (
     Blueprint,
+    Response,
     current_app,
     make_response,
     render_template_string,
@@ -25,15 +26,14 @@ bp_root = Blueprint("pwa_root", __name__)
 
 
 @bp_root.get("/sw.js")
-def service_worker():  # type: ignore[return]
+def service_worker() -> Response:
     """Serve the service worker with an expanded scope header.
 
     The SW file lives in /static/ but must control the entire app (/).
     The Service-Worker-Allowed header grants that permission.
     """
-    response = make_response(
-        send_from_directory(current_app.static_folder, "sw.js")  # type: ignore[arg-type]
-    )
+    static_folder = current_app.static_folder or ""
+    response = make_response(send_from_directory(static_folder, "sw.js"))
     response.headers["Service-Worker-Allowed"] = "/"
     response.headers["Content-Type"] = "application/javascript"
     response.headers["Cache-Control"] = "no-cache"
@@ -42,7 +42,8 @@ def service_worker():  # type: ignore[return]
 
 def _require_login() -> int | None:
     """Return user_id or None if not logged in."""
-    return session.get("user_id")
+    uid = session.get("user_id")
+    return int(uid) if uid is not None else None
 
 
 @bp.post("/subscribe")

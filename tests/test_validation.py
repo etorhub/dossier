@@ -5,8 +5,9 @@ from unittest.mock import patch
 from app.discovery.validation import check_dns, validate_source
 
 
-def test_check_dns_resolves_google() -> None:
-    """Well-known domain resolves."""
+@patch("app.discovery.validation.socket.gethostbyname", return_value="142.250.0.1")
+def test_check_dns_resolves_google(mock_gethostbyname: object) -> None:
+    """check_dns returns True when gethostbyname succeeds."""
     assert check_dns("www.google.com") is True
 
 
