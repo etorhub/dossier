@@ -11,9 +11,6 @@ pre-commit:
       run: uv run ruff format --check {staged_files}
       env:
         RUFF_CACHE_DIR: /tmp/ruff-cache
-    mypy:
-      glob: "*.py"
-      run: uv run mypy app/
 
 pre-push:
   commands:

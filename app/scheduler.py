@@ -11,6 +11,7 @@ from __future__ import annotations
 import contextlib
 import logging
 import os
+import socket
 import time
 from collections.abc import Callable
 from dataclasses import asdict, is_dataclass
@@ -30,6 +31,12 @@ from app.job_run_logging import append_job_run_summary, job_run_file_logging
 logger = logging.getLogger(__name__)
 
 _VALID_MODES = frozenset({"light", "heavy", "full"})
+
+_ORIGIN_HOSTNAME: str = socket.gethostname()
+try:
+    _ORIGIN_IP: str | None = socket.gethostbyname(_ORIGIN_HOSTNAME)
+except OSError:
+    _ORIGIN_IP = None
 
 
 def _get_scheduler_mode() -> str:
@@ -72,7 +79,13 @@ def _run_tracked_job(
 ) -> None:
     """Run a tracked pipeline job: config, job_fn, DB row, and per-run log file."""
     logger.info("Starting %s job", job_name)
-    job_id = admin_db.insert_job_run(job_name, trigger=trigger)
+    job_id = admin_db.insert_job_run(
+        job_name,
+        trigger=trigger,
+        origin_hostname=_ORIGIN_HOSTNAME,
+        origin_ip=_ORIGIN_IP,
+        origin_mode=_get_scheduler_mode(),
+    )
     config = load_config()
     t0 = time.perf_counter()
     with job_run_file_logging(

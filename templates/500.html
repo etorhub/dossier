@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+
+{% block title %}{{ _('Something went wrong') }} — {{ _('Dossier') }}{% endblock %}
+
+{% block content %}
+<div class="auth-card" style="text-align:center;">
+  <svg xmlns="http://www.w3.org/2000/svg" width="56" height="56" fill="none"
+       viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"
+       stroke-linecap="round" stroke-linejoin="round"
+       style="color:var(--fg-muted); margin-bottom:1.25rem;"
+       aria-hidden="true">
+    <circle cx="12" cy="12" r="10"/>
+    <line x1="15" y1="9" x2="9" y2="15"/>
+    <line x1="9" y1="9" x2="15" y2="15"/>
+  </svg>
+
+  <h1>{{ _('Something went wrong') }}</h1>
+
+  <p style="font-family:var(--font-ui); font-size:0.9rem; color:var(--fg-muted); margin:0 0 1.75rem; line-height:1.6;">
+    {{ _('An unexpected error occurred. You can try again or go back to the feed.') }}
+  </p>
+
+  <div class="form-actions" style="flex-direction:row; flex-wrap:wrap; justify-content:center;">
+    <button class="btn btn-primary" onclick="window.location.reload()">{{ _('Try again') }}</button>
+    <a href="{{ url_for('reader.index') }}" class="btn btn-ghost">{{ _('Go to feed') }}</a>
+  </div>
+</div>
+{% endblock %}

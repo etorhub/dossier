@@ -7,7 +7,7 @@ from pathlib import Path
 
 import humanize
 from dotenv import load_dotenv
-from flask import Flask, Response, redirect, request, session, url_for
+from flask import Flask, Response, redirect, render_template, request, session, url_for
 from flask_babel import Babel
 from markupsafe import Markup
 
@@ -138,6 +138,12 @@ def create_app(config_path: str | Path | None = None) -> Flask:
     app.cli.add_command(seed_sources)
     app.cli.add_command(make_admin)
     app.cli.add_command(show_rewrite_failures)
+
+    @app.errorhandler(500)
+    def internal_error(e: Exception) -> Response | tuple[str, int]:
+        if request.headers.get("HX-Request"):
+            return Response(status=500)
+        return render_template("500.html"), 500
 
     return app
 

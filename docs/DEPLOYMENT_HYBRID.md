@@ -165,23 +165,53 @@ sudo systemctl enable --now dossier-web.service dossier-scheduler-light.service
 
 ### 1.6 Ops dashboard (optional)
 
-Runs on the Pi for operators on the LAN. Second Gunicorn process on port 5001:
+Runs on the Pi for operators. Second Gunicorn process on port 5001:
 
 ```bash
-/opt/dossier/.venv/bin/gunicorn -b 0.0.0.0:5001 --workers 1 ops:application
+/opt/dossier/.venv/bin/gunicorn -b 127.0.0.1:5001 --workers 1 ops:application
 ```
 
-Add a systemd unit similar to `dossier-web.service` with `ops:application` and port `5001`. Do **not** expose 5001 through the public tunnel unless you add authentication and understand the risk (see [ADMIN_DASHBOARD.md](ADMIN_DASHBOARD.md)).
+Add a systemd unit similar to `dossier-web.service` with `ops:application` and port `5001`.
 
-### 1.7 Exposing the web app to the internet
+**If using `docker-compose.pi.yml`**, the ops service is included automatically — no extra systemd unit needed.
+
+Do **not** expose port 5001 publicly without authentication. See section 1.7 for how to expose it safely via Cloudflare Access.
+
+### 1.7 Exposing services to the internet
 
 Pick one:
 
-**A. Cloudflare Tunnel (recommended)**  
-Install `cloudflared` on the Pi, create a tunnel in the Cloudflare dashboard, and point it at `http://127.0.0.1:5000`. Requires a domain whose DNS is on Cloudflare. No inbound firewall ports needed.
+**A. Cloudflare Tunnel (recommended)**
+Install `cloudflared` on the Pi, create a Named Tunnel in the Cloudflare dashboard, and configure `~/.cloudflared/config.yml` with two ingress rules:
 
-**B. Tailscale Funnel**  
-Install Tailscale on the Pi, enable Funnel, publish the web service. Simpler DNS (`*.ts.net`) but different operational trade-offs (bandwidth, branding).
+```yaml
+tunnel: <your-tunnel-id>
+credentials-file: /home/pi/.cloudflared/<tunnel-id>.json
+
+ingress:
+  - hostname: app.yourdomain.com
+    service: http://localhost:5000
+  - hostname: ops.yourdomain.com
+    service: http://localhost:5001
+  - service: http_status:404
+```
+
+Add DNS CNAME records for both hostnames pointing to `<tunnel-id>.cfargotunnel.com`.
+
+Restart after editing: `sudo systemctl restart cloudflared`
+
+**Protecting the ops dashboard with Cloudflare Access**
+The ops dashboard has no built-in authentication. Restrict it to your email via Cloudflare Zero Trust:
+
+1. Go to **Zero Trust → Access → Applications → Add an application**
+2. Type: **Self-hosted**; Application domain: `ops.yourdomain.com`
+3. Create a policy: **Allow** → email is `your@email.com`
+4. Save
+
+Unauthenticated visitors hitting `ops.yourdomain.com` see a Cloudflare login page and cannot proceed. The web app at `app.yourdomain.com` remains public.
+
+**B. Tailscale Funnel**
+Install Tailscale on the Pi, enable Funnel, publish the web service. Simpler DNS (`*.ts.net`) but different operational trade-offs (bandwidth, branding). Note: ops dashboard would only be reachable within the Tailnet — not via Funnel — unless explicitly configured.
 
 Do not rely on port-forwarding without TLS and a clear security review.
 

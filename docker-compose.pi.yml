@@ -49,6 +49,19 @@ services:
     command: python -m app.scheduler
     restart: unless-stopped
 
+  ops:
+    image: ghcr.io/etorhub/dossier-ops:latest
+    labels:
+      - com.centurylinklabs.watchtower.scope=dossier
+    environment:
+      DATABASE_URL: ${DATABASE_URL}
+      SECRET_KEY: ${SECRET_KEY}
+    volumes:
+      - ./config:/app/config
+    # -w 1: single gunicorn worker to stay within Pi's RAM budget.
+    # No port binding — cloudflared reaches localhost:5001 directly.
+    restart: unless-stopped
+
   watchtower:
     image: containrrr/watchtower
     volumes:
@@ -62,7 +75,7 @@ services:
       WATCHTOWER_POLL_INTERVAL: '60'
       # Remove old images after pulling new ones (keeps the Pi disk clean).
       WATCHTOWER_CLEANUP: 'true'
-      # Only watch these two containers, not watchtower itself.
+      # Only watch dossier containers (web, worker, ops), not watchtower itself.
       WATCHTOWER_SCOPE: dossier
     # Restrict to containers with the com.centurylinklabs.watchtower.scope=dossier label.
     command: --scope dossier

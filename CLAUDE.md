@@ -73,7 +73,8 @@ See `docs/TECH_STACK.md` for full details, project structure, dependencies, Dock
 - **Scheduling:** APScheduler runs a five-stage pipeline in the worker: fetch feeds → enrich (extract full text) → embed → cluster → rewrite. The rewrite stage uses a cascade: generate neutral EN from sources, simplify to simple EN, translate both to other languages. Content is ready when the user opens the app.
 - **Content filtering:** `app/feed/classifier.py` classifies articles as `news` or `non_news` using keyword heuristics (recipes, horoscopes, classifieds, promotions). Applied at fetch time (title + raw_text) and again at enrich time (full text). Non-news articles are stored with `article_type = 'non_news'` and excluded from enrichment, embedding, and clustering. Operators review and override via the ops dashboard.
 - **Packaging:** Docker + docker-compose (db, web, worker, ollama, ops). Web uses slim image; worker uses ollama client; ollama runs models in dedicated container; ops dashboard on port 5001.
-- **Dev tooling:** Ruff (lint/format), Mypy (type check), Pytest, Lefthook (git hooks), Commitizen (conventional commits)
+- **Dev tooling:** Ruff (lint/format), Mypy (type check), Pytest, Lefthook (git hooks), Commitizen (conventional commits). All tools are managed by **`uv`** — always invoke via `uv run ruff`, `uv run mypy`, `uv run pytest`, etc. Bare tool invocations (e.g. `ruff check`) will use the wrong environment or fail. Lefthook hooks call `uv run` automatically, so `git commit` works without any prefix. `RUFF_CACHE_DIR=/tmp/ruff-cache` is set in `lefthook.yml` to avoid cache permission issues.
+- **Branch workflow:** Always `git pull origin master` (or `main`) before creating a new branch to avoid diverged histories.
 - **CI pipeline:** GitHub Actions (`.github/workflows/`). CI (lint → type check → test) runs on pull requests targeting `main` or `master` via `pr-ci.yml`. Both branches are protected — merges require the `ci` check to pass. Publish workflows (`deploy.yml` on `main`, `build-pi.yml` on `master`) run unconditionally on push because only code that passed CI can reach those branches. Never move CI checks into the publish workflows and never bypass branch protection.
 
 ---
@@ -160,6 +161,15 @@ For automated news source discovery (finding feeds by location, validation, qual
 ## Cursor IDE Rules
 
 `.cursor/rules/` contains Cursor IDE rule files that mirror this document. `project-context.mdc` is the full equivalent of CLAUDE.md for Cursor users. Additional rules cover architecture, accessibility, i18n, LLM usage, news source discovery, **database** (`database.mdc`), **testing** (`testing.mdc`), **ops dashboard** (`ops-dashboard.mdc`), and **Docker** (`docker.mdc`). These rules are authoritative for Cursor users and must stay in sync with CLAUDE.md — if one is updated, update the other.
+
+---
+
+## Environment Quirks
+
+- **Alembic**: run via `.venv/bin/python3 -m alembic`, not `.venv/bin/alembic` (shebang points to a stale path).
+- **Alembic revision IDs**: use simple numeric strings (`"031"`, `"032"`) matching the existing chain — hex IDs collide and cause `Cycle detected` errors.
+- **ruff cache**: if `git commit` fails with "Permission denied" on `.ruff_cache/`, prefix with `RUFF_CACHE_DIR=/tmp/ruff_cache`.
+- **Neon migrations**: use the direct endpoint (no `-pooler` suffix) — Alembic needs real Postgres connections, not PgBouncer.
 
 ---
 

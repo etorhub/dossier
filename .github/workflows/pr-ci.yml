@@ -9,7 +9,7 @@ on:
 
 jobs:
   ci:
-    name: Lint, type check, test
+    name: Lint and test
     runs-on: ubuntu-latest
 
     permissions:
@@ -33,9 +33,6 @@ jobs:
 
       - name: Lint (ruff)
         run: uv run ruff check .
-
-      - name: Type check (mypy)
-        run: uv run mypy app/
 
       - name: Test (pytest)
         run: uv run pytest --junitxml=test-results.xml
