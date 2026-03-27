@@ -27,7 +27,7 @@ jobs:
       - uses: astral-sh/setup-uv@v4
 
       - name: Install project dependencies
-        run: uv sync --dev
+        run: uv sync --extra dev
 
       - name: Install lefthook hooks
         run: uv run lefthook install
