@@ -6,11 +6,9 @@ import logging
 import time
 from collections.abc import Callable, Generator
 from contextlib import contextmanager
-from typing import Any, TypeVar
+from typing import Any
 
 import httpx
-
-T = TypeVar("T")
 
 logger = logging.getLogger(__name__)
 
@@ -123,7 +121,7 @@ def request_json_with_retries(
     raise RuntimeError("request_json_with_retries: no attempts made")
 
 
-def run_with_retries(
+def run_with_retries[T](
     fn: Callable[[], T],
     *,
     max_retries: int = 3,
