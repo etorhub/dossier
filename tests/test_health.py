@@ -54,7 +54,7 @@ def test_500_returns_html_with_error_message(app: Flask, client: FlaskClient) ->
 
     with client.session_transaction() as sess:
         sess["user_id"] = 1
-    response = client.get("/test-500-html")
+    response = client.get("/test-500-html", headers={"Accept-Language": "en"})
     assert b"Something went wrong" in response.data
     assert b"Try again" in response.data
     assert b"Go to feed" in response.data

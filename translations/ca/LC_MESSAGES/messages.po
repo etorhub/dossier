@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PROJECT VERSION\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2026-03-23 20:56+0100\n"
+"POT-Creation-Date: 2026-03-27 11:36+0100\n"
 "PO-Revision-Date: 2026-03-17 12:11+0100\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language: ca\n"
@@ -74,7 +74,7 @@ msgstr "Esports"
 msgid "All"
 msgstr "Tot"
 
-#: app/routes/auth.py:23 app/routes/auth.py:44
+#: app/routes/auth.py:23 app/routes/auth.py:45
 msgid "Email and password are required."
 msgstr "Cal l'adreça de correu i la contrasenya."
 
@@ -82,33 +82,49 @@ msgstr "Cal l'adreça de correu i la contrasenya."
 msgid "Invalid email or password."
 msgstr "Adreça de correu o contrasenya incorrectes."
 
-#: app/routes/auth.py:49
+#: app/routes/auth.py:51
 msgid "Password must be at least 8 characters."
 msgstr "La contrasenya ha de tenir almenys 8 caràcters."
 
-#: app/routes/auth.py:56
+#: app/routes/auth.py:58
 msgid "Email already registered."
 msgstr "Aquesta adreça de correu ja està registrada."
 
-#: app/routes/reader.py:107 app/routes/reader.py:136 app/routes/reader.py:162
+#: app/routes/reader.py:104 app/routes/reader.py:133 app/routes/reader.py:158
 msgid "Article not found."
 msgstr "Article no trobat."
 
-#: templates/article.html:3 templates/base.html:6 templates/index.html:2
-#: templates/login.html:2 templates/register.html:2 templates/settings.html:2
-#: templates/setup.html:2
+#: templates/500.html:3 templates/500.html:17
+msgid "Something went wrong"
+msgstr "Alguna cosa ha anat malament"
+
+#: templates/500.html:3 templates/article.html:3 templates/base.html:6
+#: templates/index.html:2 templates/login.html:2 templates/register.html:2
+#: templates/settings.html:2 templates/setup.html:2
 msgid "Dossier"
 msgstr "Dossier"
+
+#: templates/500.html:20
+msgid "An unexpected error occurred. You can try again or go back to the feed."
+msgstr "S'ha produït un error inesperat. Pots tornar-ho a intentar o tornar a l'inici."
+
+#: templates/500.html:24
+msgid "Try again"
+msgstr "Torna-ho a intentar"
+
+#: templates/500.html:25
+msgid "Go to feed"
+msgstr "Anar a l'inici"
 
 #: templates/article.html:3
 msgid "Article not found"
 msgstr "Article no trobat"
 
-#: templates/article.html:9 templates/article.html:55
+#: templates/article.html:9 templates/article.html:56
 msgid "Back"
 msgstr "Enrere"
 
-#: templates/article.html:16 templates/partials/article_card.html:10
+#: templates/article.html:16 templates/partials/article_card.html:14
 #: templates/partials/article_expanded.html:13
 msgid "Image source:"
 msgstr "Font de la imatge:"
@@ -120,7 +136,7 @@ msgid_plural "%(num)d sources aggregated"
 msgstr[0] "%(num)d font agregada"
 msgstr[1] "%(num)d fonts agregades"
 
-#: templates/article.html:26 templates/partials/article_card.html:18
+#: templates/article.html:26 templates/partials/article_card.html:22
 #: templates/partials/article_expanded.html:21
 #, python-format
 msgid "%(num)d source"
@@ -128,54 +144,54 @@ msgid_plural "%(num)d sources"
 msgstr[0] "%(num)d font"
 msgstr[1] "%(num)d fonts"
 
-#: templates/article.html:34 templates/base.html:736
+#: templates/article.html:34 templates/base.html:768
 #: templates/partials/article_expanded.html:29
 msgid "Read article aloud"
 msgstr "Llegir l'article en veu alta"
 
-#: templates/article.html:36 templates/base.html:733
+#: templates/article.html:36 templates/base.html:765
 #: templates/partials/article_expanded.html:30
 msgid "Listen"
 msgstr "Escoltar"
 
-#: templates/article.html:41 templates/article.html:44 templates/base.html:735
+#: templates/article.html:41 templates/article.html:44 templates/base.html:767
 #: templates/partials/article_expanded.html:35
 #: templates/partials/article_expanded.html:39
 msgid "Volume"
 msgstr "Volum"
 
-#: templates/base.html:734
+#: templates/base.html:766
 msgid "Stop"
 msgstr "Aturar"
 
-#: templates/base.html:742 templates/base.html:770
+#: templates/base.html:774 templates/base.html:802
 msgid "Feed"
 msgstr "Dossier"
 
-#: templates/base.html:743 templates/base.html:786 templates/settings.html:2
+#: templates/base.html:775 templates/base.html:818 templates/settings.html:2
 #: templates/settings.html:4
 msgid "Settings"
 msgstr "Configuració"
 
-#: templates/base.html:748
+#: templates/base.html:780
 msgid "Log out"
 msgstr "Tancar sessió"
 
-#: templates/base.html:753 templates/login.html:2 templates/login.html:5
+#: templates/base.html:785 templates/login.html:2 templates/login.html:5
 #: templates/login.html:19 templates/register.html:22
 msgid "Log in"
 msgstr "Iniciar sessió"
 
-#: templates/base.html:754 templates/login.html:22 templates/register.html:2
+#: templates/base.html:786 templates/login.html:22 templates/register.html:2
 #: templates/register.html:5 templates/register.html:19
 msgid "Register"
 msgstr "Registrar-se"
 
-#: templates/base.html:762
+#: templates/base.html:794
 msgid "Main navigation"
 msgstr "Navegació principal"
 
-#: templates/base.html:778 templates/index.html:6 templates/index.html:7
+#: templates/base.html:810 templates/index.html:6 templates/index.html:7
 #: templates/settings.html:72 templates/setup.html:54
 msgid "Topics"
 msgstr "Temes"
@@ -309,27 +325,27 @@ msgstr "Selecciona els temes que t'interessen (tots seleccionats per defecte)."
 msgid "Save and continue"
 msgstr "Desar i continuar"
 
-#: templates/partials/article_card.html:31
+#: templates/partials/article_card.html:35
 msgid "Read full story:"
 msgstr "Llegeix l'article complet:"
 
-#: templates/partials/article_card.html:31
+#: templates/partials/article_card.html:35
 msgid "Read full story"
 msgstr "Llegeix l'article complet"
 
-#: templates/partials/article_expanded.html:54
+#: templates/partials/article_expanded.html:55
 msgid "View original article, opens in new tab"
 msgstr "Veure l'article original, s'obre en una pestanya nova"
 
-#: templates/partials/article_expanded.html:54
+#: templates/partials/article_expanded.html:55
 msgid "View original"
 msgstr "Veure l'original"
 
-#: templates/partials/article_expanded.html:62
+#: templates/partials/article_expanded.html:63
 msgid "Show less:"
 msgstr "Veure menys:"
 
-#: templates/partials/article_expanded.html:62
+#: templates/partials/article_expanded.html:63
 msgid "Show less"
 msgstr "Mostrar menys"
 
