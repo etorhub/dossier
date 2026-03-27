@@ -45,6 +45,8 @@ def test_settings_post_only_high_contrast_saves_without_confirmation(
             return_value=False,
         ),
         patch("app.routes.settings.profile_service.save_setup"),
+        patch("app.db.users.get_user_by_id", return_value={"is_admin": False, "email": "t@t.com"}),
+        patch("app.db.users.get_profile", return_value=mock_profile),
     ):
         with client.session_transaction() as sess:
             sess["user_id"] = 1
@@ -82,6 +84,8 @@ def test_settings_post_regeneration_field_saves_when_confirmed(
             return_value=True,
         ),
         patch("app.routes.settings.profile_service.save_setup"),
+        patch("app.db.users.get_user_by_id", return_value={"is_admin": False, "email": "t@t.com"}),
+        patch("app.db.users.get_profile", return_value=mock_profile),
     ):
         with client.session_transaction() as sess:
             sess["user_id"] = 1
@@ -119,7 +123,8 @@ def test_settings_post_regeneration_needed_shows_confirmation(
             return_value=True,
         ),
         patch("app.routes.settings.profile_service.save_setup"),
-        patch("app.db.users.get_user_by_id", return_value={"is_admin": False}),
+        patch("app.db.users.get_user_by_id", return_value={"is_admin": False, "email": "t@t.com"}),
+        patch("app.db.users.get_profile", return_value=mock_profile),
     ):
         with client.session_transaction() as sess:
             sess["user_id"] = 1
