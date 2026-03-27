@@ -109,7 +109,7 @@ def test_fetch_all_due_feeds_inserts_articles(
     ]
     mock_articles.insert_article.return_value = True
 
-    report = fetch_all_due_feeds({})
+    report = fetch_all_due_feeds({"schedule": {"max_article_age_hours": 0}})
 
     assert report.feeds_checked == 1
     assert report.feeds_fetched == 1

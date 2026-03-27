@@ -3,7 +3,9 @@
 import click
 
 from app.config import load_sources
+from app.db import admin as admin_db
 from app.db import sources as sources_db
+from app.db import users as db_users
 
 
 def run_seed_sources(sources_path: str | None = None) -> None:
@@ -62,8 +64,6 @@ def seed_sources(sources_path: str | None) -> None:
 @click.argument("email", type=str)
 def make_admin(email: str) -> None:
     """Grant admin privileges to a user by email."""
-    from app.db import users as db_users
-
     user = db_users.get_user_by_email(email.strip())
     if not user:
         click.echo(f"User not found: {email}")
@@ -77,8 +77,6 @@ def make_admin(email: str) -> None:
 @click.option("--limit", default=50, help="Max failures to show (default: 50)")
 def show_rewrite_failures(hours: int, limit: int) -> None:
     """List recent cluster rewrite failures with reasons (for diagnostics)."""
-    from app.db import admin as admin_db
-
     failures = admin_db.get_recent_rewrite_failures(hours=hours, limit=limit)
     if not failures:
         click.echo(f"No rewrite failures in the last {hours} hours.")

@@ -6,6 +6,8 @@ import json
 import logging
 from typing import TYPE_CHECKING
 
+from app.db import push_subscriptions as push_db
+
 if TYPE_CHECKING:
     from flask import Flask
 
@@ -34,8 +36,6 @@ def notify_users_with_new_stories(story_count: int, app: Flask | None = None) ->
     except ImportError:
         logger.warning("pywebpush not installed — push notifications skipped")
         return
-
-    from app.db import push_subscriptions as push_db
 
     if app is None:
         from flask import current_app

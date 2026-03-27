@@ -93,9 +93,7 @@ class AnthropicLLMProvider(LLMProvider):
                 err_json = e.response.json()
                 if isinstance(err_json, dict) and err_json.get("error"):
                     err = err_json["error"]
-                    detail = (
-                        str(err.get("message", err)) if isinstance(err, dict) else str(err)
-                    )
+                    detail = str(err.get("message", err)) if isinstance(err, dict) else str(err)
             except Exception:
                 detail = e.response.text[:500]
             raise LLMProviderError(detail or str(e)) from e

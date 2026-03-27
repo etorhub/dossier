@@ -42,7 +42,7 @@ jobs:
 
       - name: Publish test results
         uses: dorny/test-reporter@v3
-        if: always()
+        if: success()
         with:
           name: pytest
           path: test-results.xml
