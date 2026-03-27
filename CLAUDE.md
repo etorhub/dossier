@@ -74,6 +74,7 @@ See `docs/TECH_STACK.md` for full details, project structure, dependencies, Dock
 - **Content filtering:** `app/feed/classifier.py` classifies articles as `news` or `non_news` using keyword heuristics (recipes, horoscopes, classifieds, promotions). Applied at fetch time (title + raw_text) and again at enrich time (full text). Non-news articles are stored with `article_type = 'non_news'` and excluded from enrichment, embedding, and clustering. Operators review and override via the ops dashboard.
 - **Packaging:** Docker + docker-compose (db, web, worker, ollama, ops). Web uses slim image; worker uses ollama client; ollama runs models in dedicated container; ops dashboard on port 5001.
 - **Dev tooling:** Ruff (lint/format), Mypy (type check), Pytest, Lefthook (git hooks), Commitizen (conventional commits)
+- **CI pipeline:** GitHub Actions (`.github/workflows/`). CI (lint → type check → test) runs on pull requests targeting `main` or `master` via `pr-ci.yml`. Both branches are protected — merges require the `ci` check to pass. Publish workflows (`deploy.yml` on `main`, `build-pi.yml` on `master`) run unconditionally on push because only code that passed CI can reach those branches. Never move CI checks into the publish workflows and never bypass branch protection.
 
 ---
 
