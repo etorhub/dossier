@@ -5,7 +5,15 @@ from __future__ import annotations
 import json
 import logging
 
-from flask import Blueprint, current_app, make_response, render_template_string, request, send_from_directory, session
+from flask import (
+    Blueprint,
+    current_app,
+    make_response,
+    render_template_string,
+    request,
+    send_from_directory,
+    session,
+)
 
 from app.db import push_subscriptions as push_db
 
