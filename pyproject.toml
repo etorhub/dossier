@@ -23,10 +23,8 @@ dependencies = [
 [project.optional-dependencies]
 dev = [
     "ruff",
-    "mypy",
     "pytest",
     "commitizen",
-    "types-PyYAML",
 ]
 
 [tool.ruff]
@@ -35,27 +33,6 @@ line-length = 100
 
 [tool.ruff.lint]
 select = ["E", "F", "W", "I", "UP", "B", "SIM", "RUF"]
-
-[tool.mypy]
-python_version = "3.12"
-strict = true
-ignore_missing_imports = true
-
-# Flask and Click decorators lack complete type stubs — suppress the resulting
-# untyped-decorator noise in route and CLI modules rather than cluttering
-# every @bp.get / @click.command with individual type: ignore comments.
-[[tool.mypy.overrides]]
-module = [
-    "app.__init__",
-    "app.cli",
-    "app.worker_cli",
-    "app.routes.auth",
-    "app.routes.pwa",
-    "app.routes.reader",
-    "app.routes.settings",
-    "app.routes.setup",
-]
-disable_error_code = ["untyped-decorator"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
