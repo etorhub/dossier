@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+{% block title %}{{ _('Something went wrong') }} — {{ _('Dossier') }}{% endblock %}
+{% block content %}
+<div class="auth-card">
+  <h1>{{ _('Something went wrong') }}</h1>
+  <p>{{ _('An unexpected error occurred. Please try again.') }}</p>
+  <div class="form-actions">
+    <a href="javascript:history.back()" class="btn btn-primary" style="min-height: var(--touch-min);">{{ _('Try again') }}</a>
+    <a href="{{ url_for('reader.index') }}" class="btn" style="min-height: var(--touch-min);">{{ _('Go to feed') }}</a>
+  </div>
+</div>
+{% endblock %}
