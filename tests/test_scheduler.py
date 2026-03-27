@@ -5,7 +5,7 @@ from __future__ import annotations
 import contextlib
 import os
 from dataclasses import dataclass
-from unittest.mock import MagicMock, patch
+from unittest.mock import ANY, MagicMock, patch
 
 import pytest
 
@@ -166,7 +166,13 @@ def test_run_tracked_job_uses_trigger_parameter() -> None:
         mock_log_ctx.return_value.__exit__ = MagicMock(return_value=False)
         _run_tracked_job("my_job", job_fn, trigger="manual")
 
-    mock_insert.assert_called_once_with("my_job", trigger="manual")
+    mock_insert.assert_called_once_with(
+        "my_job",
+        trigger="manual",
+        origin_hostname=ANY,
+        origin_ip=ANY,
+        origin_mode=ANY,
+    )
 
 
 # ---------------------------------------------------------------------------

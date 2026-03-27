@@ -12,7 +12,7 @@
         <th>Status</th>
         <th>Result</th>
         <th>Error</th>
-        <th>Log</th>
+        <th>Machine</th>
       </tr>
     </thead>
     <tbody>
@@ -39,8 +39,8 @@
         </td>
         <td><small>{{ j.error_message[:100] if j.error_message else '—' }}{% if j.error_message and j.error_message|length > 100 %}…{% endif %}</small></td>
         <td>
-          {% if j.log_path %}
-          <a class="btn btn-sm btn-outline-secondary" href="{{ url_for('jobs.job_run_log', job_id=j.id) }}">View</a>
+          {% if j.origin_hostname %}
+          <span title="{{ j.origin_ip or '' }}{% if j.origin_mode %} · {{ j.origin_mode }}{% endif %}">{{ j.origin_hostname }}</span>
           {% else %}—{% endif %}
         </td>
       </tr>

@@ -9,18 +9,26 @@ import psycopg2.extras
 from app.db.connection import get_connection, return_connection
 
 
-def insert_job_run(job_name: str, trigger: str = "scheduled") -> int:
+def insert_job_run(
+    job_name: str,
+    trigger: str = "scheduled",
+    *,
+    origin_hostname: str | None = None,
+    origin_ip: str | None = None,
+    origin_mode: str | None = None,
+) -> int:
     """Insert a job run row. Returns the new id."""
     conn = get_connection()
     try:
         with conn.cursor() as cur:
             cur.execute(
                 """
-                INSERT INTO job_runs (job_name, status, trigger)
-                VALUES (%s, 'running', %s)
+                INSERT INTO job_runs (job_name, status, trigger,
+                                      origin_hostname, origin_ip, origin_mode)
+                VALUES (%s, 'running', %s, %s, %s, %s)
                 RETURNING id
                 """,
-                (job_name, trigger),
+                (job_name, trigger, origin_hostname, origin_ip, origin_mode),
             )
             row = cur.fetchone()
             assert row is not None
@@ -37,7 +45,6 @@ def update_job_run(
     status: str = "success",
     result: dict[str, Any] | None = None,
     error_message: str | None = None,
-    log_path: str | None = None,
 ) -> None:
     """Update a job run with completion data."""
     conn = get_connection()
@@ -50,31 +57,15 @@ def update_job_run(
                     duration_ms = EXTRACT(EPOCH FROM (NOW() - started_at)) * 1000,
                     status = %s,
                     result = %s,
-                    error_message = %s,
-                    log_path = COALESCE(%s, log_path)
+                    error_message = %s
                 WHERE id = %s
                 """,
                 (
                     status,
                     psycopg2.extras.Json(result) if result else None,
                     error_message,
-                    log_path,
                     job_id,
                 ),
-            )
-        conn.commit()
-    finally:
-        return_connection(conn)
-
-
-def set_job_run_log_path(job_id: int, log_path: str) -> None:
-    """Set relative log file path while the job is running (worker only)."""
-    conn = get_connection()
-    try:
-        with conn.cursor() as cur:
-            cur.execute(
-                "UPDATE job_runs SET log_path = %s WHERE id = %s",
-                (log_path, job_id),
             )
         conn.commit()
     finally:
@@ -110,7 +101,8 @@ def get_job_runs_paginated(
             cur.execute(
                 f"""
                 SELECT id, job_name, started_at, finished_at, duration_ms,
-                       status, result, error_message, trigger, log_path
+                       status, result, error_message, trigger,
+                       origin_hostname, origin_ip, origin_mode
                 FROM job_runs
                 WHERE {where_clause}
                 ORDER BY started_at DESC
@@ -159,7 +151,8 @@ def get_last_job_run() -> dict[str, Any] | None:
             cur.execute(
                 """
                 SELECT id, job_name, started_at, finished_at, duration_ms,
-                       status, result, error_message, trigger, log_path
+                       status, result, error_message, trigger,
+                       origin_hostname, origin_ip, origin_mode
                 FROM job_runs
                 ORDER BY started_at DESC
                 LIMIT 1
@@ -179,7 +172,8 @@ def get_job_run_by_id(job_id: int) -> dict[str, Any] | None:
             cur.execute(
                 """
                 SELECT id, job_name, started_at, finished_at, duration_ms,
-                       status, result, error_message, trigger, log_path
+                       status, result, error_message, trigger,
+                       origin_hostname, origin_ip, origin_mode
                 FROM job_runs
                 WHERE id = %s
                 """,
@@ -199,7 +193,8 @@ def get_unfinished_job_run(job_name: str) -> dict[str, Any] | None:
             cur.execute(
                 """
                 SELECT id, job_name, started_at, finished_at, duration_ms,
-                       status, result, error_message, trigger, log_path
+                       status, result, error_message, trigger,
+                       origin_hostname, origin_ip, origin_mode
                 FROM job_runs
                 WHERE job_name = %s AND finished_at IS NULL
                 ORDER BY started_at DESC

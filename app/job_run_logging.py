@@ -9,8 +9,6 @@ from contextlib import contextmanager, suppress
 from pathlib import Path
 from typing import Any
 
-from app.db import admin as admin_db
-
 _LOG_FORMAT = "%(asctime)s %(levelname)s %(name)s: %(message)s"
 _LOG_DATEFMT = "%Y-%m-%d %H:%M:%S"
 
@@ -98,7 +96,6 @@ def job_run_file_logging(
     handler.setFormatter(logging.Formatter(_LOG_FORMAT, _LOG_DATEFMT))
     root_logger = logging.getLogger()
     root_logger.addHandler(handler)
-    admin_db.set_job_run_log_path(job_id, rel)
     try:
         yield full, rel
     finally:
