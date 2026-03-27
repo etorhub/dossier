@@ -5,6 +5,12 @@ on:
     - cron: '0 * * * *'
   workflow_dispatch:
 
+# Use the job token for checkout, push, PRs, and gh — no separate GH_TOKEN secret required.
+permissions:
+  contents: write
+  issues: write
+  pull-requests: write
+
 jobs:
   fix:
     runs-on: ubuntu-latest
@@ -12,7 +18,6 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          token: ${{ secrets.GH_TOKEN }}
           fetch-depth: 0
 
       - uses: actions/setup-python@v5
@@ -38,7 +43,7 @@ jobs:
         run: |
           git config user.name "Claude Code"
           git config user.email "noreply@anthropic.com"
-          git remote set-url origin https://x-access-token:${{ secrets.GH_TOKEN }}@github.com/etorhub/dossier.git
+          git remote set-url origin https://x-access-token:${{ github.token }}@github.com/etorhub/dossier.git
 
       - name: Write agent prompt
         run: |
@@ -160,6 +165,6 @@ jobs:
       - name: Run fix-github-issue agent
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
-          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+          GH_TOKEN: ${{ github.token }}
           RUFF_CACHE_DIR: /tmp/ruff-cache
         run: claude --dangerouslySkipPermissions --print < /tmp/agent-prompt.txt
