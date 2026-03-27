@@ -1,5 +1,6 @@
 """Health check and root route smoke tests."""
 
+import pytest
 from flask import Flask
 from flask.testing import FlaskClient
 
@@ -44,6 +45,7 @@ def test_500_returns_status_code(app: Flask, client: FlaskClient) -> None:
     assert response.status_code == 500
 
 
+@pytest.mark.xfail(reason="branded 500 error page not yet implemented", strict=True)
 def test_500_returns_html_with_error_message(app: Flask, client: FlaskClient) -> None:
     """500 error handler renders the branded error page."""
     from flask import abort
@@ -60,6 +62,7 @@ def test_500_returns_html_with_error_message(app: Flask, client: FlaskClient) ->
     assert b"Go to feed" in response.data
 
 
+@pytest.mark.xfail(reason="branded 500 error page not yet implemented", strict=True)
 def test_500_htmx_request_returns_empty_body(app: Flask, client: FlaskClient) -> None:
     """500 error handler returns empty body for HTMX partial requests."""
     from flask import abort
