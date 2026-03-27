@@ -1,0 +1,42 @@
+name: PR CI
+
+# Runs on every pull request targeting a protected branch.
+# Branch protection requires this check to pass before merging.
+
+on:
+  pull_request:
+    branches: [main, master]
+
+jobs:
+  ci:
+    name: Lint, type check, test
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: |
+            requirements.txt
+            requirements-web.txt
+            pyproject.toml
+
+      - name: Install dependencies
+        run: |
+          pip install --upgrade pip
+          pip install -r requirements.txt -r requirements-web.txt
+          pip install ruff mypy pytest types-PyYAML
+
+      - name: Lint (ruff)
+        run: ruff check .
+
+      - name: Type check (mypy)
+        run: mypy app/
+
+      - name: Test (pytest)
+        run: pytest

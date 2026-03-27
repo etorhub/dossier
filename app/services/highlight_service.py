@@ -67,7 +67,7 @@ def _load_spacy() -> Any | None:
         return _SPACY_NLP
     _SPACY_LOAD_ATTEMPTED = True
     try:
-        import spacy  # type: ignore[import]
+        import spacy
 
         _SPACY_NLP = spacy.load("xx_ent_wiki_sm")
         logger.info("highlight: loaded spaCy xx_ent_wiki_sm")
@@ -119,24 +119,24 @@ def _highlight_ner_spacy(full_text: str) -> str:
     spans.sort()
     # Remove overlapping spans (keep first of each overlapping group)
     clean: list[tuple[int, int]] = []
-    for s, e in spans:
+    for s, end in spans:
         if clean and s < clean[-1][1]:
             continue
-        clean.append((s, e))
+        clean.append((s, end))
 
     # Deduplicate: bold each distinct entity text only once (first occurrence)
     seen: set[str] = set()
     unique: list[tuple[int, int]] = []
-    for s, e in clean:
-        key = full_text[s:e].strip().lower()
+    for s, end in clean:
+        key = full_text[s:end].strip().lower()
         if key and key not in seen:
             seen.add(key)
-            unique.append((s, e))
+            unique.append((s, end))
 
     # Insert markers from end to avoid offset shifts
     chars = list(full_text)
-    for s, e in reversed(unique):
-        chars[s:e] = list(f"**{full_text[s:e]}**")
+    for s, end in reversed(unique):
+        chars[s:end] = list(f"**{full_text[s:end]}**")
     return "".join(chars)
 
 

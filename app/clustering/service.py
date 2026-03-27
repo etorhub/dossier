@@ -92,7 +92,7 @@ def _load_exclusion_rules() -> ExclusionRules:
         elif rt == "source_pair":
             sa, sb = rd.get("source_a"), rd.get("source_b")
             if isinstance(sa, str) and isinstance(sb, str) and sa and sb:
-                k = tuple(sorted((sa.strip(), sb.strip())))
+                k: tuple[str, str] = (min(sa.strip(), sb.strip()), max(sa.strip(), sb.strip()))
                 try:
                     ms = float(rd.get("min_similarity", 0.93))
                 except (TypeError, ValueError):
@@ -152,7 +152,7 @@ def _effective_pair_threshold(
     sa = (art_a.get("source_id") or "").strip()
     sb = (art_b.get("source_id") or "").strip()
     if sa and sb and rules.source_pair_thresholds:
-        key = tuple(sorted((sa, sb)))
+        key: tuple[str, str] = (min(sa, sb), max(sa, sb))
         override = rules.source_pair_thresholds.get(key)
         if override is not None:
             t = max(t, override)
@@ -334,7 +334,9 @@ def _cluster_articles(
     for i in valid_indices:
         for j in valid_indices:
             if i < j:
-                sim[(i, j)] = _cosine_similarity(embeddings[i], embeddings[j])
+                ei, ej = embeddings[i], embeddings[j]
+                if ei is not None and ej is not None:
+                    sim[(i, j)] = _cosine_similarity(ei, ej)
 
     # Start with each valid article as its own group
     groups: list[set[int]] = [{i} for i in valid_indices]

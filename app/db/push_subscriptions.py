@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+from typing import Any
 
 from app.db.connection import get_connection, return_connection
 
@@ -44,7 +45,7 @@ def delete_subscription(endpoint: str) -> None:
         return_connection(conn)
 
 
-def get_all_subscriptions_with_language() -> list[dict]:
+def get_all_subscriptions_with_language() -> list[dict[str, Any]]:
     """Return all subscriptions joined with user language preference."""
     conn = get_connection()
     try:

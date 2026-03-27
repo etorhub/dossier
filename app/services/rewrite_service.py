@@ -340,7 +340,7 @@ def _get_language_label(config: dict[str, Any], lang_id: str) -> str:
     """Return the display label for a language id (e.g. 'en' -> 'English')."""
     for lang in config.get("rewriting", {}).get("languages", []):
         if lang.get("id") == lang_id:
-            return lang.get("label", lang_id)
+            return str(lang.get("label", lang_id))
     return lang_id
 
 

@@ -68,5 +68,19 @@ services:
     command: python -m app.scheduler
     restart: unless-stopped
 
+  ops:
+    build:
+      context: .
+      target: web
+    ports:
+      - "5001:5001"
+    environment:
+      DATABASE_URL: ${DATABASE_URL}
+    volumes:
+      - ./config:/app/config
+      - ./data/job_runs:/app/data/job_runs
+    command: gunicorn -b 0.0.0.0:5001 ops:application
+    restart: unless-stopped
+
 volumes:
   ollama_data:

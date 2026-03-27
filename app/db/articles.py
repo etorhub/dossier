@@ -466,7 +466,7 @@ def abandon_stale_pending_articles(older_than_hours: int) -> int:
             )
             count = cur.rowcount
         conn.commit()
-        return count
+        return int(count)
     finally:
         return_connection(conn)
 

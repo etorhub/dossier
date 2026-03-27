@@ -4,7 +4,7 @@ Do not import this module — it exists only for pybabel extract.
 """
 
 
-def _() -> str:
+def _(*args: object) -> str:
     """Placeholder for extraction; do not call."""
     return ""
 

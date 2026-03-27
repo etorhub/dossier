@@ -13,7 +13,9 @@ def _recency_score(articles: list[dict[str, Any]], half_life_hours: float) -> fl
     """Exponential decay from max(published_at). 1.0 = just now, ~0.5 at half_life hours."""
     if not articles or half_life_hours <= 0:
         return 0.0
-    pubs = [a.get("published_at") for a in articles if a.get("published_at")]
+    pubs: list[datetime] = [
+        pub for a in articles if isinstance(pub := a.get("published_at"), datetime)
+    ]
     if not pubs:
         return 0.0
     latest = max(pubs)
@@ -24,7 +26,7 @@ def _recency_score(articles: list[dict[str, Any]], half_life_hours: float) -> fl
     hours_ago = delta.total_seconds() / 3600.0
     if hours_ago <= 0:
         return 1.0
-    return 0.5 ** (hours_ago / half_life_hours)
+    return float(0.5 ** (hours_ago / half_life_hours))
 
 
 def _coverage_score(articles: list[dict[str, Any]], cap: int) -> float:
@@ -103,7 +105,7 @@ def score_story(
     topic_affinity = _topic_affinity_score(articles, user_topic_ids, sources_catalog)
     content_quality = _content_quality_score(articles)
 
-    return (
+    return float(
         w_recency * recency
         + w_coverage * coverage
         + w_topic * topic_affinity

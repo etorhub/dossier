@@ -7,7 +7,7 @@ providers here — those are not installed in the web/ops container.
 from __future__ import annotations
 
 import json
-from typing import Any
+from typing import Any, cast
 
 from app.db import stories as db_stories
 
@@ -23,7 +23,7 @@ def embedding_from_article(article: dict[str, Any]) -> list[float] | None:
         return emb
     if isinstance(emb, str):
         try:
-            return json.loads(emb)
+            return cast(list[float], json.loads(emb))
         except json.JSONDecodeError:
             return None
     return None
@@ -38,7 +38,7 @@ def cosine_similarity(a: list[float], b: list[float]) -> float:
     norm_b = sum(x * x for x in b) ** 0.5
     if norm_a == 0 or norm_b == 0:
         return 0.0
-    return dot / (norm_a * norm_b)
+    return float(dot / (norm_a * norm_b))
 
 
 def compute_centroid(embeddings: list[list[float]]) -> list[float] | None:

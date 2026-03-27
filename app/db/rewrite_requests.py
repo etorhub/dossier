@@ -1,6 +1,7 @@
 """Rewrite request queue: enqueue on-demand rewrites from web, process in worker."""
 
 from datetime import UTC, datetime
+from typing import Any
 
 import psycopg2.extras
 
@@ -44,7 +45,7 @@ def enqueue_rewrite(user_id: int) -> int | None:
         return_connection(conn)
 
 
-def claim_pending_requests() -> list[dict]:
+def claim_pending_requests() -> list[dict[str, Any]]:
     """Atomically claim pending requests for processing. Returns list of claimed rows.
 
     Uses FOR UPDATE SKIP LOCKED to avoid races when multiple workers exist.
