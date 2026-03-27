@@ -35,7 +35,7 @@ jobs:
         uses: docker/login-action@v3
         with:
           registry: ghcr.io
-          username: ${{ github.actor }}
+          username: ${{ github.repository_owner }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build and push ${{ matrix.target }}
@@ -47,5 +47,6 @@ jobs:
           push: true
           tags: ghcr.io/${{ github.repository }}-${{ matrix.target }}:latest
           # GitHub Actions cache keeps layers between runs — speeds up rebuilds.
+          provenance: false
           cache-from: type=gha,scope=${{ matrix.target }}
           cache-to: type=gha,mode=max,scope=${{ matrix.target }}
