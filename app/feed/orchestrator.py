@@ -128,7 +128,11 @@ def fetch_all_due_feeds(config: dict[str, Any] | None = None) -> FetchReport:
         skipped_stale = 0
         for raw in raw_articles:
             published_at = raw.get("published_at")
-            if cutoff is not None and published_at is not None:
+            if cutoff is not None:
+                if published_at is None:
+                    skipped_stale += 1
+                    last_guid = raw.get("guid") or raw["url"]
+                    continue
                 pub_aware = (
                     published_at.replace(tzinfo=UTC)
                     if published_at.tzinfo is None

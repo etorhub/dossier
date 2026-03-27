@@ -2,7 +2,6 @@
 
 from unittest.mock import patch
 
-import pytest
 from flask.testing import FlaskClient
 
 _SOURCES = [
@@ -138,7 +137,7 @@ def test_setup_post_uses_all_topics_when_none_selected(client: FlaskClient) -> N
             follow_redirects=False,
         )
 
-    _, call_topic_ids = mock_save.call_args.args
+    _, _, call_topic_ids = mock_save.call_args.args
     # Should include all unique topics from sources (sorted)
     assert sorted(call_topic_ids) == ["general", "sports", "technology"]
 

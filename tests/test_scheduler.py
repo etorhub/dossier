@@ -2,14 +2,14 @@
 
 from __future__ import annotations
 
+import contextlib
 import os
 from dataclasses import dataclass
-from unittest.mock import MagicMock, call, patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 
 from app.scheduler import _get_scheduler_mode, _run_tracked_job
-
 
 # ---------------------------------------------------------------------------
 # _get_scheduler_mode
@@ -193,14 +193,11 @@ def test_main_registers_light_jobs_only_in_light_mode() -> None:
         patch.dict(os.environ, {"SCHEDULER_MODE": "light"}),
         patch("app.scheduler.load_config", return_value=config),
         patch("app.scheduler.BlockingScheduler", return_value=mock_scheduler),
-        patch("app.scheduler.mock_scheduler.start", side_effect=SystemExit),
     ):
         from app.scheduler import main
 
-        try:
+        with contextlib.suppress(SystemExit):
             main()
-        except SystemExit:
-            pass
 
     job_ids = [call.kwargs.get("id") for call in mock_scheduler.add_job.call_args_list]
     assert "fetch_feeds" in job_ids
@@ -232,10 +229,8 @@ def test_main_registers_heavy_jobs_only_in_heavy_mode() -> None:
     ):
         from app.scheduler import main
 
-        try:
+        with contextlib.suppress(SystemExit):
             main()
-        except SystemExit:
-            pass
 
     job_ids = [call.kwargs.get("id") for call in mock_scheduler.add_job.call_args_list]
     assert "fetch_feeds" not in job_ids

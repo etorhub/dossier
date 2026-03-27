@@ -17,7 +17,6 @@ from app.llm.gemini_common import (
 )
 from app.llm.provider import LLMProviderError
 
-
 # ---------------------------------------------------------------------------
 # gemini_api_key
 # ---------------------------------------------------------------------------
@@ -32,9 +31,11 @@ def test_gemini_api_key_reads_env_variable() -> None:
 def test_gemini_api_key_raises_when_missing() -> None:
     """gemini_api_key raises ValueError when the env var is absent."""
     env = {k: v for k, v in os.environ.items() if k != "GEMINI_API_KEY"}
-    with patch.dict(os.environ, env, clear=True):
-        with pytest.raises(ValueError, match="GEMINI_API_KEY"):
-            gemini_api_key()
+    with (
+        patch.dict(os.environ, env, clear=True),
+        pytest.raises(ValueError, match="GEMINI_API_KEY"),
+    ):
+        gemini_api_key()
 
 
 # ---------------------------------------------------------------------------
@@ -44,11 +45,7 @@ def test_gemini_api_key_raises_when_missing() -> None:
 
 def test_extract_gemini_text_returns_concatenated_parts() -> None:
     """_extract_gemini_text joins text parts from the first candidate."""
-    data = {
-        "candidates": [
-            {"content": {"parts": [{"text": "Hello "}, {"text": "world"}]}}
-        ]
-    }
+    data = {"candidates": [{"content": {"parts": [{"text": "Hello "}, {"text": "world"}]}}]}
     assert _extract_gemini_text(data) == "Hello world"
 
 
@@ -70,11 +67,7 @@ def test_extract_gemini_text_returns_empty_when_parts_missing() -> None:
 
 def test_extract_gemini_text_skips_parts_without_text_key() -> None:
     """_extract_gemini_text ignores parts that do not have a 'text' key."""
-    data = {
-        "candidates": [
-            {"content": {"parts": [{"inline_data": {}}, {"text": "result"}]}}
-        ]
-    }
+    data = {"candidates": [{"content": {"parts": [{"inline_data": {}}, {"text": "result"}]}}]}
     assert _extract_gemini_text(data) == "result"
 
 
@@ -85,9 +78,7 @@ def test_extract_gemini_text_skips_parts_without_text_key() -> None:
 
 def test_gemini_generate_content_builds_correct_url() -> None:
     """gemini_generate_content calls request_json_with_retries with the expected URL."""
-    response = {
-        "candidates": [{"content": {"parts": [{"text": "generated text"}]}}]
-    }
+    response = {"candidates": [{"content": {"parts": [{"text": "generated text"}]}}]}
     with patch(
         "app.llm.gemini_common.request_json_with_retries", return_value=response
     ) as mock_req:
@@ -106,9 +97,7 @@ def test_gemini_generate_content_builds_correct_url() -> None:
 
 def test_gemini_generate_content_returns_stripped_text() -> None:
     """gemini_generate_content returns stripped text from the response."""
-    response = {
-        "candidates": [{"content": {"parts": [{"text": "  answer  "}]}}]
-    }
+    response = {"candidates": [{"content": {"parts": [{"text": "  answer  "}]}}]}
     with patch("app.llm.gemini_common.request_json_with_retries", return_value=response):
         result = gemini_generate_content(
             model="gemini-2.0-flash",
@@ -175,17 +164,21 @@ def test_gemini_embed_content_returns_float_list() -> None:
 
 def test_gemini_embed_content_raises_on_empty_response() -> None:
     """gemini_embed_content raises ValueError when the response has no embedding."""
-    with patch("app.llm.gemini_common.request_json_with_retries", return_value={}):
-        with pytest.raises(ValueError, match="Empty response"):
-            gemini_embed_content(model="text-embedding-004", text="hello", api_key="k")
+    with (
+        patch("app.llm.gemini_common.request_json_with_retries", return_value={}),
+        pytest.raises(ValueError, match="Empty response"),
+    ):
+        gemini_embed_content(model="text-embedding-004", text="hello", api_key="k")
 
 
 def test_gemini_embed_content_raises_on_empty_values() -> None:
     """gemini_embed_content raises ValueError when values list is empty."""
     response = {"embedding": {"values": []}}
-    with patch("app.llm.gemini_common.request_json_with_retries", return_value=response):
-        with pytest.raises(ValueError, match="Empty embedding"):
-            gemini_embed_content(model="text-embedding-004", text="hello", api_key="k")
+    with (
+        patch("app.llm.gemini_common.request_json_with_retries", return_value=response),
+        pytest.raises(ValueError, match="Empty embedding"),
+    ):
+        gemini_embed_content(model="text-embedding-004", text="hello", api_key="k")
 
 
 # ---------------------------------------------------------------------------

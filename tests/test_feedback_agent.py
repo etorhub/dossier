@@ -2,9 +2,7 @@
 
 from __future__ import annotations
 
-from unittest.mock import MagicMock, patch
-
-import pytest
+from unittest.mock import patch
 
 from app.clustering.feedback_agent import (
     FeedbackReviewReport,
@@ -16,7 +14,6 @@ from app.clustering.feedback_agent import (
     _validate_source_pair,
     run_feedback_review,
 )
-
 
 # ---------------------------------------------------------------------------
 # _excerpt
@@ -104,8 +101,20 @@ def test_parse_llm_json_returns_none_for_empty_string() -> None:
 def test_build_story_block_formats_articles() -> None:
     """_build_story_block includes id, source_id, title, and excerpt for each article."""
     articles = [
-        {"id": "a1", "source_id": "src1", "title": "Article 1", "full_text": "Text one.", "raw_text": ""},
-        {"id": "a2", "source_id": "src2", "title": "Article 2", "full_text": "Text two.", "raw_text": ""},
+        {
+            "id": "a1",
+            "source_id": "src1",
+            "title": "Article 1",
+            "full_text": "Text one.",
+            "raw_text": "",
+        },
+        {
+            "id": "a2",
+            "source_id": "src2",
+            "title": "Article 2",
+            "full_text": "Text two.",
+            "raw_text": "",
+        },
     ]
     block = _build_story_block(articles)
     assert "a1" in block
@@ -140,7 +149,10 @@ def test_build_diagnostics_computes_similarity_when_embeddings_present() -> None
     others = [{"id": "o1", "embedding": vec}]
 
     with (
-        patch("app.clustering.feedback_agent.embedding_from_article", side_effect=lambda a: a.get("embedding")),
+        patch(
+            "app.clustering.feedback_agent.embedding_from_article",
+            side_effect=lambda a: a.get("embedding"),
+        ),
         patch("app.clustering.feedback_agent.cosine_similarity", return_value=0.9999),
     ):
         result = _build_diagnostics(flagged, others)
@@ -233,7 +245,10 @@ def test_validate_source_pair_defaults_similarity_on_invalid_value() -> None:
 def test_run_feedback_review_returns_report_with_no_pending_rows() -> None:
     """run_feedback_review returns a FeedbackReviewReport with zeros when queue is empty."""
     with (
-        patch("app.clustering.feedback_agent.admin_db.get_pending_clustering_feedback", return_value=[]),
+        patch(
+            "app.clustering.feedback_agent.admin_db.get_pending_clustering_feedback",
+            return_value=[],
+        ),
         patch(
             "app.clustering.feedback_agent.apply_article_pair_rules_retroactively",
             return_value=0,
@@ -254,7 +269,10 @@ def test_run_feedback_review_counts_processed_rows() -> None:
         {"id": "f2", "article_id": "a2", "story_id": "s2"},
     ]
     with (
-        patch("app.clustering.feedback_agent.admin_db.get_pending_clustering_feedback", return_value=pending),
+        patch(
+            "app.clustering.feedback_agent.admin_db.get_pending_clustering_feedback",
+            return_value=pending,
+        ),
         patch("app.clustering.feedback_agent._process_one_pending", return_value=False),
         patch(
             "app.clustering.feedback_agent.apply_article_pair_rules_retroactively",
@@ -270,7 +288,10 @@ def test_run_feedback_review_counts_rules_created() -> None:
     """run_feedback_review increments rules_created when _process_one_pending returns True."""
     pending = [{"id": "f1", "article_id": "a1", "story_id": "s1"}]
     with (
-        patch("app.clustering.feedback_agent.admin_db.get_pending_clustering_feedback", return_value=pending),
+        patch(
+            "app.clustering.feedback_agent.admin_db.get_pending_clustering_feedback",
+            return_value=pending,
+        ),
         patch("app.clustering.feedback_agent._process_one_pending", return_value=True),
         patch(
             "app.clustering.feedback_agent.apply_article_pair_rules_retroactively",
@@ -286,9 +307,17 @@ def test_run_feedback_review_handles_exception_in_process_one_pending() -> None:
     """run_feedback_review catches exceptions from _process_one_pending and marks as failed."""
     pending = [{"id": "f1", "article_id": "a1", "story_id": "s1"}]
     with (
-        patch("app.clustering.feedback_agent.admin_db.get_pending_clustering_feedback", return_value=pending),
-        patch("app.clustering.feedback_agent._process_one_pending", side_effect=RuntimeError("boom")),
-        patch("app.clustering.feedback_agent.admin_db.update_clustering_feedback_review") as mock_update,
+        patch(
+            "app.clustering.feedback_agent.admin_db.get_pending_clustering_feedback",
+            return_value=pending,
+        ),
+        patch(
+            "app.clustering.feedback_agent._process_one_pending",
+            side_effect=RuntimeError("boom"),
+        ),
+        patch(
+            "app.clustering.feedback_agent.admin_db.update_clustering_feedback_review"
+        ) as mock_update,
         patch(
             "app.clustering.feedback_agent.apply_article_pair_rules_retroactively",
             return_value=0,
@@ -306,7 +335,10 @@ def test_run_feedback_review_handles_exception_in_process_one_pending() -> None:
 def test_run_feedback_review_includes_retroactive_removals() -> None:
     """run_feedback_review includes retroactive removal count in report."""
     with (
-        patch("app.clustering.feedback_agent.admin_db.get_pending_clustering_feedback", return_value=[]),
+        patch(
+            "app.clustering.feedback_agent.admin_db.get_pending_clustering_feedback",
+            return_value=[],
+        ),
         patch(
             "app.clustering.feedback_agent.apply_article_pair_rules_retroactively",
             return_value=3,

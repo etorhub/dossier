@@ -6,7 +6,6 @@ import bcrypt
 import pytest
 
 from app.services.auth_service import authenticate_user, register_user
-from app.llm.provider import LLMProviderError
 
 
 def _make_hash(password: str) -> str:
@@ -37,9 +36,11 @@ def test_register_user_creates_user_when_email_free() -> None:
 def test_register_user_raises_when_email_taken() -> None:
     """register_user raises ValueError when the email already exists."""
     existing = {"id": 1, "email": "taken@example.com"}
-    with patch("app.services.auth_service.users.get_user_by_email", return_value=existing):
-        with pytest.raises(ValueError, match="already registered"):
-            register_user("taken@example.com", "password123")
+    with (
+        patch("app.services.auth_service.users.get_user_by_email", return_value=existing),
+        pytest.raises(ValueError, match="already registered"),
+    ):
+        register_user("taken@example.com", "password123")
 
 
 # ---------------------------------------------------------------------------

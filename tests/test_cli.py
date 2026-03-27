@@ -2,13 +2,11 @@
 
 from __future__ import annotations
 
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
-import pytest
 from click.testing import CliRunner
 
 from app.cli import make_admin, run_seed_sources, show_rewrite_failures
-
 
 # ---------------------------------------------------------------------------
 # run_seed_sources (the underlying function, not the CLI decorator)
@@ -149,9 +147,7 @@ def test_seed_sources_cli_command_runs_successfully() -> None:
         patch("app.cli.sources_db.delete_feeds_for_source"),
         patch("app.cli.sources_db.insert_feed"),
     ):
-        result = runner.invoke(
-            __import__("app.cli", fromlist=["seed_sources"]).seed_sources
-        )
+        result = runner.invoke(__import__("app.cli", fromlist=["seed_sources"]).seed_sources)
     assert result.exit_code == 0
     assert "Seeded 1 sources" in result.output
 
