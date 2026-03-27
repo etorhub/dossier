@@ -10,6 +10,7 @@ from dotenv import load_dotenv
 from flask import Flask, Response, redirect, render_template, request, session, url_for
 from flask_babel import Babel
 from markupsafe import Markup
+from werkzeug.middleware.proxy_fix import ProxyFix
 
 from app.cli import make_admin, seed_sources, show_rewrite_failures
 from app.config import load_config
@@ -45,6 +46,7 @@ def get_locale() -> str:
 def create_app(config_path: str | Path | None = None) -> Flask:
     """Create and configure the Flask application."""
     app = Flask(__name__, template_folder="../templates")
+    app.wsgi_app = ProxyFix(app.wsgi_app, x_proto=1, x_host=1)  # type: ignore[method-assign]
     app.config["CONFIG"] = load_config(config_path)
     app.config["SECRET_KEY"] = os.environ.get("SECRET_KEY", "dev-secret-key-change-in-production")
     app.config["VAPID_PUBLIC_KEY"] = os.environ.get("VAPID_PUBLIC_KEY", "")
