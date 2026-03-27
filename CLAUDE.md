@@ -164,6 +164,15 @@ For automated news source discovery (finding feeds by location, validation, qual
 
 ---
 
+## Environment Quirks
+
+- **Alembic**: run via `.venv/bin/python3 -m alembic`, not `.venv/bin/alembic` (shebang points to a stale path).
+- **Alembic revision IDs**: use simple numeric strings (`"031"`, `"032"`) matching the existing chain — hex IDs collide and cause `Cycle detected` errors.
+- **ruff cache**: if `git commit` fails with "Permission denied" on `.ruff_cache/`, prefix with `RUFF_CACHE_DIR=/tmp/ruff_cache`.
+- **Neon migrations**: use the direct endpoint (no `-pooler` suffix) — Alembic needs real Postgres connections, not PgBouncer.
+
+---
+
 ## Out of Scope (for now)
 
 - Paywalled content bypass
