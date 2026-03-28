@@ -20,7 +20,7 @@
 
 services:
   web:
-    image: ghcr.io/etorhub/dossier-web:latest
+    image: ghcr.io/etorhub/dossier:web
     labels:
       - com.centurylinklabs.watchtower.scope=dossier
     ports:
@@ -35,7 +35,7 @@ services:
     restart: unless-stopped
 
   worker:
-    image: ghcr.io/etorhub/dossier-worker:latest
+    image: ghcr.io/etorhub/dossier:worker
     labels:
       - com.centurylinklabs.watchtower.scope=dossier
     environment:
@@ -50,7 +50,7 @@ services:
     restart: unless-stopped
 
   ops:
-    image: ghcr.io/etorhub/dossier-ops:latest
+    image: ghcr.io/etorhub/dossier:ops
     labels:
       - com.centurylinklabs.watchtower.scope=dossier
     environment:
