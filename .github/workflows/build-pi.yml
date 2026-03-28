@@ -17,6 +17,9 @@ jobs:
 
     strategy:
       matrix:
+        # Each target becomes a tag on the single ghcr.io/etorhub/dossier package.
+        # The package name matches the repository name so GITHUB_TOKEN has automatic
+        # write access without any manual package-linking step.
         target: [web, worker, ops]
 
     steps:
@@ -45,10 +48,10 @@ jobs:
           target: ${{ matrix.target }}
           platforms: linux/arm64
           push: true
-          tags: ghcr.io/${{ github.repository }}-${{ matrix.target }}:latest
-          # GitHub Actions cache keeps layers between runs — speeds up rebuilds.
+          # Tag format: ghcr.io/etorhub/dossier:web  (package name = repo name)
+          tags: ghcr.io/${{ github.repository }}:${{ matrix.target }}
           provenance: false
-          # Link the package to this repository so GITHUB_TOKEN has write access.
           labels: org.opencontainers.image.source=https://github.com/${{ github.repository }}
+          # GitHub Actions cache keeps layers between runs — speeds up rebuilds.
           cache-from: type=gha,scope=${{ matrix.target }}
           cache-to: type=gha,mode=max,scope=${{ matrix.target }}
