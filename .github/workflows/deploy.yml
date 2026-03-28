@@ -29,7 +29,7 @@ jobs:
         uses: docker/login-action@v3
         with:
           registry: ghcr.io
-          username: ${{ github.actor }}
+          username: ${{ github.repository_owner }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
       # Build base stage first and cache it — web, worker, and ops all inherit from it.
@@ -53,6 +53,7 @@ jobs:
           push: true
           tags: ghcr.io/${{ github.repository_owner }}/dossier-web:latest
           provenance: false
+          labels: org.opencontainers.image.source=https://github.com/${{ github.repository }}
           cache-from: |
             type=gha,scope=dossier-base
             type=gha,scope=dossier-web
@@ -67,6 +68,7 @@ jobs:
           push: true
           tags: ghcr.io/${{ github.repository_owner }}/dossier-worker:latest
           provenance: false
+          labels: org.opencontainers.image.source=https://github.com/${{ github.repository }}
           cache-from: |
             type=gha,scope=dossier-base
             type=gha,scope=dossier-worker
@@ -81,6 +83,7 @@ jobs:
           push: true
           tags: ghcr.io/${{ github.repository_owner }}/dossier-ops:latest
           provenance: false
+          labels: org.opencontainers.image.source=https://github.com/${{ github.repository }}
           cache-from: |
             type=gha,scope=dossier-base
             type=gha,scope=dossier-ops
