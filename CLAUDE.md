@@ -68,7 +68,7 @@ See `docs/TECH_STACK.md` for full details, project structure, dependencies, Dock
 - **Backend:** Python 3.12+ with Flask
 - **Database:** PostgreSQL 18
 - **LLM:** Ollama (local, no API key) via provider interface — text generation and embeddings
-- **Embeddings:** Ollama (nomic-embed-text) for article clustering
+- **Embeddings:** Ollama (bge-m3) for article clustering
 - **Frontend:** Plain HTML + CSS + HTMX
 - **Scheduling:** APScheduler runs a five-stage pipeline in the worker: fetch feeds → enrich (extract full text) → embed → cluster → rewrite. The rewrite stage uses a cascade: generate neutral EN from sources, simplify to simple EN, translate both to other languages. Content is ready when the user opens the app.
 - **Content filtering:** `app/feed/classifier.py` classifies articles as `news` or `non_news` using keyword heuristics (recipes, horoscopes, classifieds, promotions). Applied at fetch time (title + raw_text) and again at enrich time (full text). Non-news articles are stored with `article_type = 'non_news'` and excluded from enrichment, embedding, and clustering. Operators review and override via the ops dashboard.

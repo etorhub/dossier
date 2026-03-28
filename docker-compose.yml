@@ -38,7 +38,7 @@ services:
       [
         "sh",
         "-c",
-        "set -eu && echo 'ollama-init: pulling models (first start can take a while)...' && ollama pull qwen2.5:7b && ollama pull qwen2.5:3b && ollama pull nomic-embed-text && echo 'ollama-init: pulls complete.'",
+        "set -eu && echo 'ollama-init: pulling models (first start can take a while)...' && ollama pull qwen2.5:7b && ollama pull qwen2.5:3b && ollama pull bge-m3 && echo 'ollama-init: pulls complete.'",
       ]
     restart: "no"
 

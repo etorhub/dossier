@@ -45,7 +45,7 @@ services:
       [
         "sh",
         "-c",
-        "set -eu && ollama pull qwen2.5:7b && ollama pull qwen2.5:3b && ollama pull nomic-embed-text && echo 'ollama-init: done.'",
+        "set -eu && ollama pull qwen2.5:7b && ollama pull qwen2.5:3b && ollama pull bge-m3 && echo 'ollama-init: done.'",
       ]
     restart: "no"
 

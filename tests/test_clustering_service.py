@@ -186,7 +186,7 @@ def test_run_cluster_and_embed_uses_assignment_threshold_for_existing_stories() 
         },
         "extraction": {"cluster_gate_max_pending": 5},
     }
-    article = {"id": "art1", "embedding": [0.1] * 768, "source_id": "src1"}
+    article = {"id": "art1", "embedding": [0.1] * 1024, "source_id": "src1"}
     with (
         patch(
             "app.clustering.service.db_articles.get_recent_articles_without_embedding",

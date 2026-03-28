@@ -226,7 +226,7 @@ Install [Ollama](https://ollama.com/) and pull models (defaults match [config/ap
 ```bash
 ollama pull qwen2.5:7b
 ollama pull qwen2.5:3b
-ollama pull nomic-embed-text
+ollama pull bge-m3
 ```
 
 Ensure `ollama serve` is running (often as a system service).
