@@ -43,7 +43,7 @@ rewriting:
 
 embeddings:
   provider: ollama
-  model: nomic-embed-text
+  model: bge-m3
   host: http://ollama:11434
   max_retries: 3
   max_input_chars: 8000

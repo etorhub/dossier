@@ -28,7 +28,7 @@ flowchart TD
 
     subgraph EMBED["③ EMBED  ·  hourly :15"]
         EM1["Build embedding text\n(topics + categories + title + body)"]
-        EM2["Ollama nomic-embed-text\n→ 768-dim vector"]
+        EM2["Ollama bge-m3\n→ 1024-dim vector"]
         EM1 --> EM2
     end
 
@@ -160,7 +160,7 @@ Non-news articles (`article_type = 'non_news'`) are stored but excluded from eve
    Article title here. First 2000 characters of body…
    ```
    Topic labels come from the source's entry in `sources.yaml` (e.g. a politics-only outlet gets `topics: politics` prepended). This biases the vector space so domain-exclusive sources cluster with topically similar ones rather than drifting toward general-purpose outlets.
-3. Call `Ollama nomic-embed-text` → 768-dimensional float vector.
+3. Call `Ollama bge-m3` → 1024-dimensional float vector.
 4. Store as `articles.embedding` (JSONB).
 
 ### Inputs → Outputs
@@ -174,7 +174,7 @@ Non-news articles (`article_type = 'non_news'`) are stored but excluded from eve
 
 | Key | Default | Effect |
 |---|---|---|
-| `embeddings.model` | `nomic-embed-text` | Ollama model |
+| `embeddings.model` | `bge-m3` | Ollama model |
 | `embeddings.max_input_chars` | 8000 | Truncate before sending |
 | `processing.embed_batch_size` | 0 (unlimited) | Cap articles per run |
 
@@ -328,7 +328,7 @@ Runs after REWRITE so it always operates on the final translated/simplified outp
 
 | Table | Key columns | Role |
 |---|---|---|
-| `articles` | id, source_id, title, url, raw_text, full_text, image_url, image_source, article_type, **embedding** (JSONB), published_at | One row per RSS item. `embedding` stores the 768-dim vector. |
+| `articles` | id, source_id, title, url, raw_text, full_text, image_url, image_source, article_type, **embedding** (JSONB), published_at | One row per RSS item. `embedding` stores the 1024-dim vector. |
 | `stories` | id (UUID), **centroid_embedding** (JSONB), **needs_rewrite** (bool), created_at | Groups ≥ 2 articles from different sources about the same event. |
 | `story_articles` | story_id, article_id, position | Many-to-many membership table. |
 | `story_rewrites` | story_id, style, language, title, summary, full_text, highlighted_full_text, rewrite_failed, error_message | One row per `(story, style, language)` variant. The web layer reads from here. |

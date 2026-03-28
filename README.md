@@ -42,7 +42,7 @@ Neither the end user nor anyone acting on their behalf ever touches the codebase
 
 ### Setup
 
-The **Ollama** service is optional in Compose (profile `local-llm`). Clustering, embeddings, and rewrites need a reachable Ollama. [`.env.example`](.env.example) sets `COMPOSE_PROFILES=local-llm` so a copied `.env` starts Ollama in Docker and runs **`ollama-init`** once per `up` (pulls `qwen2.5:7b`, `qwen2.5:3b`, `nomic-embed-text` into the `ollama_data` volume). The **worker** waits for that init to finish before running. Model pull happens at **container start**, not during `docker build`.
+The **Ollama** service is optional in Compose (profile `local-llm`). Clustering, embeddings, and rewrites need a reachable Ollama. [`.env.example`](.env.example) sets `COMPOSE_PROFILES=local-llm` so a copied `.env` starts Ollama in Docker and runs **`ollama-init`** once per `up` (pulls `qwen2.5:7b`, `qwen2.5:3b`, `bge-m3` into the `ollama_data` volume). The **worker** waits for that init to finish before running. Model pull happens at **container start**, not during `docker build`.
 
 **With Ollama in Docker** (typical):
 
