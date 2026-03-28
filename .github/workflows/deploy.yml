@@ -13,6 +13,10 @@ jobs:
     name: Build and push ARM64 images
     runs-on: ubuntu-latest
 
+    strategy:
+      matrix:
+        target: [web, worker, ops]
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -25,66 +29,27 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
+      # GHCR_TOKEN must be a classic PAT with write:packages scope.
+      # Create one at https://github.com/settings/tokens and store it as
+      # a repository secret named GHCR_TOKEN.
+      # GITHUB_TOKEN cannot push to packages whose name differs from the
+      # repository name (dossier-web ≠ dossier), so a PAT is required.
       - name: Log in to ghcr.io
         uses: docker/login-action@v3
         with:
           registry: ghcr.io
           username: ${{ github.repository_owner }}
-          password: ${{ secrets.GITHUB_TOKEN }}
+          password: ${{ secrets.GHCR_TOKEN }}
 
-      # Build base stage first and cache it — web, worker, and ops all inherit from it.
-      - name: Prime base layer cache
+      - name: Build and push ${{ matrix.target }} image
         uses: docker/build-push-action@v6
         with:
           context: .
-          target: base
-          platforms: linux/arm64
-          push: false
-          provenance: false
-          cache-from: type=gha,scope=dossier-base
-          cache-to: type=gha,scope=dossier-base,mode=max
-
-      - name: Build and push web image
-        uses: docker/build-push-action@v6
-        with:
-          context: .
-          target: web
+          target: ${{ matrix.target }}
           platforms: linux/arm64
           push: true
-          tags: ghcr.io/${{ github.repository_owner }}/dossier-web:latest
+          tags: ghcr.io/${{ github.repository_owner }}/dossier-${{ matrix.target }}:latest
           provenance: false
           labels: org.opencontainers.image.source=https://github.com/${{ github.repository }}
-          cache-from: |
-            type=gha,scope=dossier-base
-            type=gha,scope=dossier-web
-          cache-to: type=gha,scope=dossier-web,mode=max
-
-      - name: Build and push worker image
-        uses: docker/build-push-action@v6
-        with:
-          context: .
-          target: worker
-          platforms: linux/arm64
-          push: true
-          tags: ghcr.io/${{ github.repository_owner }}/dossier-worker:latest
-          provenance: false
-          labels: org.opencontainers.image.source=https://github.com/${{ github.repository }}
-          cache-from: |
-            type=gha,scope=dossier-base
-            type=gha,scope=dossier-worker
-          cache-to: type=gha,scope=dossier-worker,mode=max
-
-      - name: Build and push ops image
-        uses: docker/build-push-action@v6
-        with:
-          context: .
-          target: ops
-          platforms: linux/arm64
-          push: true
-          tags: ghcr.io/${{ github.repository_owner }}/dossier-ops:latest
-          provenance: false
-          labels: org.opencontainers.image.source=https://github.com/${{ github.repository }}
-          cache-from: |
-            type=gha,scope=dossier-base
-            type=gha,scope=dossier-ops
-          cache-to: type=gha,scope=dossier-ops,mode=max
+          cache-from: type=gha,scope=${{ matrix.target }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.target }}
