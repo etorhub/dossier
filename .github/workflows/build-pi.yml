@@ -48,5 +48,7 @@ jobs:
           tags: ghcr.io/${{ github.repository }}-${{ matrix.target }}:latest
           # GitHub Actions cache keeps layers between runs — speeds up rebuilds.
           provenance: false
+          # Link the package to this repository so GITHUB_TOKEN has write access.
+          labels: org.opencontainers.image.source=https://github.com/${{ github.repository }}
           cache-from: type=gha,scope=${{ matrix.target }}
           cache-to: type=gha,mode=max,scope=${{ matrix.target }}
