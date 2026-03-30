@@ -4,6 +4,9 @@
 # Usage (with GPU):
 #   COMPOSE_PROFILES=local-llm docker compose -f docker-compose.heavy.yml up -d
 #
+# Usage (CPU only — e.g. Oracle Cloud free tier, no NVIDIA GPU):
+#   COMPOSE_PROFILES=local-llm docker compose -f docker-compose.heavy.yml -f docker-compose.cpu.yml up -d
+#
 # Required .env:
 #   DATABASE_URL=postgresql://user:pass@ep-xxx.neon.tech/dossier?sslmode=require
 #   SECRET_KEY=<same key as Pi>
@@ -66,20 +69,6 @@ services:
       - ./config:/app/config
       - ./data/job_runs:/app/data/job_runs
     command: python -m app.scheduler
-    restart: unless-stopped
-
-  ops:
-    build:
-      context: .
-      target: web
-    ports:
-      - "5001:5001"
-    environment:
-      DATABASE_URL: ${DATABASE_URL}
-    volumes:
-      - ./config:/app/config
-      - ./data/job_runs:/app/data/job_runs
-    command: gunicorn -b 0.0.0.0:5001 ops:application
     restart: unless-stopped
 
 volumes:
