@@ -53,6 +53,10 @@ services:
     restart: "no"
 
   worker:
+    # To use the pre-built ARM64 image from GHCR instead of building locally
+    # (same image used by docker-compose.pi.yml — works on Oracle A1 and any ARM64 host):
+    #   image: ghcr.io/etorhub/dossier:worker
+    # Then comment out the build: block below.
     build:
       context: .
       target: worker
