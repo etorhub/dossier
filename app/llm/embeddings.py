@@ -134,10 +134,15 @@ class OllamaEmbeddingProvider(EmbeddingProvider):
 
 
 def get_embedding_provider(config: dict[str, Any] | None = None) -> EmbeddingProvider:
-    """Return the configured embedding provider (Ollama or Gemini)."""
+    """Return the configured embedding provider (Ollama or Gemini).
+
+    EMBEDDING_PROVIDER env var overrides embeddings.provider in config/app.yaml.
+    """
     cfg = config or load_config()
     embeddings_cfg = cfg.get("embeddings", {})
-    provider_name = (embeddings_cfg.get("provider") or "ollama").lower()
+    provider_name = (
+        os.environ.get("EMBEDDING_PROVIDER") or embeddings_cfg.get("provider") or "ollama"
+    ).lower()
     if provider_name == "ollama":
         model = embeddings_cfg.get("model") or "bge-m3"
         host = embeddings_cfg.get("host") or os.environ.get("OLLAMA_HOST") or "http://ollama:11434"

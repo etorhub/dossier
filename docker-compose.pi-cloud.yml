@@ -1,0 +1,85 @@
+# Full-stack compose — web UI + all pipeline stages — using cloud LLM APIs.
+# No Ollama required. Runs on any machine with ~512 MB RAM:
+#   Raspberry Pi 4 / Pi 5, Oracle E2.1.Micro, any small VPS.
+#
+# LLM:        Groq API   (fast, free tier covers personal use — groq.com/keys)
+# Embeddings: Gemini API (free tier, 1M tokens/day — aistudio.google.com/apikey)
+#
+# Usage:
+#   docker compose -f docker-compose.pi-cloud.yml up -d
+#
+# Required .env:
+#   DATABASE_URL=postgresql://user:pass@ep-xxx.neon.tech/dossier?sslmode=require
+#   SECRET_KEY=<strong-random-key>
+#   GROQ_API_KEY=<your-groq-api-key>
+#   GEMINI_API_KEY=<your-gemini-api-key>
+#
+# GHCR images are ARM64. On x86_64 machines, build locally instead:
+#   replace `image: ghcr.io/...` with `build: { context: ., target: <web|worker|ops> }`
+# Log in to GHCR before first start: docker login ghcr.io -u <user> --password-stdin
+
+services:
+  web:
+    image: ghcr.io/etorhub/dossier:web
+    labels:
+      - com.centurylinklabs.watchtower.scope=dossier
+    ports:
+      - '5000:5000'
+    environment:
+      DATABASE_URL: ${DATABASE_URL}
+      SECRET_KEY: ${SECRET_KEY}
+    volumes:
+      - ./config:/app/config
+    # -w 1: single gunicorn worker to stay within 1 GB RAM budget.
+    command: sh -c "flask seed-sources && gunicorn -w 1 -b 0.0.0.0:5000 app:application"
+    restart: unless-stopped
+
+  worker:
+    image: ghcr.io/etorhub/dossier:worker
+    labels:
+      - com.centurylinklabs.watchtower.scope=dossier
+    environment:
+      DATABASE_URL: ${DATABASE_URL}
+      GROQ_API_KEY: ${GROQ_API_KEY}
+      GEMINI_API_KEY: ${GEMINI_API_KEY}
+      # Route all LLM calls to Groq; embeddings to Gemini. No local Ollama needed.
+      LLM_PROVIDER: groq
+      # llama-3.1-8b-instant: fastest, free, good quality for rewrite/translate.
+      # llama-3.3-70b-versatile: higher quality, still free, ~3× slower.
+      LLM_MODEL: llama-3.1-8b-instant
+      EMBEDDING_PROVIDER: gemini
+      # All pipeline stages: fetch, enrich, cluster, rewrite, highlight.
+      SCHEDULER_MODE: full
+    volumes:
+      - ./config:/app/config
+      - ./data/job_runs:/app/data/job_runs
+    command: python -m app.scheduler
+    restart: unless-stopped
+
+  ops:
+    image: ghcr.io/etorhub/dossier:ops
+    labels:
+      - com.centurylinklabs.watchtower.scope=dossier
+    environment:
+      DATABASE_URL: ${DATABASE_URL}
+      SECRET_KEY: ${SECRET_KEY}
+    volumes:
+      - ./config:/app/config
+      - ./data/job_runs:/app/data/job_runs
+    # No port binding — expose via Cloudflare Tunnel or SSH tunnel if needed.
+    restart: unless-stopped
+
+  watchtower:
+    image: containrrr/watchtower
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      # Reuse the credentials from `docker login ghcr.io` run during setup.
+      - ~/.docker:/config:ro
+    environment:
+      DOCKER_CONFIG: /config
+      DOCKER_API_VERSION: '1.40'
+      WATCHTOWER_POLL_INTERVAL: '60'
+      WATCHTOWER_CLEANUP: 'true'
+      WATCHTOWER_SCOPE: dossier
+    command: --scope dossier
+    restart: unless-stopped

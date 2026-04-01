@@ -4,7 +4,12 @@ paths:
   job_run_logs: data/job_runs
 
 llm:
+  # Provider: ollama | groq | gemini | anthropic | vllm
+  # Override at deploy time with the LLM_PROVIDER env var (no YAML edit needed).
   provider: ollama
+  # Fallback model for any task without its own entry below.
+  # For Groq use e.g. llama-3.1-8b-instant or llama-3.3-70b-versatile.
+  # Override all task models at once with the LLM_MODEL env var.
   model: qwen2.5:7b # fallback for any task without its own model
   # Per-task models (cascade: rewrite → simplify → translate). Fall back to model when unset.
   rewrite_model: qwen2.5:7b # merge sources → neutral EN (hardest task, use best model)
@@ -42,8 +47,10 @@ rewriting:
   default_language: es
 
 embeddings:
+  # Provider: ollama | gemini. Override with EMBEDDING_PROVIDER env var.
+  # Use gemini when running without local Ollama (requires GEMINI_API_KEY).
   provider: ollama
-  model: bge-m3
+  model: bge-m3 # Gemini default: text-embedding-004 (set automatically when provider=gemini)
   host: http://ollama:11434
   max_retries: 3
   max_input_chars: 8000

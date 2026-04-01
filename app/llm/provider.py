@@ -111,17 +111,30 @@ def get_provider(
     config: dict[str, Any] | None = None,
     task: str | None = None,
 ) -> LLMProvider:
-    """Return the configured LLM provider (Ollama, Gemini, Anthropic, or vLLM-compatible).
+    """Return the configured LLM provider (Ollama, Groq, Gemini, Anthropic, or vLLM-compatible).
 
     task: optional task name ('rewrite', 'simplify', 'translate').
     Uses llm.{task}_model if set, otherwise falls back to llm.model.
+
+    Environment variable overrides (take precedence over config/app.yaml):
+      LLM_PROVIDER — provider name (ollama | groq | gemini | anthropic | vllm)
+      LLM_MODEL    — model name for all tasks; useful when switching providers
+                     (e.g. LLM_MODEL=llama-3.1-8b-instant for Groq)
     """
     if config is None:
         config = load_config()
     llm = config.get("llm", {})
-    provider_name = (llm.get("provider") or "ollama").lower()
-    fallback_model = llm.get("model") or "qwen2.5:7b"
-    model = llm.get(f"{task}_model") or fallback_model if task else fallback_model
+    provider_name = (os.environ.get("LLM_PROVIDER") or llm.get("provider") or "ollama").lower()
+
+    # LLM_MODEL overrides all per-task models; useful when the provider's model names
+    # differ from the Ollama defaults stored in config/app.yaml.
+    env_model = os.environ.get("LLM_MODEL", "").strip() or None
+    if env_model:
+        model = env_model
+    elif task:
+        model = llm.get(f"{task}_model") or llm.get("model") or "qwen2.5:7b"
+    else:
+        model = llm.get("model") or "qwen2.5:7b"
 
     if provider_name == "ollama":
         host = llm.get("host") or os.environ.get("OLLAMA_HOST") or "http://ollama:11434"
@@ -130,6 +143,21 @@ def get_provider(
         # Default matches config/app.yaml — avoids indefinite blocking when key is omitted.
         timeout = float(raw_timeout) if raw_timeout is not None else 300.0
         return OllamaProvider(model=model, host=host, max_retries=retries, timeout=timeout)
+    if provider_name == "groq":
+        from app.llm.vllm_provider import VllmOpenAIProvider
+
+        api_key = os.environ.get("GROQ_API_KEY", "").strip()
+        if not api_key:
+            raise LLMProviderError(
+                "GROQ_API_KEY environment variable is required when LLM_PROVIDER=groq"
+            )
+        cfg = {
+            **llm,
+            "model": model,
+            "api_base": "https://api.groq.com/openai/v1",
+            "api_key": api_key,
+        }
+        return VllmOpenAIProvider.from_llm_config(cfg)
     if provider_name == "gemini":
         from app.llm.gemini import GeminiLLMProvider
 
