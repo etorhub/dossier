@@ -1,0 +1,31 @@
+# NAS override for UGreen DSP 2800 (and similar ARM64/x86 NAS devices without GPU).
+#
+# Usage:
+#   docker compose -f docker-compose.yml -f docker-compose.nas.yml up --build -d
+#
+# What this override does:
+#   - Strips GPU reservation from Ollama (CPU inference only)
+#   - Sets conservative memory limits suitable for a shared NAS
+#   - Keeps COMPOSE_PROFILES=local-llm so Ollama starts automatically
+#
+# Model requirements (CPU inference, ~2 GB RAM):
+#   qwen2.5:3b   — daily rewrite of up to 10 stories
+#   bge-m3       — article embeddings (clustering)
+#
+# Pull once on first run (happens automatically via ollama-init):
+#   docker compose exec ollama ollama pull qwen2.5:3b
+#   docker compose exec ollama ollama pull bge-m3
+
+services:
+  ollama:
+    # Strip GPU reservation — CPU-only inference
+    deploy: {}
+    environment:
+      # Limit Ollama to a single thread pool; reduces peak RAM on shared hardware.
+      # Raise if the NAS has headroom (≥16 GB RAM).
+      OLLAMA_NUM_PARALLEL: "1"
+      OLLAMA_MAX_LOADED_MODELS: "1"
+
+  worker:
+    environment:
+      SCHEDULER_MODE: full

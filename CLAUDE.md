@@ -1,44 +1,50 @@
 # CLAUDE.md — Dossier
 
-Context document for an AI-powered news aggregator that puts quality and clarity first.
+Personal daily news digest — curated, rewritten in Catalan, delivered once a day.
 
 ---
 
 ## Problem Statement
 
-Most news interfaces are built for engagement, not comprehension. They are cluttered, dense, and optimised to keep users scrolling rather than to leave them informed. Raw feeds mix sources of varying quality, introduce translation artefacts, and reproduce the noise of the original publication without filtering any of it.
+Most news interfaces are built for engagement, not comprehension. They are cluttered, dense, and optimised to keep users scrolling. This project takes a different approach: a curated **daily digest** delivered once a day — the 10 most relevant stories, rewritten in clean Catalan, ready to read in 5 minutes.
 
-The content itself is often fine. The presentation is the problem. This project places an LLM between raw news and the reader, merging multiple sources on the same event into a single well-written article and presenting it in a clean, distraction-free interface.
+The pipeline runs automatically. Once a day at 6:00 the worker scores all clustered stories, picks the top 10 by relevance (recency + multi-source coverage), rewrites them via LLM, and sends a push notification: "El teu dossier d'avui és aquí". No feed to scroll, no notifications every hour, no noise.
 
 ---
 
 ## Who We Are Building For
 
-The target is a general audience: anyone who wants to read the news without the noise. Users configure their own feed. A family member or caregiver can optionally set up an account on behalf of someone else.
+**This is a personal tool, built for personal use.** The deployment is a self-hosted NAS (UGreen DSP 2800); the content is in Catalan; the digest runs once a day in the morning. The database and auth system support multiple accounts (useful for testing and for family members who might use it), but the design priority is a single user who wants a clean, fast, daily news briefing.
 
-**Neither the end user nor anyone acting on their behalf ever accesses the codebase.** Both access the platform (web app) only. Their only requirement is to create a user account. This shapes every decision about onboarding, profile management, and configuration.
+**Neither the end user nor anyone setting up the instance ever needs to touch the codebase.** Access is via the web app only. Creating an account and completing the setup wizard is all that is required.
 
 ---
 
 ## Deployment Model
 
-The project is open source (AGPL). Whether self-hosted or hosted, **end users always access the platform, never the codebase**. They create a user account, complete the configuration page, and see content. No technical setup required on their side.
+The project is open source (AGPL). The primary deployment target is a **NAS UGreen DSP 2800** running Docker. Ollama runs on the same machine with `qwen2.5:3b` — light enough for CPU inference, adequate for 10 stories per day.
 
-A family member with basic technical ability can self-host for a relative. A hosted, managed version will also be offered for users who want the benefits without running infrastructure. Both versions share the same codebase.
+Use `docker-compose.nas.yml` for NAS-specific overrides. The codebase also supports Raspberry Pi (light mode, fetch/enrich only) and VPS deployments, but the NAS is the primary reference target.
 
 ---
 
 ## Key Features
 
-### MVP
+### Core: daily digest
 
-Refer to `docs/MVP_PLAN.md` for the canonical phased plan: discovery, fetching, processing, platform (auth, profile config, feed, daily digest).
+Refer to `docs/MVP_PLAN.md` for the phased plan. The core loop is:
+
+1. Pipeline runs continuously: fetch feeds → enrich (full text) → embed → cluster
+2. At 06:00, the rewrite job scores all pending stories and selects the top 10 (configurable via `digest.top_n`)
+3. Those 10 stories are rewritten in Catalan and cached
+4. A push notification fires: "El teu dossier d'avui és aquí — 10 noves històries"
+5. User opens the app, reads 10 clean stories in ~5 minutes
 
 ### Content quality (non-negotiable)
 
 - LLM rewrites produce correct spelling and grammar with no typos
-- Output is written exclusively in the user's chosen language — no mixed-language artefacts
-- Journalistic tone by default; configurable per user
+- Output is written exclusively in Catalan — no mixed-language artefacts
+- Journalistic tone by default
 - Factual accuracy is preserved: the LLM never adds information not present in the source articles
 
 ### Accessibility (non-negotiable, not optional)
@@ -51,9 +57,10 @@ Refer to `docs/MVP_PLAN.md` for the canonical phased plan: discovery, fetching, 
 
 ### User-facing
 
-- Profile configuration (location, sources, topics, language, rewrite tone)
-- Soft daily notification: "You have N new articles"
+- Profile configuration (topics, rewrite tone)
+- Daily push notification when the digest is ready
 - Account management designed to be set up once and left alone
+- **Future:** reading streak / gamification (documented in MVP_PLAN.md, not yet implemented)
 
 ### Operator-facing
 
@@ -67,10 +74,10 @@ See `docs/TECH_STACK.md` for full details, project structure, dependencies, Dock
 
 - **Backend:** Python 3.12+ with Flask
 - **Database:** PostgreSQL 18
-- **LLM:** Ollama (local, no API key) via provider interface — text generation and embeddings
+- **LLM:** Ollama (local, no API key) via provider interface — `qwen2.5:3b` for rewriting (adequate for 10 stories/day on CPU); text generation and embeddings
 - **Embeddings:** Ollama (bge-m3) for article clustering
 - **Frontend:** Plain HTML + CSS + HTMX
-- **Scheduling:** APScheduler runs a five-stage pipeline in the worker: fetch feeds → enrich (extract full text) → embed → cluster → rewrite. The rewrite stage uses a cascade: generate neutral EN from sources, simplify to simple EN, translate both to other languages. Content is ready when the user opens the app.
+- **Scheduling:** APScheduler runs the pipeline in the worker: fetch feeds → enrich (extract full text) → embed → cluster → rewrite. The daily rewrite (06:00) selects the top 10 stories by relevance score and rewrites them in Catalan only — no cascade, no translation step. Content is ready when the user opens the app.
 - **Content filtering:** `app/feed/classifier.py` classifies articles as `news` or `non_news` using keyword heuristics (recipes, horoscopes, classifieds, promotions). Applied at fetch time (title + raw_text) and again at enrich time (full text). Non-news articles are stored with `article_type = 'non_news'` and excluded from enrichment, embedding, and clustering. Operators review and override via the ops dashboard.
 - **Packaging:** Docker + docker-compose (db, web, worker, ollama, ops). Web uses slim image; worker uses ollama client; ollama runs models in dedicated container; ops dashboard on port 5001.
 - **Dev tooling:** Ruff (lint/format), Mypy (type check), Pytest, Lefthook (git hooks), Commitizen (conventional commits). All tools are managed by **`uv`** — always invoke via `uv run ruff`, `uv run mypy`, `uv run pytest`, etc. Bare tool invocations (e.g. `ruff check`) will use the wrong environment or fail. Lefthook hooks call `uv run` automatically, so `git commit` works without any prefix. `RUFF_CACHE_DIR=/tmp/ruff-cache` is set in `lefthook.yml` to avoid cache permission issues.
@@ -175,6 +182,8 @@ For automated news source discovery (finding feeds by location, validation, qual
 
 ## Out of Scope (for now)
 
+- Multi-language output (currently Catalan only; the config and provider interface support it, but it is not activated)
+- Reading streak / gamification (planned feature, not yet implemented — see MVP_PLAN.md)
 - Paywalled content bypass
 - Training or fine-tuning a custom model
 - Native mobile app (web-first, responsive)

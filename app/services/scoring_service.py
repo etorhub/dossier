@@ -115,3 +115,31 @@ def score_story(
 
 # Backwards compatibility alias
 score_cluster = score_story
+
+
+def select_top_digest_stories(
+    work: list[tuple[str, list[dict[str, Any]], bool]],
+    n: int,
+    config: dict[str, Any],
+) -> list[tuple[str, list[dict[str, Any]], bool]]:
+    """Return the top-n work items sorted by relevance score (recency + coverage + quality).
+
+    Used by the daily rewrite job to limit LLM calls to the most newsworthy stories.
+    Topic affinity is not used here because this ranking is not user-specific.
+    """
+    if n <= 0 or len(work) <= n:
+        return work
+    from app.config import load_sources
+
+    sources_catalog = {s["id"]: s for s in load_sources()}
+    scored = [
+        (
+            score_story({"articles": articles}, set(), sources_catalog, config),
+            sid,
+            articles,
+            needs_regen,
+        )
+        for sid, articles, needs_regen in work
+    ]
+    scored.sort(key=lambda x: x[0], reverse=True)
+    return [(sid, arts, nr) for _, sid, arts, nr in scored[:n]]
