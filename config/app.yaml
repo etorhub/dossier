@@ -5,11 +5,9 @@ paths:
 
 llm:
   provider: ollama
-  model: qwen2.5:7b # fallback for any task without its own model
-  # Per-task models (cascade: rewrite → simplify → translate). Fall back to model when unset.
-  rewrite_model: qwen2.5:7b # merge sources → neutral EN (hardest task, use best model)
-  simplify_model: qwen2.5:3b # neutral EN → simple EN (smaller model is usually enough)
-  translate_model: qwen2.5:3b # translate to other languages (faster than 7B)
+  model: qwen2.5:3b # fallback for any task without its own model
+  # Per-task models. Only rewrite is used in single-language digest mode.
+  rewrite_model: qwen2.5:3b # merge sources → rewrite in target language
   host: http://ollama:11434
   # Per-call retries for Ollama chat (transient errors)
   max_retries: 3
@@ -28,18 +26,25 @@ llm:
 # configured style to each entry in languages other than base_language. (Optional
 # style "simple" triggers an extra simplify step in base_language before translating.)
 rewriting:
-  base_language: es
+  base_language: ca
   styles:
     - id: neutral
       label: Neutral
       prompt: rewrite_cluster_neutral
   languages:
-    - id: es
-      label: Spanish
-      writing_note: European Spanish. Correct gender/number agreement; natural Spanish syntax (not English calques). Prefer standard financial vocabulary (e.g. valoración). Use suscriptores for paying followers, not subscriptores.
+    - id: ca
+      label: Catalan
+      writing_note: "Català estàndard. Ortografia normativa (IEC). Registre formal però accessible. Sintaxi catalana natural — evitar calcs del castellà o l'anglès. Acords de gènere i nombre correctes. Cometes tipogràfiques: «...»."
   # Fallback when user's preferred (style, language) is not yet available
   default_style: neutral
-  default_language: es
+  default_language: ca
+
+digest:
+  # Maximum stories selected for the daily rewrite (scored by recency + coverage).
+  # 0 = no limit (rewrite all pending stories).
+  top_n: 10
+  # Send a push notification to all subscribers when the daily rewrite completes.
+  send_push_notification: true
 
 embeddings:
   provider: ollama
@@ -55,8 +60,8 @@ schedule:
   cluster_cron: '15 * * * *' # Hourly at :15 (after enrichment)
   # Articles older than this are not fetched (0 = no limit)
   max_article_age_hours: 24
-  # Runs every 30 minutes so fresh stories are available within the hour (not once daily at 6am)
-  rewrite_cron: '*/30 * * * *'
+  # Daily digest rewrite at 06:00 — digest ready at 07:00
+  rewrite_cron: '0 6 * * *'
   # Highlight extraction runs 15 min after each rewrite (staggered to avoid contention)
   highlight_cron: '15-59/30 * * * *'
   # Source feed availability check (HTTP HEAD/GET) — visible in ops dashboard

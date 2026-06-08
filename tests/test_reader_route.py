@@ -196,7 +196,7 @@ def test_expand_story_shows_not_found_when_story_missing(client: FlaskClient) ->
     ):
         response = client.get("/stories/nonexistent/expand")
     assert response.status_code == 200
-    assert b"encontrado" in response.data.lower()
+    assert b"trobat" in response.data.lower()
 
 
 # ---------------------------------------------------------------------------
@@ -283,7 +283,7 @@ def test_article_page_shows_not_found_when_missing(client: FlaskClient) -> None:
     ):
         response = client.get("/article/missing")
     assert response.status_code == 200
-    assert b"encontrado" in response.data.lower()
+    assert b"trobat" in response.data.lower()
 
 
 # ---------------------------------------------------------------------------

@@ -1040,6 +1040,18 @@ def run_rewrite_batch(config: dict[str, Any]) -> RewriteReport:
     batch_desc = "unlimited" if batch_size <= 0 else str(batch_size)
 
     work = _gather_rewrite_work(variants, since, batch_size, cooldown_minutes)
+
+    digest_top_n = int(config.get("digest", {}).get("top_n") or 0)
+    if digest_top_n > 0 and len(work) > digest_top_n:
+        from app.services.scoring_service import select_top_digest_stories
+
+        logger.info(
+            "Digest mode: selecting top %d of %d pending stories by relevance",
+            digest_top_n,
+            len(work),
+        )
+        work = select_top_digest_stories(work, digest_top_n, config)
+
     if not work:
         logger.info(
             "Rewrite batch: no stories need rewrite (window_hours=%s, batch_size=%s)",

@@ -8,29 +8,26 @@
 [![HTMX](https://img.shields.io/badge/HTMX-2.x-3d7fcf?logo=htmx&logoColor=white)](https://htmx.org/)
 [![Ollama](https://img.shields.io/badge/LLM-Ollama_local-000000)](https://ollama.ai/)
 
-A news reader that puts quality and clarity first.
+A personal daily news digest — curated, rewritten in Catalan, delivered once a day.
 
-Most news interfaces are designed for engagement, not comprehension. They are cluttered, dense, and built to keep you scrolling rather than to leave you informed. Raw feeds mix sources of varying quality, introduce translation artefacts, and reproduce the noise of the original publication without filtering any of it.
-
-This project places an LLM between raw news and the reader, merging sources on the same event into a single well-written article and presenting it in a clean, distraction-free interface.
+Once a day at 06:00, the pipeline scores all clustered stories, picks the 10 most relevant, rewrites them in clean Catalan, and sends a push notification: "El teu dossier d'avui és aquí". Open the app, read 10 well-written stories in ~5 minutes, and you're done.
 
 ---
 
 ## What It Does
 
-- Fetches news from RSS feeds and open publishers on a schedule
-- Merges multiple sources on the same event and rewrites the result via LLM: correct spelling and grammar, no mixed languages, configurable tone
-- Groups news by topic sections (politics, society, culture, etc.) — click a section to filter the feed
-- Presents content in a clean, accessible interface with large fonts, high contrast, and large touch targets
-- Supports multiple users with independent profiles and preferences
+- Fetches news from RSS feeds and open publishers continuously (Catalan and Spanish sources)
+- Clusters articles from different outlets covering the same event into a single story
+- Every morning at 06:00: selects the 10 most relevant stories (by recency and multi-source coverage), rewrites them via LLM in Catalan, and sends a push notification
+- Presents the daily digest in a clean, accessible interface with large fonts, high contrast, and large touch targets
 - Provides text-to-speech when the browser supports it
-- Shows a daily digest — content is ready when you open the app, no waiting
+- Content is ready when you open the app — no waiting, no loading screens
 
 ## Who It's For
 
-Anyone who wants to read the news without the noise. Users configure their own feed; a family member or caregiver can optionally set up an account on behalf of someone else.
+A personal tool for anyone who wants a quick, clean daily briefing. Designed to run on a home NAS (UGreen DSP 2800) with Ollama running locally. One instance, one digest, one language.
 
-Neither the end user nor anyone acting on their behalf ever touches the codebase. They access the web app only.
+Neither the user nor anyone setting up the instance ever touches the codebase. Setup is done through the web app.
 
 ---
 
@@ -42,25 +39,26 @@ Neither the end user nor anyone acting on their behalf ever touches the codebase
 
 ### Setup
 
-The **Ollama** service is optional in Compose (profile `local-llm`). Clustering, embeddings, and rewrites need a reachable Ollama. [`.env.example`](.env.example) sets `COMPOSE_PROFILES=local-llm` so a copied `.env` starts Ollama in Docker and runs **`ollama-init`** once per `up` (pulls `qwen2.5:7b`, `qwen2.5:3b`, `bge-m3` into the `ollama_data` volume). The **worker** waits for that init to finish before running. Model pull happens at **container start**, not during `docker build`.
+The **Ollama** service is optional in Compose (profile `local-llm`). Clustering, embeddings, and rewrites need a reachable Ollama. [`.env.example`](.env.example) sets `COMPOSE_PROFILES=local-llm` so a copied `.env` starts Ollama in Docker and runs **`ollama-init`** once per `up` (pulls `qwen2.5:3b`, `bge-m3` into the `ollama_data` volume). The **worker** waits for that init to finish before running. Model pull happens at **container start**, not during `docker build`.
 
-**With Ollama in Docker** (typical):
+**NAS deployment** (UGreen DSP 2800 or similar, CPU only):
 
 ```bash
 git clone https://github.com/etorhub/dossier.git
 cd dossier
 cp .env.example .env
+docker compose -f docker-compose.yml -f docker-compose.nas.yml up --build -d
+```
 
-# GPU (default ollama image expects NVIDIA)
-docker compose up --build -d
+**With Ollama in Docker** (generic, no GPU):
 
-# No NVIDIA GPU: add the CPU override for the ollama service
-# docker compose -f docker-compose.yml -f docker-compose.cpu.yml up --build -d
+```bash
+docker compose -f docker-compose.yml -f docker-compose.cpu.yml up --build -d
 ```
 
 Without a `.env`, pass the profile explicitly: `docker compose --profile local-llm up --build -d`.
 
-**Ollama on the host instead** (e.g. Windows app or `ollama serve` in WSL): remove or comment out `COMPOSE_PROFILES=local-llm` in `.env`, pull the same model tags on the host (`ollama pull …`), and set `OLLAMA_HOST` for the worker (for example `http://host.docker.internal:11434` on Docker Desktop / WSL). See [`.env.example`](.env.example).
+**Ollama on the host instead** (e.g. already running `ollama serve`): remove or comment out `COMPOSE_PROFILES=local-llm` in `.env`, pull the same model tags on the host (`ollama pull qwen2.5:3b bge-m3`), and set `OLLAMA_HOST` for the worker. See [`.env.example`](.env.example).
 
 Wait for services to be healthy (web at `http://localhost:5000`, worker running, **ollama** healthy if you use the profile). Then populate with news:
 

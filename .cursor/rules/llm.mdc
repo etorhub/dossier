@@ -40,7 +40,11 @@ class LLMProvider(ABC):
         ...
 ```
 
-The only implementation is `OllamaProvider`, which connects to the Ollama service. Config in `config/app.yaml`: `llm.model`, `llm.host`. Never instantiate a provider directly outside of the provider factory.
+The primary implementation is `OllamaProvider`, connecting to Ollama (`qwen2.5:3b` for rewrite, `bge-m3` for embeddings). Config in `config/app.yaml`: `llm.model`, `llm.host`. Never instantiate a provider directly outside of the provider factory.
+
+## Single-language mode
+
+The current deployment outputs **Catalan only** (`rewriting.base_language: ca`, one language entry). There is no simplify or translate cascade step. The provider is called once per story for the `neutral/ca` variant. Do not add translate or simplify logic unless the config is explicitly extended to more languages.
 
 ## Prompts live in files, not code
 

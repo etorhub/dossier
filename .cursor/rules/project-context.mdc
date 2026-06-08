@@ -5,45 +5,48 @@ alwaysApply: true
 
 # Project Context — Dossier
 
-Context document for an AI-powered news aggregator that puts quality and clarity first.
+Personal daily news digest — curated, rewritten in Catalan, delivered once a day.
 
 ---
 
 ## Problem Statement
 
-Most news interfaces are built for engagement, not comprehension. They are cluttered, dense, and optimised to keep users scrolling rather than to leave them informed. Raw feeds mix sources of varying quality, introduce translation artefacts, and reproduce the noise of the original publication without filtering any of it.
+Most news interfaces are built for engagement, not comprehension. This project takes a different approach: a curated **daily digest** delivered once a day — the 10 most relevant stories, rewritten in clean Catalan, ready to read in 5 minutes.
 
-The content itself is often fine. The presentation is the problem. This project places an LLM between raw news and the reader, merging multiple sources on the same event into a single well-written article and presenting it in a clean, distraction-free interface.
+At 06:00 the pipeline scores all clustered stories, picks the top 10 by relevance (recency + multi-source coverage), rewrites them via LLM, and sends a push: "El teu dossier d'avui és aquí". No feed to scroll, no noise.
 
 ---
 
 ## Who We Are Building For
 
-The target is a general audience: anyone who wants to read the news without the noise. Users configure their own feed. A family member or caregiver can optionally set up an account on behalf of someone else.
+**This is a personal tool, built for personal use.** Single user, single language (Catalan), daily digest. The database and auth system support multiple accounts, but the design priority is one person wanting a fast, clean morning briefing.
 
-**Neither the end user nor anyone acting on their behalf ever accesses the codebase.** Both access the platform (web app) only. Their only requirement is to create a user account. This shapes every decision about onboarding, profile management, and configuration.
+**Neither the end user nor anyone setting up the instance needs to touch the codebase.** Access is via the web app only.
 
 ---
 
 ## Deployment Model
 
-The project is open source (AGPL). Whether self-hosted or hosted, **end users always access the platform, never the codebase**. They create a user account, complete the configuration page, and see content. No technical setup required on their side.
-
-A family member with basic technical ability can self-host for a relative. A hosted, managed version will also be offered for users who want the benefits without running infrastructure. Both versions share the same codebase.
+The project is open source (AGPL). Primary deployment: **NAS UGreen DSP 2800** running Docker. Ollama runs on the same machine with `qwen2.5:3b` — CPU inference, adequate for 10 stories/day. Use `docker-compose.nas.yml` for NAS-specific overrides.
 
 ---
 
 ## Key Features
 
-### MVP
+### Core: daily digest
 
-Refer to `docs/MVP_PLAN.md` for the canonical phased plan: discovery, fetching, processing, platform (auth, profile config, feed, daily digest).
+1. Pipeline runs continuously: fetch feeds → enrich → embed → cluster
+2. At 06:00: score all pending stories, select top 10, rewrite in Catalan
+3. Push notification fires: "El teu dossier d'avui és aquí — 10 noves històries"
+4. User reads 10 clean stories in ~5 minutes
+
+Refer to `docs/MVP_PLAN.md` for the phased plan.
 
 ### Content quality (non-negotiable)
 
 - LLM rewrites produce correct spelling and grammar with no typos
-- Output is written exclusively in the user's chosen language — no mixed-language artefacts
-- Journalistic tone by default; configurable per user
+- Output is written exclusively in Catalan — no mixed-language artefacts
+- Journalistic tone by default
 - Factual accuracy is preserved: the LLM never adds information not present in the source articles
 
 ### Accessibility (non-negotiable, not optional)
@@ -56,9 +59,10 @@ Refer to `docs/MVP_PLAN.md` for the canonical phased plan: discovery, fetching, 
 
 ### User-facing
 
-- Profile configuration (location, sources, topics, language, rewrite tone)
-- Soft daily notification: "You have N new articles"
-- Account management designed to be set up once and left alone
+- Profile configuration (topics, rewrite tone)
+- Daily push notification when digest is ready
+- Account management: set up once, left alone
+- **Future:** reading streak / gamification (planned, not yet implemented)
 
 ### Operator-facing
 
@@ -72,10 +76,10 @@ See `docs/TECH_STACK.md` for full details, project structure, dependencies, Dock
 
 - **Backend:** Python 3.12+ with Flask
 - **Database:** PostgreSQL 18
-- **LLM:** Ollama (local, no API key) via provider interface — text generation and embeddings
+- **LLM:** Ollama (local, no API key) via provider interface — `qwen2.5:3b` for rewriting, `bge-m3` for embeddings
 - **Embeddings:** Ollama (bge-m3) for article clustering
 - **Frontend:** Plain HTML + CSS + HTMX
-- **Scheduling:** APScheduler runs a five-stage pipeline in the worker: fetch feeds → enrich (extract full text) → embed → cluster → rewrite. The rewrite stage uses a cascade: generate neutral EN from sources, simplify to simple EN, translate both to other languages. Content is ready when the user opens the app.
+- **Scheduling:** APScheduler runs the pipeline in the worker: fetch → enrich → embed → cluster (continuous) + daily rewrite at 06:00 (top-10 stories, Catalan only, no cascade). Content is ready when the user opens the app.
 - **Packaging:** Docker + docker-compose (db, web, worker, ollama, ops). Web uses slim image; worker uses ollama client; ollama runs models in dedicated container; ops dashboard on port 5001.
 
 ---
@@ -87,7 +91,7 @@ These are hard rules, not preferences:
 - **Flask routes return HTML only.** Never return JSON to the frontend. Every endpoint renders and returns a Jinja2 template partial. This is HATEOAS — the server owns all state and rendering.
 - **HTMX is the only frontend dependency.** No JavaScript frameworks. No build step. No npm. HTMX is loaded via a single CDN script tag.
 - **LLM calls are always abstracted.** Never call Ollama directly from a route. Always go through the provider interface in `app/llm/provider.py`.
-- **The pipeline runs on a schedule.** APScheduler in the worker runs: fetch feeds → enrich (Trafilatura extraction) → embed (Ollama) → cluster (cosine similarity) → rewrite (LLM cascade: neutral EN from sources, simplify, translate). The web container has zero ML/LLM imports. On-demand rewrites (setup/settings) are queued in `rewrite_requests`; the worker polls and processes them. When a user opens the app, content is already ready.
+- **The pipeline runs on a schedule.** APScheduler in the worker runs: fetch feeds → enrich (Trafilatura extraction) → embed (Ollama) → cluster (cosine similarity) continuously, then a daily rewrite at 06:00 (top-10 stories, Catalan only — no cascade, no translation). The web container has zero ML/LLM imports. On-demand rewrites (setup/settings) are queued in `rewrite_requests`; the worker polls and processes them. When a user opens the app, content is already ready.
 - **Config is never hardcoded.** YAML files define the catalog of available sources/topics and app-level settings. User preferences (location, selected sources, selected topics, filter toggle, rewrite tone, language) live in PostgreSQL, set via the web UI.
 - **Multi-user from the start.** The schema, auth, and caching all support multiple independent user accounts.
 
