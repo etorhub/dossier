@@ -50,6 +50,9 @@ cp .env.example .env
 docker compose -f docker-compose.yml -f docker-compose.nas.yml up --build -d
 ```
 
+Deploying via **Portainer** instead of the CLI? See [`docs/DEPLOYMENT_PORTAINER.md`](docs/DEPLOYMENT_PORTAINER.md)
+for a step-by-step stack setup tuned for low-RAM, CPU-only NAS hardware.
+
 **With Ollama in Docker** (generic, no GPU):
 
 ```bash
