@@ -22,9 +22,9 @@ The pipeline runs automatically. Once a day at 6:00 the worker scores all cluste
 
 ## Deployment Model
 
-The project is open source (AGPL). The primary deployment target is a **NAS UGreen DSP 2800** running Docker. Ollama runs on the same machine with `qwen2.5:3b` — light enough for CPU inference, adequate for 10 stories per day.
+The project is open source (AGPL). The **only** deployment target is a self-hosted **NAS UGreen DSP 2800** running Docker via `docker-compose.yml` (CPU-only inference, no GPU). Ollama runs on the same machine with `qwen2.5:3b` — light enough for CPU inference, adequate for 10 stories per day. See [`docs/DEPLOYMENT_PORTAINER.md`](docs/DEPLOYMENT_PORTAINER.md) for the Portainer setup guide.
 
-Use `docker-compose.nas.yml` for NAS-specific overrides. The codebase also supports Raspberry Pi (light mode, fetch/enrich only) and VPS deployments, but the NAS is the primary reference target.
+There is no Raspberry Pi, GPU, hybrid, Oracle Cloud, or VPS deployment path — keep the codebase scoped to the single NAS target. Don't reintroduce split-scheduler modes, GPU device reservations, or multi-machine compose overrides.
 
 ---
 
@@ -82,7 +82,7 @@ See `docs/TECH_STACK.md` for full details, project structure, dependencies, Dock
 - **Packaging:** Docker + docker-compose (db, web, worker, ollama, ops). Web uses slim image; worker uses ollama client; ollama runs models in dedicated container; ops dashboard on port 5001.
 - **Dev tooling:** Ruff (lint/format), Mypy (type check), Pytest, Lefthook (git hooks), Commitizen (conventional commits). All tools are managed by **`uv`** — always invoke via `uv run ruff`, `uv run mypy`, `uv run pytest`, etc. Bare tool invocations (e.g. `ruff check`) will use the wrong environment or fail. Lefthook hooks call `uv run` automatically, so `git commit` works without any prefix. `RUFF_CACHE_DIR=/tmp/ruff-cache` is set in `lefthook.yml` to avoid cache permission issues.
 - **Branch workflow:** Always `git pull origin master` (or `main`) before creating a new branch to avoid diverged histories.
-- **CI pipeline:** GitHub Actions (`.github/workflows/`). CI (lint → type check → test) runs on pull requests targeting `main` or `master` via `pr-ci.yml`. Both branches are protected — merges require the `ci` check to pass. Publish workflows (`deploy.yml` on `main`, `build-pi.yml` on `master`) run unconditionally on push because only code that passed CI can reach those branches. Never move CI checks into the publish workflows and never bypass branch protection.
+- **CI pipeline:** GitHub Actions (`.github/workflows/`). CI (lint → type check → test) runs on pull requests targeting `main` or `master` via `pr-ci.yml`. Both branches are protected — merges require the `ci` check to pass. There are no image-publish workflows: the NAS builds the app image from source via `docker compose up --build`. Never bypass branch protection.
 
 ---
 

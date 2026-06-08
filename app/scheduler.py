@@ -1,9 +1,7 @@
-"""APScheduler entry point. Runs in the worker container or natively on Pi/PC.
+"""APScheduler entry point. Runs in the worker container.
 
-Use SCHEDULER_MODE to split jobs across machines (see docs/DEPLOYMENT_HYBRID.md):
-- light: fetch, enrich, availability (e.g. Raspberry Pi)
-- heavy: cluster, rewrite — requires Ollama (e.g. local PC)
-- full: all jobs (default; Docker dev)
+Runs the full pipeline on a schedule: fetch feeds → enrich → check source
+availability → cluster + embed → rewrite → highlight.
 """
 
 from __future__ import annotations
@@ -30,25 +28,11 @@ from app.job_run_logging import append_job_run_summary, job_run_file_logging
 
 logger = logging.getLogger(__name__)
 
-_VALID_MODES = frozenset({"light", "heavy", "full"})
-
 _ORIGIN_HOSTNAME: str = socket.gethostname()
 try:
     _ORIGIN_IP: str | None = socket.gethostbyname(_ORIGIN_HOSTNAME)
 except OSError:
     _ORIGIN_IP = None
-
-
-def _get_scheduler_mode() -> str:
-    """Return SCHEDULER_MODE: light, heavy, or full (default)."""
-    raw = os.environ.get("SCHEDULER_MODE", "full").strip().lower()
-    if raw in _VALID_MODES:
-        return raw
-    logger.warning(
-        "Invalid SCHEDULER_MODE=%r; using full. Valid: light, heavy, full.",
-        raw,
-    )
-    return "full"
 
 
 def _cluster_articles_guarded(config: dict[str, Any]) -> Any:
@@ -77,7 +61,7 @@ def _rewrite_articles_job(config: dict[str, Any]) -> Any:
 
 
 def _highlight_articles_job(config: dict[str, Any]) -> Any:
-    """Lazy import so light-only hosts never load LLM/highlight stack."""
+    """Lazy import wrapper for the highlight job."""
     from app.services.highlight_service import run_highlight_batch
 
     return run_highlight_batch(config)
@@ -95,7 +79,7 @@ def _run_tracked_job(
         trigger=trigger,
         origin_hostname=_ORIGIN_HOSTNAME,
         origin_ip=_ORIGIN_IP,
-        origin_mode=_get_scheduler_mode(),
+        origin_mode="full",
     )
     config = load_config()
     t0 = time.perf_counter()
@@ -137,7 +121,7 @@ def _run_tracked_job(
 
 
 def main() -> None:
-    """Start the scheduler according to SCHEDULER_MODE."""
+    """Start the scheduler and register all pipeline jobs."""
     if os.path.exists(".env"):
         from dotenv import load_dotenv
 
@@ -149,7 +133,6 @@ def main() -> None:
         datefmt="%Y-%m-%d %H:%M:%S",
     )
 
-    mode = _get_scheduler_mode()
     config = load_config()
     interval_min = config.get("schedule", {}).get("fetch_interval_minutes", 60)
     enrichment_cron = config.get("schedule", {}).get("enrichment_cron", "10 * * * *")
@@ -162,69 +145,50 @@ def main() -> None:
 
     scheduler = BlockingScheduler()
 
-    if mode in ("light", "full"):
-        scheduler.add_job(
-            lambda: _run_tracked_job("fetch_feeds", fetch_all_due_feeds),
-            trigger=IntervalTrigger(minutes=interval_min),
-            id="fetch_feeds",
-        )
-        scheduler.add_job(
-            lambda: _run_tracked_job("enrich_articles", enrich_all_articles),
-            trigger=CronTrigger.from_crontab(enrichment_cron),
-            id="enrich_articles",
-        )
-        scheduler.add_job(
-            lambda: _run_tracked_job(
-                "check_source_availability",
-                check_all_feeds_availability,
-            ),
-            trigger=IntervalTrigger(minutes=availability_interval),
-            id="check_source_availability",
-        )
+    scheduler.add_job(
+        lambda: _run_tracked_job("fetch_feeds", fetch_all_due_feeds),
+        trigger=IntervalTrigger(minutes=interval_min),
+        id="fetch_feeds",
+    )
+    scheduler.add_job(
+        lambda: _run_tracked_job("enrich_articles", enrich_all_articles),
+        trigger=CronTrigger.from_crontab(enrichment_cron),
+        id="enrich_articles",
+    )
+    scheduler.add_job(
+        lambda: _run_tracked_job(
+            "check_source_availability",
+            check_all_feeds_availability,
+        ),
+        trigger=IntervalTrigger(minutes=availability_interval),
+        id="check_source_availability",
+    )
+    scheduler.add_job(
+        lambda: _run_tracked_job("cluster_articles", _cluster_articles_guarded),
+        trigger=CronTrigger.from_crontab(cluster_cron),
+        id="cluster_articles",
+    )
+    scheduler.add_job(
+        lambda: _run_tracked_job("rewrite_articles", _rewrite_articles_job),
+        trigger=CronTrigger.from_crontab(rewrite_cron),
+        id="rewrite_articles",
+    )
+    scheduler.add_job(
+        lambda: _run_tracked_job("highlight_stories", _highlight_articles_job),
+        trigger=CronTrigger.from_crontab(highlight_cron),
+        id="highlight_stories",
+    )
 
-    if mode in ("heavy", "full"):
-        scheduler.add_job(
-            lambda: _run_tracked_job("cluster_articles", _cluster_articles_guarded),
-            trigger=CronTrigger.from_crontab(cluster_cron),
-            id="cluster_articles",
-        )
-        scheduler.add_job(
-            lambda: _run_tracked_job("rewrite_articles", _rewrite_articles_job),
-            trigger=CronTrigger.from_crontab(rewrite_cron),
-            id="rewrite_articles",
-        )
-        scheduler.add_job(
-            lambda: _run_tracked_job("highlight_stories", _highlight_articles_job),
-            trigger=CronTrigger.from_crontab(highlight_cron),
-            id="highlight_stories",
-        )
-
-    if mode == "light":
-        logger.info(
-            "Scheduler started (mode=light): fetch every %d min, enrichment=%s, "
-            "availability every %d min",
-            interval_min,
-            enrichment_cron,
-            availability_interval,
-        )
-    elif mode == "heavy":
-        logger.info(
-            "Scheduler started (mode=heavy): cluster=%s, rewrite=%s, highlight=%s",
-            cluster_cron,
-            rewrite_cron,
-            highlight_cron,
-        )
-    else:
-        logger.info(
-            "Scheduler started (mode=full): fetch every %d min, enrichment=%s, "
-            "cluster=%s, rewrite=%s, highlight=%s, availability every %d min",
-            interval_min,
-            enrichment_cron,
-            cluster_cron,
-            rewrite_cron,
-            highlight_cron,
-            availability_interval,
-        )
+    logger.info(
+        "Scheduler started: fetch every %d min, enrichment=%s, "
+        "cluster=%s, rewrite=%s, highlight=%s, availability every %d min",
+        interval_min,
+        enrichment_cron,
+        cluster_cron,
+        rewrite_cron,
+        highlight_cron,
+        availability_interval,
+    )
     with contextlib.suppress(KeyboardInterrupt, SystemExit):
         scheduler.start()
 

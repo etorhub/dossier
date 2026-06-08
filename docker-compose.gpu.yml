@@ -1,7 +1,0 @@
-# GPU is now the default in docker-compose.yml.
-# This file is kept for optional GPU-specific overrides (e.g. OLLAMA_DEBUG).
-# For CPU-only systems, use: docker compose -f docker-compose.yml -f docker-compose.cpu.yml up
-services:
-  ollama:
-    environment:
-      OLLAMA_DEBUG: "1"

@@ -1,9 +1,10 @@
 # Deployment: NAS via Portainer (UGreen DSP 2800)
 
 This guide deploys the **full Dossier stack** — database, web, worker, ops dashboard,
-and a local Ollama (CPU inference) — as a single Portainer **stack** on the NAS.
-It uses the existing `docker-compose.yml` + `docker-compose.nas.yml` override, which
-is already tuned for low-RAM, CPU-only hardware.
+and a local Ollama (CPU inference) — as a single Portainer **stack** on the NAS,
+using the repo's `docker-compose.yml`. The compose file is the single source of
+truth for this deployment: it's already tuned for CPU-only inference and low RAM
+(no GPU, no separate NAS override file — there's only one deployment target).
 
 ---
 
@@ -11,17 +12,16 @@ is already tuned for low-RAM, CPU-only hardware.
 
 ```
 UGreen DSP 2800
-  ├── db        — PostgreSQL 18 + pgvector
-  ├── ollama    — qwen2.5:3b (rewrite) + bge-m3 (embeddings), CPU only
+  ├── db          — PostgreSQL 18 + pgvector
+  ├── ollama      — qwen2.5:3b (rewrite) + bge-m3 (embeddings), CPU only
   ├── ollama-init — one-shot model pull, runs once on first start
-  ├── db-init   — one-shot Alembic migration, runs once on first start
-  ├── web       — Flask app, port 5000
-  ├── worker    — APScheduler pipeline (fetch → enrich → embed → cluster → rewrite)
-  └── ops       — operator dashboard, port 5001
+  ├── db-init     — one-shot Alembic migration, runs once on first start
+  ├── web         — Flask app, port 5000
+  ├── worker      — APScheduler pipeline (fetch → enrich → embed → cluster → rewrite)
+  └── ops         — operator dashboard, port 5001
 ```
 
-Everything runs on the NAS; no external services required (Neon/Oracle are for the
-hybrid setups documented in `DEPLOYMENT_HYBRID.md` / `DEPLOYMENT_ORACLE.md`, not needed here).
+Everything runs on the NAS — no external services, no GPU, no second machine.
 
 ---
 
@@ -29,14 +29,20 @@ hybrid setups documented in `DEPLOYMENT_HYBRID.md` / `DEPLOYMENT_ORACLE.md`, not
 
 - Portainer CE installed and reachable on the NAS (Container Manager → Portainer, or
   the UGOS Docker app)
-- The NAS has internet access to pull images from Docker Hub / build the app image
+- The NAS has internet access to build the app image and pull `db`/`ollama` images
 - At least ~6 GB free RAM and ~10 GB free disk (Postgres data + Ollama models +
   article cache grow over time)
-- A VAPID keypair for push notifications (optional but recommended — see step 2)
+- A VAPID keypair for push notifications (generated in Step 2)
 
 ---
 
 ## Step 1 — Create the stack from the Git repository
+
+The `web`, `worker`, `db-init`, and `ops` services are built from the repo's
+`Dockerfile` (`build: context: .`). **Portainer's Web editor mode has no source
+checkout, so `build:` directives fail with "Dockerfile: no such file or
+directory"** — you must use the **Repository** build method, which clones the repo
+first.
 
 In Portainer:
 
@@ -45,30 +51,20 @@ In Portainer:
 3. Build method: **Repository**
    - Repository URL: `https://github.com/etorhub/dossier`
    - Repository reference: `refs/heads/master`
-   - Compose path: leave the default (`docker-compose.yml`) — Portainer only loads
-     one path, so we'll supply the NAS overrides as environment variables instead
-     (see the note at the end of Step 3)
-
-> **Simplest alternative — Web editor:** if you'd rather not wire up Git polling,
-> choose build method **Web editor**, then paste the **merged** result of
-> `docker compose -f docker-compose.yml -f docker-compose.nas.yml config`
-> (run that command once from a checkout, e.g. on your dev machine, and paste the
-> output). This gives Portainer a single self-contained compose file with the NAS
-> tuning already baked in — no extra `-f` flags needed.
+   - Compose path: `docker-compose.yml`
 
 ---
 
 ## Step 2 — Environment variables
 
-In the stack's **Environment variables** section, add (Portainer → "Add an
-environment variable", or paste as `.env` if using the web editor):
+In the stack's **Environment variables** section, add:
 
 ```bash
 # Required
 POSTGRES_PASSWORD=<choose-a-strong-password>
 SECRET_KEY=<generate-with: python3 -c "import secrets; print(secrets.token_hex(32))">
 
-# Ollama runs in this stack
+# Starts Ollama in this stack (profile local-llm)
 COMPOSE_PROFILES=local-llm
 OLLAMA_HOST=http://ollama:11434
 
@@ -85,45 +81,28 @@ Never commit these to the repo — they live only in the Portainer stack's envir
 
 ---
 
-## Step 3 — Apply the NAS overrides
+## Step 3 — Deploy and watch the first start
 
-The NAS override (`docker-compose.nas.yml`) does three things, all aimed at keeping
-the stack lightweight on shared hardware:
-
-- Strips the GPU reservation from `ollama` (CPU-only inference)
-- Sets `OLLAMA_NUM_PARALLEL=1` and `OLLAMA_MAX_LOADED_MODELS=1` (one model resident
-  at a time — the daily job only ever needs `qwen2.5:3b` or `bge-m3`, never both
-  simultaneously)
-- Skips pulling `qwen2.5:7b` in `ollama-init` (the NAS profile only uses `qwen2.5:3b`
-  — this saves ~5 GB of download/disk versus the default compose)
-
-If you used the **Repository** build method, Portainer can't merge two compose files
-directly — use the **web editor** instead and paste the merged config as described in
-Step 1 (`docker compose ... config` output). This is the recommended path: it's a
-single source of truth for what's actually running, and it's easy to diff against the
-repo when you update.
-
----
-
-## Step 4 — Deploy and watch the first start
-
-Click **Deploy the stack**. On first start:
+Click **Deploy the stack**. Since Portainer clones the repo, the `Dockerfile` is
+present and the `build:` directives for `web`, `worker`, `db-init`, and `ops`
+resolve correctly. On first start:
 
 1. `db` comes up and passes its healthcheck
 2. `db-init` runs Alembic migrations once, then exits (`service_completed_successfully`)
-3. `ollama` starts (CPU mode — no GPU device requests)
-4. `ollama-init` pulls `qwen2.5:3b` and `bge-m3` (~2–3 GB total) — this is the slowest
-   step on first run, expect 10–30 minutes depending on NAS bandwidth/disk speed —
-   then exits
+3. `ollama` starts in CPU mode (`OLLAMA_NUM_PARALLEL=1`, `OLLAMA_MAX_LOADED_MODELS=1`
+   — one model resident at a time, since the daily job never runs rewrite and
+   embedding concurrently)
+4. `ollama-init` pulls `qwen2.5:3b` and `bge-m3` (~2–3 GB total) — the slowest step
+   on first run, expect 10–30 minutes depending on NAS bandwidth/disk speed — then exits
 5. `web`, `worker`, and `ops` start once their dependencies are healthy/complete
 
 Watch progress in Portainer: **Stacks → dossier → Containers**, check logs on
 `ollama-init` for pull progress, and on `worker` for `"waiting for ollama-init"` →
-`"scheduler started"`.
+`"Scheduler started"`.
 
 ---
 
-## Step 5 — First-run setup
+## Step 4 — First-run setup
 
 Once `web` is healthy:
 
@@ -137,29 +116,28 @@ Once `web` is healthy:
    docker exec -it <worker-container-name> ./scripts/fetch-news.sh
    ```
 
-   (or run it from a checkout pointed at the NAS's published Postgres/Ollama ports)
+   (find the exact container name in Portainer's container list, e.g. `dossier-worker-1`)
 
 The daily pipeline then runs unattended: fetch → enrich → embed → cluster
 continuously, and the 06:00 job selects the top 10 stories, rewrites them in
-Catalan, and sends the push notification.
+Catalan, and sends the push notification "El teu dossier d'avui és aquí".
 
 ---
 
 ## Performance tuning for the DSP 2800
 
-The NAS override already applies the safe defaults below. Adjust only if you observe
-resource pressure (Portainer → container stats, or the NAS's own resource monitor):
+`docker-compose.yml` already applies the safe defaults below. Adjust only if you
+observe resource pressure (Portainer → container stats, or the NAS's own resource monitor):
 
-| Setting | Default (NAS profile) | When to change |
+| Setting | Default | When to change |
 |---|---|---|
 | `OLLAMA_NUM_PARALLEL` | `1` | Raise to `2` only if RAM ≥ 16 GB and rewrites feel slow |
 | `OLLAMA_MAX_LOADED_MODELS` | `1` | Keep at `1` — embedding and rewriting never run concurrently in the daily job |
-| `SCHEDULER_MODE` | `full` | Keep at `full` for a single-machine deployment (don't split light/heavy on one box) |
-| gunicorn workers (`web`) | default (compose doesn't pin `-w`) | If RAM is tight, add `-w 1` to the `web` command, mirroring `docker-compose.pi.yml` |
+| gunicorn workers (`web`, `ops`) | default (compose doesn't pin `-w`) | If RAM is tight, edit the service `command` to add `-w 1` |
 
 General guidance:
-- `qwen2.5:3b` is the right model for 10 stories/day on CPU — don't switch to `7b`
-  on this hardware; it roughly doubles inference time and RAM for marginal quality gain
+- `qwen2.5:3b` is the right model for 10 stories/day on CPU — it's the only model
+  this deployment pulls and uses
 - Postgres, Ollama, and the article/job-run data all persist in named volumes/bind
   mounts — back up `pgdata`, `ollama_data`, and `./data/job_runs` before any major
   Portainer stack recreation
@@ -172,24 +150,25 @@ General guidance:
 ## Updating the stack
 
 With the **Repository** build method, Portainer can poll the `master` branch and
-redeploy automatically (enable "Automatic updates" / webhook on the stack). With the
-**web editor** method, you'll need to re-paste the merged compose when the base files
-change — check `docker-compose.yml` / `docker-compose.nas.yml` for updates and re-run
-`docker compose ... config` to regenerate.
+redeploy automatically (enable "Automatic updates" / webhook on the stack), rebuilding
+the images from the updated `Dockerfile` and re-running `docker-compose.yml`.
 
-Either way, `db-init` re-runs Alembic migrations safely on every redeploy (idempotent),
-and `ollama-init` only pulls models that aren't already in the `ollama_data` volume.
+`db-init` re-runs Alembic migrations safely on every redeploy (idempotent), and
+`ollama-init` only pulls models that aren't already present in the `ollama_data` volume.
 
 ---
 
 ## Troubleshooting
 
+- **"failed to read dockerfile: open Dockerfile: no such file or directory"**: you're
+  using the Web editor build method — switch to **Repository** (Step 1); Portainer
+  needs the cloned source tree to build `web`/`worker`/`ops`/`db-init`
 - **`ollama-init` stuck / failing to pull**: check NAS internet connectivity and disk
   space (`docker system df`); model pulls need ~5 GB free during download+extraction
 - **`worker` logs `waiting for ollama-init`**: normal on first start — wait for the
   pull to finish; subsequent restarts skip this since models persist in `ollama_data`
 - **Web UI slow on first open**: the worker hasn't completed its first pipeline pass
-  yet — run `./scripts/fetch-news.sh` manually (Step 5) to seed content immediately
-- **Out of memory**: lower `OLLAMA_NUM_PARALLEL`/`OLLAMA_MAX_LOADED_MODELS` further
-  (already at the minimum `1`), add `-w 1` to gunicorn, or check for other containers
+  yet — run `./scripts/fetch-news.sh` manually (Step 4) to seed content immediately
+- **Out of memory**: `OLLAMA_NUM_PARALLEL`/`OLLAMA_MAX_LOADED_MODELS` are already at
+  the minimum (`1`); add `-w 1` to gunicorn commands, or check for other containers
   competing for RAM during the 06:00 rewrite window

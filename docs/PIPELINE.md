@@ -340,7 +340,10 @@ Runs after REWRITE so it always operates on the final translated/simplified outp
 
 ## Scheduler & Deployment
 
-### Default schedule (full mode)
+The worker runs every pipeline job on a single schedule — there is no machine-split mode.
+The single deployment target is the NAS (`docker-compose.yml`, CPU-only Ollama).
+
+### Default schedule
 
 ```
 :00  FETCH runs (interval, every 60 min)
@@ -349,18 +352,6 @@ Runs after REWRITE so it always operates on the final translated/simplified outp
 06:00  REWRITE runs (daily)
 06:30  HIGHLIGHT runs (daily)
 ```
-
-### SCHEDULER_MODE
-
-The `SCHEDULER_MODE` environment variable splits jobs across machines. Useful for hybrid deployments (e.g. a Raspberry Pi handles I/O, a PC with a GPU handles ML):
-
-| Mode | Jobs | Use case |
-|---|---|---|
-| `full` | all 6 | Default, Docker dev |
-| `light` | fetch + enrich + availability | Low-power device, no Ollama |
-| `heavy` | cluster + rewrite + highlight | GPU machine, no feeds |
-
-Light-mode hosts never import the LLM or clustering stack (lazy imports in the scheduler).
 
 ### Manual CLI
 

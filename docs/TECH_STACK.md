@@ -10,7 +10,7 @@ Technology choices for Dossier, with rationale.
 | --- | --- | --- |
 | Backend | Python 3.12+ with Flask | Lightweight, well-understood, Jinja2 built-in |
 | Database | PostgreSQL 18 | Robust, multi-user, JSONB support, wide hosting availability |
-| LLM | Ollama (local) or OpenAI-compatible HTTP (vLLM) via provider interface | Local inference; defaults: `qwen2.5:7b` (rewrite), `qwen2.5:3b` (simplify/translate), `bge-m3` embeddings |
+| LLM | Ollama (local), CPU inference via provider interface | `qwen2.5:3b` for rewriting, `bge-m3` for embeddings — sized for 10 stories/day on the NAS's CPU |
 | Frontend | Plain HTML + CSS + HTMX | No build step, no JS framework, server-rendered throughout |
 | Templating | Jinja2 (Flask built-in) | Tight Flask integration, partial rendering for HTMX |
 | Scheduling | APScheduler in dedicated worker container | Web and worker run as separate containers; web has zero ML/LLM deps |
@@ -155,12 +155,10 @@ docker compose up -d ops
 
 Five services: PostgreSQL, Ollama (LLM/embeddings), the Flask web app (slim image), the worker (feed processing + ollama client), and the ops dashboard.
 
-- **ollama** — Runs Ollama server. Models (`qwen2.5:7b`, `qwen2.5:3b`, `bge-m3`) are pulled on first start via `ollama-init`. `OLLAMA_NUM_PARALLEL=4` is set so concurrent rewrite jobs share the GPU. GPU is the default; use `docker-compose.cpu.yml` for CPU-only systems.
+- **ollama** — Runs Ollama server in CPU-only mode (no GPU — the NAS has none). Models (`qwen2.5:3b`, `bge-m3`) are pulled on first start via `ollama-init`. `OLLAMA_NUM_PARALLEL=1` and `OLLAMA_MAX_LOADED_MODELS=1` keep peak RAM low on shared hardware.
 - **web** — Gunicorn serves the Flask app. Uses `requirements-web.txt` (no ollama, no feed processing). Runs `alembic upgrade head` on startup, then Gunicorn.
 - **worker** — Runs APScheduler (`python -m app.scheduler`) for scheduled pipeline jobs (fetch, enrich, cluster, rewrite, check_source_availability). Uses `requirements.txt` (includes ollama Python client). Connects to ollama service for LLM and embeddings. Processing CLI commands run here: `docker compose exec worker python -m app.worker_cli fetch-feeds`, etc.
 - **ops** — Separate Flask app for operators. Serves the ops dashboard at port 5001. Uses the same database; no auth by default.
-
-**Hybrid Pi + PC:** To run Postgres, the web app, and light jobs on a small board (e.g. Raspberry Pi) while Ollama and embedding/cluster/rewrite jobs run on another machine, set `SCHEDULER_MODE` (`light` / `heavy` / `full`) and see [docs/DEPLOYMENT_HYBRID.md](DEPLOYMENT_HYBRID.md).
 
 ```yaml
 # docker-compose.yml (simplified)
@@ -251,54 +249,11 @@ The reader UI needs Flask (HTMX); you can skip **worker** and **Ollama** and sti
 
 **Dev tools:** Lefthook (git hooks) is a standalone binary; install via your package manager or from [lefthook.dev](https://lefthook.dev). Run `lefthook install` after cloning.
 
-### GPU troubleshooting (Ollama using CPU instead of GPU)
-
-If Ollama uses high CPU but negligible GPU utilization:
-
-1. **Verify GPU inside container:**
-   ```bash
-   docker compose exec ollama nvidia-smi
-   ```
-   If this fails, the GPU is not passed to the container. On CPU-only systems, use `docker compose -f docker-compose.yml -f docker-compose.cpu.yml up`.
-
-2. **Check Ollama logs for GPU detection:**
-   ```bash
-   docker compose logs ollama
-   ```
-   Look for "Nvidia GPU" or "CUDA" — or errors like "no compatible GPUs", "cudart", "libcuda".
-
-3. **WSL2 + Docker Desktop:** Add the NVIDIA runtime to Docker Engine (Settings → Docker Engine):
-   ```json
-   "runtimes": {
-     "nvidia": {
-       "path": "nvidia-container-runtime",
-       "runtimeArgs": []
-     }
-   }
-   ```
-   Then restart Docker Desktop.
-
-4. **NVIDIA Container Toolkit:** On Linux/WSL2, install:
-   ```bash
-   curl -fsSL https://nvidia.github.io/libnvidia-container/gpgkey | sudo gpg --dearmor -o /usr/share/keyrings/nvidia-container-toolkit-keyring.gpg
-   curl -s -L https://nvidia.github.io/libnvidia-container/stable/deb/nvidia-container-toolkit.list | \
-     sed 's#deb https://#deb [signed-by=/usr/share/keyrings/nvidia-container-toolkit-keyring.gpg] https://#g' | \
-     sudo tee /etc/apt/sources.list.d/nvidia-container-toolkit.list
-   sudo apt-get update && sudo apt-get install -y nvidia-container-toolkit
-   sudo nvidia-ctk runtime configure
-   ```
-
-5. **Recreate ollama container:**
-   ```bash
-   docker compose down ollama
-   docker compose up -d
-   ```
-
 ---
 
 ## LLM Provider Interface
 
-The app never calls Ollama directly. All LLM access goes through `app/llm/provider.py`, which defines an abstract `LLMProvider` class. Implementations include `OllamaProvider` (default), Gemini, Anthropic, and `VllmOpenAIProvider` for any OpenAI-compatible HTTP server (e.g. vLLM, SGLang). Config in `config/app.yaml`: `llm.provider` (`ollama` \| `vllm` \| …), `llm.model`, `llm.host` (Ollama default `http://ollama:11434`). For `llm.provider: vllm`, set `llm.api_base` to the server’s OpenAI root (e.g. `http://localhost:8000/v1`). Per-task models for the rewrite cascade: `rewrite_model`, `simplify_model`, `translate_model` (each falls back to `model` when unset). Defaults use `qwen2.5:7b` for rewrite and `qwen2.5:3b` for simplify/translate. No API key required for Ollama.
+The app never calls Ollama directly. All LLM access goes through `app/llm/provider.py`, which defines an abstract `LLMProvider` class. Implementations include `OllamaProvider` (default), Gemini, Anthropic, and `VllmOpenAIProvider` for any OpenAI-compatible HTTP server (e.g. vLLM, SGLang). Config in `config/app.yaml`: `llm.provider` (`ollama` \| `vllm` \| …), `llm.model`, `llm.host` (Ollama default `http://ollama:11434`). For `llm.provider: vllm`, set `llm.api_base` to the server’s OpenAI root (e.g. `http://localhost:8000/v1`). Per-task models for the rewrite cascade: `rewrite_model`, `simplify_model`, `translate_model` (each falls back to `model` when unset). The NAS config sets all of them to `qwen2.5:3b` — sized for CPU inference on 10 stories/day. No API key required for Ollama.
 
 Rewrite throughput: `schedule.rewrite_parallel_workers` runs multiple stories concurrently; each story parallelizes translation steps. Align with Ollama’s `OLLAMA_NUM_PARALLEL` (see `docker-compose.yml`). Benchmark: `python scripts/benchmark_rewrite_llm.py --help`.
 

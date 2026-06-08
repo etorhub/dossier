@@ -7,13 +7,13 @@ globs: [".github/workflows/*.yml", ".github/workflows/*.yaml"]
 
 ## Structure
 
-CI runs on **pull requests**, not on the publish jobs.
-
 - `pr-ci.yml` — triggers on PRs targeting `main` or `master`, runs lint → type check → test
-- `deploy.yml` — triggers on push to `main`, builds and pushes ARM64 images (no CI steps)
-- `build-pi.yml` — triggers on push to `master`, builds and pushes ARM64 images (no CI steps)
 
-Both `main` and `master` are **protected branches**. Branch protection requires the `ci` check from `pr-ci.yml` to pass before a PR can be merged. This is the gate — it does not live in the publish workflows.
+There are no image-publish workflows: the NAS builds the app image from source via
+`docker compose up --build` (see `docs/DEPLOYMENT_PORTAINER.md`). Don't add one —
+this is a single-deployment-target project (NAS only).
+
+Both `main` and `master` are **protected branches**. Branch protection requires the `ci` check from `pr-ci.yml` to pass before a PR can be merged.
 
 ## CI job (pr-ci.yml)
 
@@ -32,6 +32,6 @@ All three steps must pass. Do not remove or skip any of them.
 
 ## What not to do
 
-- Do **not** add CI steps to `deploy.yml` or `build-pi.yml` — they run after a protected merge, so CI has already passed.
 - Do **not** bypass branch protection or merge without a passing `ci` check.
-- Do **not** add a new publish workflow without ensuring the target branch is protected.
+- Do **not** add image-publish workflows (deploy/build-pi/etc.) — the NAS builds from
+  source; there is no second deployment target to publish images for.
