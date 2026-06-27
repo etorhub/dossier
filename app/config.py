@@ -11,8 +11,8 @@ DEFAULTS: dict[str, Any] = {
     },
     "llm": {
         "provider": "ollama",
-        "model": "qwen2.5:7b",
-        "rewrite_model": "qwen2.5:7b",
+        "model": "qwen2.5:3b",
+        "rewrite_model": "qwen2.5:3b",
         "simplify_model": "qwen2.5:3b",
         "translate_model": "qwen2.5:3b",
         "host": "http://ollama:11434",

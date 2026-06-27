@@ -68,9 +68,9 @@ schedule:
   availability_check_interval_minutes: 10
   # Cap stories per rewrite run to 20 to prevent multi-hour blocking (0 = unlimited, not recommended)
   rewrite_batch_size: 20
-  # Story-level thread pool. Use 1 with a single-GPU Ollama host: two concurrent rewrites
-  # often blow VRAM and the GPU goes idle after a short spike. Raise only if Ollama has
-  # headroom (see docker-compose OLLAMA_NUM_PARALLEL / GPU memory).
+  # Story-level thread pool. Keep at 1 on CPU-only Ollama (the NAS): concurrent rewrites
+  # contend for the same CPU cores with no real parallel gain. Raise only if Ollama has
+  # headroom (see docker-compose OLLAMA_NUM_PARALLEL).
   rewrite_parallel_workers: 1
   fetcher:
     circuit_breaker_threshold: 5

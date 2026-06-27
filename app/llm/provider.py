@@ -11,8 +11,8 @@ from app.llm.http_utils import is_ollama_connection_failure, run_with_retries
 
 logger = logging.getLogger(__name__)
 
-# One Ollama chat at a time per worker process. Parallel story workers + proofread/translate
-# otherwise load two large contexts on one GPU, which often aborts after a brief spike (idle GPU).
+# One Ollama chat at a time per worker process. The NAS runs Ollama on CPU only —
+# concurrent large-context calls would just contend for the same cores.
 _OLLAMA_CHAT_LOCK = threading.Lock()
 
 
