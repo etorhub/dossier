@@ -40,7 +40,7 @@ class LLMProvider(ABC):
         ...
 ```
 
-The primary implementation is `OllamaProvider`, connecting to Ollama (`qwen2.5:3b` for rewrite, `bge-m3` for embeddings). Config in `config/app.yaml`: `llm.model`, `llm.host`. Never instantiate a provider directly outside of the provider factory.
+The primary implementation is `OllamaProvider`, connecting to Ollama (`qwen2.5:3b` for rewrite, `paraphrase-multilingual` for embeddings). Config in `config/app.yaml`: `llm.model`, `llm.host`. Never instantiate a provider directly outside of the provider factory.
 
 ## Single-language mode
 
@@ -88,7 +88,7 @@ Two users with identical rewrite settings share cached results.
 
 ## Embeddings and clustering
 
-Article clustering uses the embedding provider (`app/llm/embeddings.py`). Ollama `bge-m3` produces vectors; articles are clustered by cosine similarity. Never call the embedding API directly from routes — it runs only in the worker (clustering job).
+Article clustering uses the embedding provider (`app/llm/embeddings.py`). Ollama `paraphrase-multilingual` produces vectors; articles are clustered by cosine similarity. Never call the embedding API directly from routes — it runs only in the worker (clustering job).
 
 ## Error handling
 

@@ -79,7 +79,7 @@ Canonical phased plan for the minimum viable product. This document replaces sca
 |-----|----------|------|
 | fetch | every 60 min | Fetch all due RSS feeds, store articles |
 | enrich | :05 hourly | Extract full text via Trafilatura |
-| cluster | :15 hourly | Embed articles (bge-m3) and assign to stories by cosine similarity |
+| cluster | :15 hourly | Embed articles (paraphrase-multilingual) and assign to stories by cosine similarity |
 | availability | every 10 min | HTTP HEAD checks on feeds |
 
 ### Output

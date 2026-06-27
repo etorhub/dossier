@@ -13,7 +13,7 @@ truth for this deployment: it's already tuned for CPU-only inference and low RAM
 ```
 UGreen DSP 2800
   ├── db          — PostgreSQL 18 + pgvector
-  ├── ollama      — qwen2.5:3b (rewrite) + bge-m3 (embeddings), CPU only
+  ├── ollama      — qwen2.5:3b (rewrite) + paraphrase-multilingual (embeddings), CPU only
   ├── ollama-init — one-shot model pull, runs once on first start
   ├── db-init     — one-shot Alembic migration, runs once on first start
   ├── web         — Flask app, port 5000
@@ -83,7 +83,7 @@ resolve correctly. On first start:
 3. `ollama` starts in CPU mode (`OLLAMA_NUM_PARALLEL=1`, `OLLAMA_MAX_LOADED_MODELS=1`
    — one model resident at a time, since the daily job never runs rewrite and
    embedding concurrently)
-4. `ollama-init` pulls `qwen2.5:3b` and `bge-m3` (~2–3 GB total) — the slowest step
+4. `ollama-init` pulls `qwen2.5:3b` and `paraphrase-multilingual` (~2–3 GB total) — the slowest step
    on first run, expect 10–30 minutes depending on NAS bandwidth/disk speed — then exits
 5. `web`, `worker`, and `ops` start once their dependencies are healthy/complete
 

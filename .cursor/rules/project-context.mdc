@@ -74,8 +74,8 @@ See `docs/TECH_STACK.md` for full details, project structure, dependencies, Dock
 
 - **Backend:** Python 3.12+ with Flask
 - **Database:** PostgreSQL 18
-- **LLM:** Ollama (local, no API key) via provider interface — `qwen2.5:3b` for rewriting, `bge-m3` for embeddings
-- **Embeddings:** Ollama (bge-m3) for article clustering
+- **LLM:** Ollama (local, no API key) via provider interface — `qwen2.5:3b` for rewriting, `paraphrase-multilingual` for embeddings
+- **Embeddings:** Ollama (paraphrase-multilingual) for article clustering
 - **Frontend:** Plain HTML + CSS + HTMX
 - **Scheduling:** APScheduler runs the pipeline in the worker: fetch → enrich → embed → cluster (continuous) + daily rewrite at 06:00 (top-10 stories, Catalan only, no cascade). Content is ready when the user opens the app.
 - **Packaging:** Docker + docker-compose (db, web, worker, ollama, ops). Web uses slim image; worker uses ollama client; ollama runs models in dedicated container; ops dashboard on port 5001.

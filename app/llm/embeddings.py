@@ -94,7 +94,7 @@ class OllamaEmbeddingProvider(EmbeddingProvider):
 
     def __init__(
         self,
-        model: str = "bge-m3",
+        model: str = "paraphrase-multilingual",
         host: str = "http://ollama:11434",
         *,
         max_retries: int = 3,
@@ -139,7 +139,7 @@ def get_embedding_provider(config: dict[str, Any] | None = None) -> EmbeddingPro
     embeddings_cfg = cfg.get("embeddings", {})
     provider_name = (embeddings_cfg.get("provider") or "ollama").lower()
     if provider_name == "ollama":
-        model = embeddings_cfg.get("model") or "bge-m3"
+        model = embeddings_cfg.get("model") or "paraphrase-multilingual"
         host = embeddings_cfg.get("host") or os.environ.get("OLLAMA_HOST") or "http://ollama:11434"
         retries = int(embeddings_cfg.get("max_retries") or 3)
         max_chars = int(embeddings_cfg.get("max_input_chars") or 8000)
