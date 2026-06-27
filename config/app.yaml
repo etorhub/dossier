@@ -46,7 +46,7 @@ digest:
 
 embeddings:
   provider: ollama
-  model: bge-m3
+  model: paraphrase-multilingual
   host: http://ollama:11434
   max_retries: 3
   max_input_chars: 8000

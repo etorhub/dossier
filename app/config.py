@@ -27,7 +27,7 @@ DEFAULTS: dict[str, Any] = {
     },
     "embeddings": {
         "provider": "ollama",
-        "model": "bge-m3",
+        "model": "paraphrase-multilingual",
         "host": "http://ollama:11434",
         "api_base": "",
         "timeout_seconds": 60,

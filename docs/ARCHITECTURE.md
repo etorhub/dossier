@@ -20,7 +20,7 @@ A five-stage pipeline runs on a background schedule (APScheduler): fetch feeds �
 |-------|-----------|--------------|
 | 1. Fetch | `app/feed/` | Fetch RSS feeds, parse XML, classify, deduplicate, insert articles |
 | 2. Enrich | `app/extraction/` | Trafilatura extracts full text; re-classifies with full text; updates `articles` |
-| 3. Embed | `app/llm/embeddings.py` | Ollama (bge-m3) embeds each `news` article; stores vectors |
+| 3. Embed | `app/llm/embeddings.py` | Ollama (paraphrase-multilingual) embeds each `news` article; stores vectors |
 | 4. Cluster | `app/clustering/` | Cosine similarity + complete-linkage groups related articles into stories |
 | 5. Rewrite | `app/services/rewrite_service.py` | LLM cascade: merge sources → neutral EN, simplify, translate to all languages |
 
@@ -116,7 +116,7 @@ A `RawArticle` has: `id`, `title`, `url`, `source`, `published_at`, `raw_text` (
 The LLM abstraction layer. Nothing outside this directory calls Ollama directly.
 
 - `provider.py` — `LLMProvider` abstract base class and `OllamaProvider` implementation
-- `embeddings.py` — `EmbeddingProvider` for article clustering; Ollama (bge-m3)
+- `embeddings.py` — `EmbeddingProvider` for article clustering; Ollama (paraphrase-multilingual)
 - `prompts/` — `rewrite_cluster_neutral.txt`, `simplify_article.txt`, `translate_article.txt` for the cascading rewrite pipeline
 
 ### `app/clustering/`
@@ -235,7 +235,7 @@ rewriting:
 
 embeddings:
   provider: ollama
-  model: bge-m3
+  model: paraphrase-multilingual
   host: http://ollama:11434
   max_retries: 3
   max_input_chars: 8000

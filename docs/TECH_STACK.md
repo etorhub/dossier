@@ -10,7 +10,7 @@ Technology choices for Dossier, with rationale.
 | --- | --- | --- |
 | Backend | Python 3.12+ with Flask | Lightweight, well-understood, Jinja2 built-in |
 | Database | PostgreSQL 18 | Robust, multi-user, JSONB support, wide hosting availability |
-| LLM | Ollama (local), CPU inference via provider interface | `qwen2.5:3b` for rewriting, `bge-m3` for embeddings — sized for 10 stories/day on the NAS's CPU |
+| LLM | Ollama (local), CPU inference via provider interface | `qwen2.5:3b` for rewriting, `paraphrase-multilingual` for embeddings — sized for 10 stories/day on the NAS's CPU |
 | Frontend | Plain HTML + CSS + HTMX | No build step, no JS framework, server-rendered throughout |
 | Templating | Jinja2 (Flask built-in) | Tight Flask integration, partial rendering for HTMX |
 | Scheduling | APScheduler in dedicated worker container | Web and worker run as separate containers; web has zero ML/LLM deps |
@@ -58,7 +58,7 @@ Technology choices for Dossier, with rationale.
 │   ├── services/            # Business logic — routes call services
 │   ├── llm/
 │   │   ├── provider.py      # Abstract LLM interface + Ollama, Gemini, Anthropic, vLLM-compatible
-│   │   ├── embeddings.py    # Embedding provider (Ollama bge-m3)
+│   │   ├── embeddings.py    # Embedding provider (Ollama paraphrase-multilingual)
 │   │   └── prompts/        # rewrite_cluster_neutral, simplify_article, translate_article
 │   ├── feed/                # RSS fetching (fetcher, parser, orchestrator, availability)
 │   ├── extraction/          # Full-text extraction (extractor, trafilatura)
@@ -155,7 +155,7 @@ docker compose up -d ops
 
 Five services: PostgreSQL, Ollama (LLM/embeddings), the Flask web app (slim image), the worker (feed processing + ollama client), and the ops dashboard.
 
-- **ollama** — Runs Ollama server in CPU-only mode (no GPU — the NAS has none). Models (`qwen2.5:3b`, `bge-m3`) are pulled on first start via `ollama-init`. `OLLAMA_NUM_PARALLEL=1` and `OLLAMA_MAX_LOADED_MODELS=1` keep peak RAM low on shared hardware.
+- **ollama** — Runs Ollama server in CPU-only mode (no GPU — the NAS has none). Models (`qwen2.5:3b`, `paraphrase-multilingual`) are pulled on first start via `ollama-init`. `OLLAMA_NUM_PARALLEL=1` and `OLLAMA_MAX_LOADED_MODELS=1` keep peak RAM low on shared hardware.
 - **web** — Gunicorn serves the Flask app. Uses `requirements-web.txt` (no ollama, no feed processing). Runs `alembic upgrade head` on startup, then Gunicorn.
 - **worker** — Runs APScheduler (`python -m app.scheduler`) for scheduled pipeline jobs (fetch, enrich, cluster, rewrite, check_source_availability). Uses `requirements.txt` (includes ollama Python client). Connects to ollama service for LLM and embeddings. Processing CLI commands run here: `docker compose exec worker python -m app.worker_cli fetch-feeds`, etc.
 - **ops** — Separate Flask app for operators. Serves the ops dashboard at port 5001. Uses the same database; no auth by default.
@@ -259,7 +259,7 @@ Rewrite throughput: `schedule.rewrite_parallel_workers` runs multiple stories co
 
 ## Embedding Provider
 
-Article clustering uses embeddings for similarity via **Ollama** (`bge-m3`). Config: `embeddings.model`, `embeddings.host`. No API key required.
+Article clustering uses embeddings for similarity via **Ollama** (`paraphrase-multilingual`). Config: `embeddings.model`, `embeddings.host`. No API key required.
 
 ---
 
@@ -271,7 +271,7 @@ Background jobs in the worker:
 
 1. **Fetch jobs** — poll feeds per their configured interval. Articles are stored in the `articles` table.
 2. **Enrichment jobs** — extract full article text from URLs (Trafilatura) for articles with `extraction_status = 'pending'`.
-3. **Cluster jobs** — embed articles (Ollama bge-m3), complete-linkage cosine similarity grouping, create story records only for groups with ≥2 distinct sources covering the same event.
+3. **Cluster jobs** — embed articles (Ollama paraphrase-multilingual), complete-linkage cosine similarity grouping, create story records only for groups with ≥2 distinct sources covering the same event.
 4. **Rewrite jobs** — run at a configurable daily time (default: 06:00). Uses a cascading pipeline: generate neutral English from sources, simplify to simple English, then translate both to other languages (translations may run in parallel within a story; multiple stories may run in parallel). Per-task models (`rewrite_model`, `simplify_model`, `translate_model`) can be tuned in config. Rewrites are stored in `story_rewrites` and shared across all users with the same `(style, language)` variant.
 5. **Availability check** — runs every 10 minutes (configurable). HTTP HEAD/GET to each active feed; stores results in `source_availability_checks`. Visible in the ops dashboard.
 

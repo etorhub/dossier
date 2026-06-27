@@ -73,7 +73,7 @@ See `docs/TECH_STACK.md` for full details, project structure, dependencies, Dock
 - **Backend:** Python 3.12+ with Flask
 - **Database:** PostgreSQL 18
 - **LLM:** Ollama (local, no API key) via provider interface — `qwen2.5:3b` for rewriting (adequate for 10 stories/day on CPU); text generation and embeddings
-- **Embeddings:** Ollama (bge-m3) for article clustering
+- **Embeddings:** Ollama (paraphrase-multilingual) for article clustering
 - **Frontend:** Plain HTML + CSS + HTMX
 - **Scheduling:** APScheduler runs the pipeline in the worker: fetch feeds → enrich (extract full text) → embed → cluster → rewrite. The daily rewrite (06:00) selects the top 10 stories by relevance score and rewrites them in Catalan only — no cascade, no translation step. Content is ready when the user opens the app.
 - **Content filtering:** `app/feed/classifier.py` classifies articles as `news` or `non_news` using keyword heuristics (recipes, horoscopes, classifieds, promotions). Applied at fetch time (title + raw_text) and again at enrich time (full text). Non-news articles are stored with `article_type = 'non_news'` and excluded from enrichment, embedding, and clustering. Operators review and override via the ops dashboard.

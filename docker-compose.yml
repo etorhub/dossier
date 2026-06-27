@@ -5,7 +5,7 @@ services:
   #
   # Tuned for CPU-only inference on a NAS (UGreen DSP 2800): a single thread pool
   # and one resident model keep peak RAM low — the daily job never runs the
-  # rewrite (qwen2.5:3b) and embedding (bge-m3) models concurrently.
+  # rewrite (qwen2.5:3b) and embedding (paraphrase-multilingual) models concurrently.
   ollama:
     profiles: ["local-llm"]
     image: ollama/ollama
@@ -33,7 +33,7 @@ services:
       [
         "sh",
         "-c",
-        "set -eu && echo 'ollama-init: pulling qwen2.5:3b and bge-m3 (first start can take a while)...' && ollama pull qwen2.5:3b && ollama pull bge-m3 && echo 'ollama-init: pulls complete.'",
+        "set -eu && echo 'ollama-init: pulling qwen2.5:3b and paraphrase-multilingual (first start can take a while)...' && ollama pull qwen2.5:3b && ollama pull paraphrase-multilingual && echo 'ollama-init: pulls complete.'",
       ]
     restart: "no"
 
