@@ -1,8 +1,0 @@
-# CPU override: strips GPU reservation from ollama.
-# Works with docker-compose.yml and docker-compose.heavy.yml.
-# Usage:
-#   docker compose -f docker-compose.yml -f docker-compose.cpu.yml up
-#   docker compose -f docker-compose.heavy.yml -f docker-compose.cpu.yml up -d
-services:
-  ollama:
-    deploy: {}

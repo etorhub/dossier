@@ -1,46 +1,12 @@
-"""Tests for app/scheduler.py — mode selection and job tracking helpers."""
+"""Tests for app/scheduler.py — job tracking helpers."""
 
 from __future__ import annotations
 
 import contextlib
-import os
 from dataclasses import dataclass
 from unittest.mock import ANY, MagicMock, patch
 
-import pytest
-
-from app.scheduler import _get_scheduler_mode, _run_tracked_job
-
-# ---------------------------------------------------------------------------
-# _get_scheduler_mode
-# ---------------------------------------------------------------------------
-
-
-def test_get_scheduler_mode_defaults_to_full_when_unset() -> None:
-    """Returns 'full' when SCHEDULER_MODE is not set."""
-    env = {k: v for k, v in os.environ.items() if k != "SCHEDULER_MODE"}
-    with patch.dict(os.environ, env, clear=True):
-        assert _get_scheduler_mode() == "full"
-
-
-@pytest.mark.parametrize("mode", ["full", "light", "heavy"])
-def test_get_scheduler_mode_accepts_valid_values(mode: str) -> None:
-    """Returns the mode as-is for valid values."""
-    with patch.dict(os.environ, {"SCHEDULER_MODE": mode}):
-        assert _get_scheduler_mode() == mode
-
-
-def test_get_scheduler_mode_is_case_insensitive() -> None:
-    """SCHEDULER_MODE=LIGHT is normalised to 'light'."""
-    with patch.dict(os.environ, {"SCHEDULER_MODE": "LIGHT"}):
-        assert _get_scheduler_mode() == "light"
-
-
-def test_get_scheduler_mode_falls_back_to_full_for_invalid_value() -> None:
-    """An unrecognised SCHEDULER_MODE value falls back to 'full'."""
-    with patch.dict(os.environ, {"SCHEDULER_MODE": "banana"}):
-        assert _get_scheduler_mode() == "full"
-
+from app.scheduler import _run_tracked_job
 
 # ---------------------------------------------------------------------------
 # _run_tracked_job
@@ -180,8 +146,8 @@ def test_run_tracked_job_uses_trigger_parameter() -> None:
 # ---------------------------------------------------------------------------
 
 
-def test_main_registers_light_jobs_only_in_light_mode() -> None:
-    """In 'light' mode, only the light-mode jobs are registered."""
+def test_main_registers_all_pipeline_jobs() -> None:
+    """main() registers every pipeline job on the scheduler."""
     config: dict = {
         "schedule": {
             "fetch_interval_minutes": 60,
@@ -196,7 +162,6 @@ def test_main_registers_light_jobs_only_in_light_mode() -> None:
     mock_scheduler = MagicMock()
 
     with (
-        patch.dict(os.environ, {"SCHEDULER_MODE": "light"}),
         patch("app.scheduler.load_config", return_value=config),
         patch("app.scheduler.BlockingScheduler", return_value=mock_scheduler),
     ):
@@ -209,37 +174,6 @@ def test_main_registers_light_jobs_only_in_light_mode() -> None:
     assert "fetch_feeds" in job_ids
     assert "enrich_articles" in job_ids
     assert "check_source_availability" in job_ids
-    assert "cluster_articles" not in job_ids
-    assert "rewrite_articles" not in job_ids
-
-
-def test_main_registers_heavy_jobs_only_in_heavy_mode() -> None:
-    """In 'heavy' mode, only the heavy-mode jobs are registered."""
-    config: dict = {
-        "schedule": {
-            "fetch_interval_minutes": 60,
-            "enrichment_cron": "10 * * * *",
-            "cluster_cron": "5 * * * *",
-            "rewrite_cron": "0 6 * * *",
-            "highlight_cron": "15-59/30 * * * *",
-            "availability_check_interval_minutes": 10,
-        }
-    }
-
-    mock_scheduler = MagicMock()
-
-    with (
-        patch.dict(os.environ, {"SCHEDULER_MODE": "heavy"}),
-        patch("app.scheduler.load_config", return_value=config),
-        patch("app.scheduler.BlockingScheduler", return_value=mock_scheduler),
-    ):
-        from app.scheduler import main
-
-        with contextlib.suppress(SystemExit):
-            main()
-
-    job_ids = [call.kwargs.get("id") for call in mock_scheduler.add_job.call_args_list]
-    assert "fetch_feeds" not in job_ids
     assert "cluster_articles" in job_ids
     assert "rewrite_articles" in job_ids
     assert "highlight_stories" in job_ids

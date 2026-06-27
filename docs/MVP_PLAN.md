@@ -33,8 +33,7 @@ Canonical phased plan for the minimum viable product. This document replaces sca
    - `db` — PostgreSQL 18. Persistent volume, health check via `pg_isready`.
    - `web` — Flask app (gunicorn in production, `flask run --debug` in dev).
    - `worker` — APScheduler process. Same image as `web`, different entrypoint.
-   - `docker-compose.yml` — Production-like defaults.
-   - `docker-compose.nas.yml` — NAS overrides (CPU Ollama, memory limits).
+   - `docker-compose.yml` — NAS deployment defaults (CPU-only Ollama, memory-conscious settings).
    - `docker-compose.override.yml` — Dev overrides (bind mounts, live reload).
    - `.env.example` — Template for `POSTGRES_PASSWORD`, `SECRET_KEY`, `VAPID_*`.
 
@@ -46,7 +45,7 @@ Canonical phased plan for the minimum viable product. This document replaces sca
 
 ### Output
 
-`Dockerfile`, `docker-compose.yml`, `docker-compose.nas.yml`, `docker-compose.override.yml`, `.env.example`, `pyproject.toml`, `lefthook.yml`, `alembic/`.
+`Dockerfile`, `docker-compose.yml`, `docker-compose.override.yml`, `.env.example`, `pyproject.toml`, `lefthook.yml`, `alembic/`.
 
 ---
 
@@ -174,7 +173,7 @@ digest:
 | Docker multi-service setup (db, web, worker, ollama)                   | ✅     |
 | Python tooling (ruff, mypy, pytest)                                    | ✅     |
 | Git hooks (Lefthook) and conventional commits (Commitizen)             | ✅     |
-| NAS deployment compose file (`docker-compose.nas.yml`)                 | ✅     |
+| NAS deployment compose file (`docker-compose.yml`, CPU-only)            | ✅     |
 | News source catalog (Catalan/Spanish open publishers)                  | ✅     |
 | Continuous fetching and enrichment                                     | ✅     |
 | Story clustering (cosine similarity on BGE-M3 embeddings)             | ✅     |

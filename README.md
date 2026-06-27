@@ -39,7 +39,7 @@ Neither the user nor anyone setting up the instance ever touches the codebase. S
 
 ### Setup
 
-The **Ollama** service is optional in Compose (profile `local-llm`). Clustering, embeddings, and rewrites need a reachable Ollama. [`.env.example`](.env.example) sets `COMPOSE_PROFILES=local-llm` so a copied `.env` starts Ollama in Docker and runs **`ollama-init`** once per `up` (pulls `qwen2.5:3b`, `bge-m3` into the `ollama_data` volume). The **worker** waits for that init to finish before running. Model pull happens at **container start**, not during `docker build`.
+The **Ollama** service is optional in Compose (profile `local-llm`). Clustering, embeddings, and rewrites need a reachable Ollama. [`.env.example`](.env.example) sets `COMPOSE_PROFILES=local-llm` so a copied `.env` starts Ollama in Docker and runs **`ollama-init`** once per `up` (pulls `qwen2.5:3b`, `bge-m3` into the `ollama_data` volume). The **worker** waits for that init to finish before running. Model pull happens at **container start**, not during `docker build`. The compose file is tuned for CPU-only inference on a NAS — no GPU is required or used.
 
 **NAS deployment** (UGreen DSP 2800 or similar, CPU only):
 
@@ -47,14 +47,11 @@ The **Ollama** service is optional in Compose (profile `local-llm`). Clustering,
 git clone https://github.com/etorhub/dossier.git
 cd dossier
 cp .env.example .env
-docker compose -f docker-compose.yml -f docker-compose.nas.yml up --build -d
+docker compose up --build -d
 ```
 
-**With Ollama in Docker** (generic, no GPU):
-
-```bash
-docker compose -f docker-compose.yml -f docker-compose.cpu.yml up --build -d
-```
+Deploying via **Portainer** instead of the CLI? See [`docs/DEPLOYMENT_PORTAINER.md`](docs/DEPLOYMENT_PORTAINER.md)
+for a step-by-step stack setup.
 
 Without a `.env`, pass the profile explicitly: `docker compose --profile local-llm up --build -d`.
 

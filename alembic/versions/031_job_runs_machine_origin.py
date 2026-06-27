@@ -4,9 +4,8 @@ Revision ID: 031
 Revises: f0a1b2c3d4e5
 Create Date: 2026-03-27
 
-Records which machine ran each pipeline job and under what scheduler mode.
-Useful in hybrid deployments where a Raspberry Pi runs light jobs and a
-heavier machine runs embedding/rewrite jobs.
+Records which machine ran each pipeline job, surfaced in the ops dashboard's
+job run history.
 """
 
 from collections.abc import Sequence

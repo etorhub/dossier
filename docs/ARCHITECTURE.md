@@ -209,11 +209,9 @@ All config lives in `config/`. The app reads it at startup. No config is hardcod
 
 ```yaml
 llm:
-  provider: ollama # or vllm (OpenAI-compatible HTTP; set llm.api_base)
-  model: qwen2.5:7b
-  rewrite_model: qwen2.5:7b
-  simplify_model: qwen2.5:3b
-  translate_model: qwen2.5:3b
+  provider: ollama
+  model: qwen2.5:3b # fallback for any task without its own model
+  rewrite_model: qwen2.5:3b # merge sources → rewrite in target language
   host: http://ollama:11434
   max_retries: 3
 

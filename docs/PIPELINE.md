@@ -255,8 +255,8 @@ One story produces one rewrite variant per `(style, language)` combination confi
 ```mermaid
 flowchart TD
     SRC["Source articles\n(up to 18, ≤ 8000 chars each, ≤ 52 000 chars total)"]
-    R["① Rewrite\nqwen2.5:7b · T=0.2\nMerge sources → neutral journalistic text"]
-    P["② Proofread  (optional)\nqwen2.5:7b · T=0.1\nSpelling and grammar only"]
+    R["① Rewrite\nqwen2.5:3b · T=0.2\nMerge sources → neutral journalistic text"]
+    P["② Proofread  (optional)\nqwen2.5:3b · T=0.1\nSpelling and grammar only"]
     S{"style\n= simple?"}
     SIM["③ Simplify\nqwen2.5:3b · T=0.2\nReduce reading level"]
     TR{"lang ≠\nbase_lang?"}
@@ -284,7 +284,7 @@ The parser strips markdown bold, normalises localised header aliases (`TÍTULO:`
 
 ### Concurrency
 
-A thread pool processes stories in parallel (default `rewrite_parallel_workers = 1`). A single `_OLLAMA_CHAT_LOCK` serialises all actual LLM calls — two concurrent large-context requests would exceed VRAM on a single GPU.
+A thread pool processes stories in parallel (default `rewrite_parallel_workers = 1`). A single `_OLLAMA_CHAT_LOCK` serialises all actual LLM calls — two concurrent large-context requests would exceed RAM on the NAS's CPU-only Ollama.
 
 ### Inputs → Outputs
 
@@ -298,11 +298,11 @@ A thread pool processes stories in parallel (default `rewrite_parallel_workers =
 
 | Key | Default | Effect |
 |---|---|---|
-| `llm.rewrite_model` | `qwen2.5:7b` | Best model for the hard merge task |
-| `llm.simplify_model` | `qwen2.5:3b` | Smaller/faster, sufficient for simplification |
-| `llm.translate_model` | `qwen2.5:3b` | Smaller/faster, sufficient for translation |
+| `llm.rewrite_model` | `qwen2.5:3b` | The only model pulled on the NAS — sized for CPU inference |
+| `llm.simplify_model` | `qwen2.5:3b` | Falls back to `rewrite_model`; not activated in the current Catalan-only config |
+| `llm.translate_model` | `qwen2.5:3b` | Falls back to `rewrite_model`; not activated (single-language digest) |
 | `processing.rewrite_proofread_enabled` | `true` | Toggle the proofread pass |
-| `rewriting.base_language` | `es` | Language of the initial rewrite |
+| `rewriting.base_language` | `ca` | Language of the initial rewrite — Catalan only, no translation step |
 
 ---
 
@@ -340,7 +340,10 @@ Runs after REWRITE so it always operates on the final translated/simplified outp
 
 ## Scheduler & Deployment
 
-### Default schedule (full mode)
+The worker runs every pipeline job on a single schedule — there is no machine-split mode.
+The single deployment target is the NAS (`docker-compose.yml`, CPU-only Ollama).
+
+### Default schedule
 
 ```
 :00  FETCH runs (interval, every 60 min)
@@ -349,18 +352,6 @@ Runs after REWRITE so it always operates on the final translated/simplified outp
 06:00  REWRITE runs (daily)
 06:30  HIGHLIGHT runs (daily)
 ```
-
-### SCHEDULER_MODE
-
-The `SCHEDULER_MODE` environment variable splits jobs across machines. Useful for hybrid deployments (e.g. a Raspberry Pi handles I/O, a PC with a GPU handles ML):
-
-| Mode | Jobs | Use case |
-|---|---|---|
-| `full` | all 6 | Default, Docker dev |
-| `light` | fetch + enrich + availability | Low-power device, no Ollama |
-| `heavy` | cluster + rewrite + highlight | GPU machine, no feeds |
-
-Light-mode hosts never import the LLM or clustering stack (lazy imports in the scheduler).
 
 ### Manual CLI
 
