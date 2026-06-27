@@ -1,7 +1,4 @@
 # Web container only. Excludes ML/LLM/processing deps (see requirements.txt for worker).
-# pywebpush is intentionally NOT listed here: push_service.py (which imports it) runs only
-# in the worker container, which installs from requirements.txt. The web container's pwa.py
-# only calls the db layer and never imports push_service.
 flask
 psycopg2-binary
 python-dotenv

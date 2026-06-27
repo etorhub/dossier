@@ -46,18 +46,7 @@ def _rewrite_articles_job(config: dict[str, Any]) -> Any:
     """Lazy import so light-only hosts never load LLM/rewrite stack."""
     from app.services.rewrite_service import run_rewrite_batch
 
-    report = run_rewrite_batch(config)
-
-    digest_cfg = config.get("digest", {})
-    if digest_cfg.get("send_push_notification") and report.stories_succeeded > 0:
-        from app.services.push_service import send_digest_ready_notification
-
-        try:
-            send_digest_ready_notification(report.stories_succeeded)
-        except Exception:
-            logger.exception("Digest push notification failed (rewrite result still saved)")
-
-    return report
+    return run_rewrite_batch(config)
 
 
 def _highlight_articles_job(config: dict[str, Any]) -> Any:

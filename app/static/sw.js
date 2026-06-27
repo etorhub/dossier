@@ -61,31 +61,3 @@ self.addEventListener('fetch', function(e) {
     );
   }
 });
-
-self.addEventListener('push', function(e) {
-  var data = {};
-  try { data = e.data ? e.data.json() : {}; } catch(err) {}
-  var title = data.title || 'Dossier';
-  var body = data.body || 'New stories ready for you';
-  e.waitUntil(
-    self.registration.showNotification(title, {
-      body: body,
-      icon: '/static/icons/icon-192.png',
-      badge: '/static/icons/icon-192.png',
-      data: { url: data.url || '/' }
-    })
-  );
-});
-
-self.addEventListener('notificationclick', function(e) {
-  e.notification.close();
-  var url = (e.notification.data && e.notification.data.url) || '/';
-  e.waitUntil(
-    clients.matchAll({ type: 'window' }).then(function(list) {
-      for (var i = 0; i < list.length; i++) {
-        if (list[i].url === url && 'focus' in list[i]) return list[i].focus();
-      }
-      if (clients.openWindow) return clients.openWindow(url);
-    })
-  );
-});

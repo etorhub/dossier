@@ -37,8 +37,7 @@ The project is open source (AGPL). The **only** deployment target: **NAS UGreen 
 
 1. Pipeline runs continuously: fetch feeds → enrich → embed → cluster
 2. At 06:00: score all pending stories, select top 10, rewrite in Catalan
-3. Push notification fires: "El teu dossier d'avui és aquí — 10 noves històries"
-4. User reads 10 clean stories in ~5 minutes
+3. User opens the app and reads 10 clean stories in ~5 minutes
 
 Refer to `docs/MVP_PLAN.md` for the phased plan.
 
@@ -60,7 +59,6 @@ Refer to `docs/MVP_PLAN.md` for the phased plan.
 ### User-facing
 
 - Profile configuration (topics, rewrite tone)
-- Daily push notification when digest is ready
 - Account management: set up once, left alone
 - **Future:** reading streak / gamification (planned, not yet implemented)
 
