@@ -6,7 +6,7 @@ Canonical phased plan for the minimum viable product. This document replaces sca
 
 ## Vision
 
-> At 07:00 you receive a push: "El teu dossier d'avui és aquí — 10 noves històries."
+> By 07:00 your dossier is ready — 10 noves històries.
 > You open the app, read 10 well-written stories in Catalan, and you're done for the day.
 
 ---
@@ -18,7 +18,7 @@ Canonical phased plan for the minimum viable product. This document replaces sca
 | 0     | Infrastructure & DX      | Docker multi-service, Python tooling, git hooks, conventional commits        |
 | 1     | News source catalog      | Populated catalog of validated Catalan/Spanish feeds                         |
 | 2     | Fetching pipeline        | Articles stored continuously with full text when available                   |
-| 3     | Daily digest engine      | Top-10 stories scored, rewritten in Catalan, push notification sent at 07:00 |
+| 3     | Daily digest engine      | Top-10 stories scored and rewritten in Catalan, ready by 07:00 |
 | 4     | Platform                 | Auth, profile config, digest UI                                              |
 
 ---
@@ -35,7 +35,7 @@ Canonical phased plan for the minimum viable product. This document replaces sca
    - `worker` — APScheduler process. Same image as `web`, different entrypoint.
    - `docker-compose.yml` — NAS deployment defaults (CPU-only Ollama, memory-conscious settings).
    - `docker-compose.override.yml` — Dev overrides (bind mounts, live reload).
-   - `.env.example` — Template for `POSTGRES_PASSWORD`, `SECRET_KEY`, `VAPID_*`.
+   - `.env.example` — Template for `POSTGRES_PASSWORD`, `SECRET_KEY`.
 
 2. **Python tooling** — Ruff, Mypy, Pytest, Alembic, all via `uv`.
 
@@ -91,7 +91,7 @@ Canonical phased plan for the minimum viable product. This document replaces sca
 
 ## Phase 3 — Daily Digest Engine
 
-**Goal:** Once a day at 06:00, select the 10 best stories, rewrite them in Catalan, send push notification.
+**Goal:** Once a day at 06:00, select the 10 best stories and rewrite them in Catalan.
 
 ### Tasks
 
@@ -109,11 +109,6 @@ Canonical phased plan for the minimum viable product. This document replaces sca
    - Model: `qwen2.5:3b` on Ollama (CPU, NAS).
    - Output: `TITLE: / SUMMARY: / FULL:` per story, stored in `story_rewrites`.
 
-3. **Push notification**
-   - After rewrite completes, `send_digest_ready_notification(n_stories)` fires.
-   - Payload: `{ title: "Dossier", body: "El teu dossier d'avui és aquí — 10 noves històries" }`.
-   - Uses Web Push + VAPID; reads credentials from `VAPID_PRIVATE_KEY` env var.
-
 ### Schedule
 
 ```yaml
@@ -122,13 +117,11 @@ schedule:
 
 digest:
   top_n: 10
-  send_push_notification: true
 ```
 
 ### Output
 
 - `story_rewrites` rows with `style=neutral`, `language=ca` for the top 10 stories.
-- Push notification received by all subscribed browsers.
 
 ---
 
@@ -148,10 +141,7 @@ digest:
    - TTS button (Web Speech API; hidden when not supported)
    - Link to original source
 
-4. **Push subscription** — "Subscribe to notifications" button registers the browser.
-   Stored in `push_subscriptions`; used by `send_digest_ready_notification`.
-
-5. **UI requirements**
+4. **UI requirements**
    - Clean, distraction-free, newspaper-inspired
    - Minimum 48×48px touch targets
    - Base font 22px, line height 1.6
@@ -179,7 +169,6 @@ digest:
 | Story clustering (cosine similarity on BGE-M3 embeddings)             | ✅     |
 | Daily digest selection (top-10 by recency + coverage)                  | ✅     |
 | Rewrite in Catalan only (`qwen2.5:3b`)                                 | ✅     |
-| Push notification after daily rewrite                                  | ✅     |
 | Auth (email + password)                                                | ✅     |
 | Setup wizard (topics, tone)                                            | ✅     |
 | Digest view (10 stories, expandable, TTS)                              | ✅     |
@@ -218,7 +207,7 @@ ALTER TABLE users ADD COLUMN streak_last_read_date DATE;
 
 ## Success Criteria
 
-- At 07:00 a push notification arrives: "El teu dossier d'avui és aquí"
+- By 07:00 the dossier is ready
 - Opening the app shows exactly 10 stories in Catalan, clean and readable
 - Each story can be expanded to full text; TTS works
 - Reading 10 stories takes under 5 minutes

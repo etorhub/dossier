@@ -766,7 +766,6 @@
   data-tts-stop="{{ _('Stop') }}"
   data-tts-volume="{{ _('Volume') }}"
   data-tts-read-aloud="{{ _('Read article aloud') }}"
-  data-vapid-key="{{ vapid_public_key or '' }}"
   data-sw-url="{{ url_for('pwa_root.service_worker') }}">
   <nav>
     {% if session.get('user_id') %}
@@ -895,26 +894,6 @@
       }
     }
 
-    {% if session.get('user_id') %}
-    (function() {
-      if (!('PushManager' in window) || !('serviceWorker' in navigator)) return;
-      var vapidKey = document.body.dataset.vapidKey;
-      if (!vapidKey) return;
-      navigator.serviceWorker.ready.then(function(reg) {
-        reg.pushManager.getSubscription().then(function(existing) {
-          if (existing) return;
-          reg.pushManager.subscribe({
-            userVisibleOnly: true,
-            applicationServerKey: vapidKey
-          }).then(function(sub) {
-            var form = new FormData();
-            form.append('subscription', JSON.stringify(sub.toJSON()));
-            fetch('/pwa/subscribe', { method: 'POST', body: form, credentials: 'same-origin' });
-          }).catch(function() {});
-        });
-      });
-    })();
-    {% endif %}
   </script>
   {% block scripts %}{% endblock %}
 </body>

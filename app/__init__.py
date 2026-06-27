@@ -16,7 +16,6 @@ from app.cli import make_admin, seed_sources, show_rewrite_failures
 from app.config import load_config
 from app.db import users as db_users
 from app.routes.auth import auth_bp
-from app.routes.pwa import bp as pwa_bp
 from app.routes.pwa import bp_root as pwa_root_bp
 from app.routes.reader import reader_bp
 from app.routes.settings import settings_bp
@@ -50,9 +49,6 @@ def create_app(config_path: str | Path | None = None) -> Flask:
     app.wsgi_app = ProxyFix(app.wsgi_app, x_proto=1, x_host=1)  # type: ignore[method-assign]
     app.config["CONFIG"] = load_config(config_path)
     app.config["SECRET_KEY"] = os.environ.get("SECRET_KEY", "dev-secret-key-change-in-production")
-    app.config["VAPID_PUBLIC_KEY"] = os.environ.get("VAPID_PUBLIC_KEY", "")
-    app.config["VAPID_PRIVATE_KEY"] = os.environ.get("VAPID_PRIVATE_KEY", "")
-    app.config["VAPID_EMAIL"] = os.environ.get("VAPID_EMAIL", "mailto:admin@example.com")
     # Use absolute path so translations load correctly in Docker and all environments
     _translations_dir = Path(__file__).resolve().parent.parent / "translations"
     app.config["BABEL_TRANSLATION_DIRECTORIES"] = str(_translations_dir)
@@ -110,7 +106,6 @@ def create_app(config_path: str | Path | None = None) -> Flask:
     app.register_blueprint(setup_bp)
     app.register_blueprint(settings_bp)
     app.register_blueprint(reader_bp)
-    app.register_blueprint(pwa_bp)
     app.register_blueprint(pwa_root_bp)
 
     @app.context_processor
@@ -137,11 +132,6 @@ def create_app(config_path: str | Path | None = None) -> Flask:
     def inject_csrf_token():  # type: ignore[no-untyped-def]
         """Inject csrf_token() callable into all templates."""
         return {"csrf_token": generate_csrf_token}
-
-    @app.context_processor
-    def inject_vapid_key():  # type: ignore[no-untyped-def]
-        """Inject VAPID public key for push subscription JS in base.html."""
-        return {"vapid_public_key": app.config.get("VAPID_PUBLIC_KEY", "")}
 
     app.cli.add_command(seed_sources)
     app.cli.add_command(make_admin)

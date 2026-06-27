@@ -8,7 +8,7 @@ Personal daily news digest — curated, rewritten in Catalan, delivered once a d
 
 Most news interfaces are built for engagement, not comprehension. They are cluttered, dense, and optimised to keep users scrolling. This project takes a different approach: a curated **daily digest** delivered once a day — the 10 most relevant stories, rewritten in clean Catalan, ready to read in 5 minutes.
 
-The pipeline runs automatically. Once a day at 6:00 the worker scores all clustered stories, picks the top 10 by relevance (recency + multi-source coverage), rewrites them via LLM, and sends a push notification: "El teu dossier d'avui és aquí". No feed to scroll, no notifications every hour, no noise.
+The pipeline runs automatically. Once a day at 6:00 the worker scores all clustered stories, picks the top 10 by relevance (recency + multi-source coverage), and rewrites them via LLM. No feed to scroll, no notifications every hour, no noise.
 
 ---
 
@@ -37,8 +37,7 @@ Refer to `docs/MVP_PLAN.md` for the phased plan. The core loop is:
 1. Pipeline runs continuously: fetch feeds → enrich (full text) → embed → cluster
 2. At 06:00, the rewrite job scores all pending stories and selects the top 10 (configurable via `digest.top_n`)
 3. Those 10 stories are rewritten in Catalan and cached
-4. A push notification fires: "El teu dossier d'avui és aquí — 10 noves històries"
-5. User opens the app, reads 10 clean stories in ~5 minutes
+4. User opens the app, reads 10 clean stories in ~5 minutes
 
 ### Content quality (non-negotiable)
 
@@ -58,7 +57,6 @@ Refer to `docs/MVP_PLAN.md` for the phased plan. The core loop is:
 ### User-facing
 
 - Profile configuration (topics, rewrite tone)
-- Daily push notification when the digest is ready
 - Account management designed to be set up once and left alone
 - **Future:** reading streak / gamification (documented in MVP_PLAN.md, not yet implemented)
 

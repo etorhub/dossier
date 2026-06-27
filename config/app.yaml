@@ -43,8 +43,6 @@ digest:
   # Maximum stories selected for the daily rewrite (scored by recency + coverage).
   # 0 = no limit (rewrite all pending stories).
   top_n: 10
-  # Send a push notification to all subscribers when the daily rewrite completes.
-  send_push_notification: true
 
 embeddings:
   provider: ollama

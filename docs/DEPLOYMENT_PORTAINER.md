@@ -32,7 +32,6 @@ Everything runs on the NAS — no external services, no GPU, no second machine.
 - The NAS has internet access to build the app image and pull `db`/`ollama` images
 - At least ~6 GB free RAM and ~10 GB free disk (Postgres data + Ollama models +
   article cache grow over time)
-- A VAPID keypair for push notifications (generated in Step 2)
 
 ---
 
@@ -67,14 +66,6 @@ SECRET_KEY=<generate-with: python3 -c "import secrets; print(secrets.token_hex(3
 # Starts Ollama in this stack (profile local-llm)
 COMPOSE_PROFILES=local-llm
 OLLAMA_HOST=http://ollama:11434
-
-# Push notifications — generate once:
-#   python3 -c "from pywebpush import Vapid; v = Vapid(); v.generate_keys(); \
-#     print('VAPID_PUBLIC_KEY=' + v.public_key.decode()); \
-#     print('VAPID_PRIVATE_KEY=' + v.private_key.decode())"
-VAPID_PUBLIC_KEY=<paste>
-VAPID_PRIVATE_KEY=<paste>
-VAPID_EMAIL=mailto:etorius@gmail.com
 ```
 
 Never commit these to the repo — they live only in the Portainer stack's environment.
@@ -119,8 +110,8 @@ Once `web` is healthy:
    (find the exact container name in Portainer's container list, e.g. `dossier-worker-1`)
 
 The daily pipeline then runs unattended: fetch → enrich → embed → cluster
-continuously, and the 06:00 job selects the top 10 stories, rewrites them in
-Catalan, and sends the push notification "El teu dossier d'avui és aquí".
+continuously, and the 06:00 job selects the top 10 stories and rewrites them in
+Catalan, ready to read when you open the app.
 
 ---
 
