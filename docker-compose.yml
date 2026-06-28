@@ -52,9 +52,9 @@ services:
       retries: 5
 
   db-init:
-    build:
-      context: .
-      target: web
+    # Pulled from GHCR by default (published by .github/workflows/publish.yml).
+    # Local dev rebuilds from source — docker-compose.override.yml adds the build: directive.
+    image: ghcr.io/etorhub/dossier-web:${DOSSIER_TAG:-latest}
     depends_on:
       db:
         condition: service_healthy
@@ -64,9 +64,7 @@ services:
     restart: "no"
 
   web:
-    build:
-      context: .
-      target: web
+    image: ghcr.io/etorhub/dossier-web:${DOSSIER_TAG:-latest}
     ports:
       - "5000:5000"
     depends_on:
@@ -81,9 +79,7 @@ services:
     command: sh -c "flask seed-sources && gunicorn -b 0.0.0.0:5000 app:application"
 
   worker:
-    build:
-      context: .
-      target: worker
+    image: ghcr.io/etorhub/dossier-worker:${DOSSIER_TAG:-latest}
     depends_on:
       db-init:
         condition: service_completed_successfully
@@ -101,9 +97,8 @@ services:
     command: python -m app.scheduler
 
   ops:
-    build:
-      context: .
-      target: web
+    # Reuses the web image; the command below runs the ops dashboard instead.
+    image: ghcr.io/etorhub/dossier-web:${DOSSIER_TAG:-latest}
     ports:
       - "5001:5001"
     depends_on:

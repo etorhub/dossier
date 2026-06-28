@@ -1,15 +1,33 @@
-# Dev overrides: bind mounts for live reload, flask run --debug
+# Dev overrides: build the images locally from source, bind-mount for live reload,
+# flask run --debug. This file is auto-loaded by the `docker compose` CLI but is
+# NOT used by the Portainer stack on the NAS (Portainer reads docker-compose.yml
+# only), so production pulls the prebuilt GHCR images while local dev rebuilds.
+#
+# The build: directives below tag the locally built images with the same
+# ghcr.io/... names referenced in docker-compose.yml, so `docker compose up --build`
+# uses your local source instead of pulling.
 services:
   db:
     ports:
       - "5432:5432"
 
+  db-init:
+    build:
+      context: .
+      target: web
+
   ops:
+    build:
+      context: .
+      target: web
     volumes:
       - .:/app
     command: flask --app ops:application run --host 0.0.0.0 --port 5001 --debug
 
   web:
+    build:
+      context: .
+      target: web
     volumes:
       - .:/app
     command: >
@@ -19,5 +37,8 @@ services:
       - "5678:5678"
 
   worker:
+    build:
+      context: .
+      target: worker
     volumes:
       - .:/app

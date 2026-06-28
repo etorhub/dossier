@@ -1,0 +1,74 @@
+name: Publish images
+
+# Builds the web and worker images once on GitHub's runners and pushes them to
+# GHCR with versioned, immutable tags. The NAS then *pulls* these instead of
+# building from source on the box (CPU-only, shared with inference). Portainer
+# redeploys by polling + re-pulling the image tag (no inbound access needed).
+#
+# Tags produced (per image):
+#   :master                      moving tag for the latest master build
+#   :sha-<short>                 immutable, exact-commit tag (use for rollback)
+#   :vX.Y.Z / :vX.Y              when a semver tag is pushed (use to pin a release)
+#   :latest                      convenience alias for the latest master build
+#
+# Images:
+#   ghcr.io/etorhub/dossier-web      (Dockerfile target: web; used by web, ops, db-init)
+#   ghcr.io/etorhub/dossier-worker   (Dockerfile target: worker)
+
+on:
+  push:
+    branches: [master]
+    tags: ["v*.*.*"]
+
+jobs:
+  build:
+    name: Build and push (${{ matrix.target }})
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+      packages: write
+
+    strategy:
+      fail-fast: false
+      matrix:
+        target: [web, worker]
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Image metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/${{ github.repository }}-${{ matrix.target }}
+          tags: |
+            type=ref,event=branch
+            type=semver,pattern=v{{version}}
+            type=semver,pattern=v{{major}}.{{minor}}
+            type=sha,prefix=sha-
+            type=raw,value=latest,enable=${{ github.ref == 'refs/heads/master' }}
+
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          target: ${{ matrix.target }}
+          # DSP 2800 is x86_64 (Intel N-series); a single linux/amd64 build suffices.
+          platforms: linux/amd64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max

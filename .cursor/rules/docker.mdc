@@ -12,6 +12,20 @@ globs: ["Dockerfile", "docker-compose.yml", "docker-compose*.yml", "requirements
 
 Do **not** add LLM/embedding dependencies to the web stage or `requirements-web.txt` unless the architecture is deliberately changed and documented.
 
+## Images: build vs pull
+
+- `.github/workflows/publish.yml` builds these two targets on push to `master` (and on
+  `vX.Y.Z` tags) and pushes them to GHCR: `ghcr.io/etorhub/dossier-web` (used by `web`,
+  `ops`, `db-init`) and `ghcr.io/etorhub/dossier-worker`.
+- **`docker-compose.yml` uses `image:`, not `build:`** — the NAS/Portainer stack
+  *pulls* prebuilt images (tag chosen by `DOSSIER_TAG`, default `latest`). Don't
+  reintroduce `build:` here.
+- **`docker-compose.override.yml`** carries the `build:` directives for local dev (it's
+  auto-loaded by the `docker compose` CLI but ignored by Portainer), so
+  `docker compose up --build` still rebuilds from source for contributors.
+- Keep the matrix in `publish.yml` (`[web, worker]`) in sync with the Dockerfile
+  targets that are actually deployed.
+
 ## Compose services (typical layout)
 
 | Service      | Role |

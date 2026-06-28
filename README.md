@@ -41,7 +41,8 @@ Neither the user nor anyone setting up the instance ever touches the codebase. S
 
 The **Ollama** service is optional in Compose (profile `local-llm`). Clustering, embeddings, and rewrites need a reachable Ollama. [`.env.example`](.env.example) sets `COMPOSE_PROFILES=local-llm` so a copied `.env` starts Ollama in Docker and runs **`ollama-init`** once per `up` (pulls `qwen2.5:3b`, `paraphrase-multilingual` into the `ollama_data` volume). The **worker** waits for that init to finish before running. Model pull happens at **container start**, not during `docker build`. The compose file is tuned for CPU-only inference on a NAS — no GPU is required or used.
 
-**NAS deployment** (UGreen DSP 2800 or similar, CPU only):
+**Run from source** (local box or quick CLI start — builds the images locally; the
+`docker-compose.override.yml` supplies the `build:` directives):
 
 ```bash
 git clone https://github.com/etorhub/dossier.git
@@ -50,8 +51,11 @@ cp .env.example .env
 docker compose up --build -d
 ```
 
-Deploying via **Portainer** instead of the CLI? See [`docs/DEPLOYMENT_PORTAINER.md`](docs/DEPLOYMENT_PORTAINER.md)
-for a step-by-step stack setup.
+**NAS deployment** (UGreen DSP 2800, the real target) **pulls prebuilt, versioned
+images from GHCR** — GitHub Actions builds them on every push to `master`, so the NAS
+never spends CPU building. See [`docs/DEPLOYMENT_PORTAINER.md`](docs/DEPLOYMENT_PORTAINER.md)
+for the Portainer stack setup, image tagging (`DOSSIER_TAG`), auto-update polling, and
+rollback.
 
 Without a `.env`, pass the profile explicitly: `docker compose --profile local-llm up --build -d`.
 
