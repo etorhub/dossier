@@ -52,7 +52,10 @@ jobs:
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
+          # GITHUB_TOKEN can push to an existing GHCR package but cannot create one
+          # on a personal account's first publish - a PAT with write:packages is
+          # required to bootstrap dossier-web/dossier-worker.
+          password: ${{ secrets.CR_PAT }}
 
       - name: Image metadata
         id: meta
