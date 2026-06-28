@@ -120,11 +120,13 @@ processing:
   cluster_window_hours: 48
   # Minimum cosine similarity for two articles to belong to the same story (new cluster formation).
   # Higher = stricter; only articles about the same specific event are grouped.
-  # Recommended range: 0.88–0.95. Default: 0.92.
-  story_similarity_threshold: 0.92
+  # Recommended range: 0.85–0.92. Default: 0.89 (lowered from 0.92 — paraphrase-multilingual
+  # embeddings score same-event cross-lingual pairs, e.g. Catalan/Spanish, lower than
+  # same-language pairs; see shared-entity relaxation below for additional cross-lingual help).
+  story_similarity_threshold: 0.89
   # Minimum cosine similarity for adding a new article to an existing story (centroid-based check).
   # Should be >= story_similarity_threshold; higher prevents centroid drift from admitting outliers.
-  story_assignment_threshold: 0.95
+  story_assignment_threshold: 0.92
   story_min_sources: 2
   # 0 = embed every pending article in the window each cluster run; >0 caps per run
   embed_batch_size: 0
