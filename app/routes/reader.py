@@ -5,21 +5,15 @@ from typing import Any
 from flask import Blueprint, redirect, render_template, request, session, url_for
 from flask_babel import gettext
 
-from app.config import get_topic_info, load_config
+from app.config import load_config
 from app.services import article_service, profile_service
 
 reader_bp = Blueprint("reader", __name__)
 
 
-def _sections_for_user(profile: dict[str, Any], config: dict[str, Any]) -> list[dict[str, Any]]:
-    """Build section list from user's topic_ids with labels and icons."""
-    topic_ids = profile.get("topic_ids", [])
-    return [{"id": tid, **get_topic_info(tid, config)} for tid in sorted(topic_ids)]
-
-
 @reader_bp.route("/")
 def index() -> Any:
-    """Main feed view. Redirect to /setup if no profile. Optional ?topic=X filters by section."""
+    """Main feed view. Redirect to /setup if no profile."""
     user_id = session.get("user_id")
     if not user_id:
         return redirect(url_for("auth.login"))
@@ -28,27 +22,19 @@ def index() -> Any:
     if not profile:
         return redirect(url_for("setup.setup_page"))
 
-    topic_filter = request.args.get("topic") or None
-    if topic_filter and topic_filter not in set(profile.get("topic_ids", [])):
-        topic_filter = None
-
-    config = load_config()
-    feed, rewrites_pending = article_service.get_feed(user_id, topic_filter=topic_filter)
-    sections = _sections_for_user(profile, config)
+    feed, rewrites_pending = article_service.get_feed(user_id)
 
     return render_template(
         "index.html",
         feed=feed,
         rewrites_pending=rewrites_pending,
         profile=profile,
-        sections=sections,
-        topic_filter=topic_filter,
     )
 
 
 @reader_bp.route("/feed")
 def feed_partial() -> Any:
-    """HTMX partial: feed content. Polled when rewrites are pending. Accepts ?topic=X."""
+    """HTMX partial: feed content. Polled when rewrites are pending."""
     user_id = session.get("user_id")
     if not user_id:
         return redirect(url_for("auth.login"))
@@ -57,16 +43,11 @@ def feed_partial() -> Any:
     if not profile:
         return redirect(url_for("setup.setup_page"))
 
-    topic_filter = request.args.get("topic") or None
-    if topic_filter and topic_filter not in set(profile.get("topic_ids", [])):
-        topic_filter = None
-
-    feed, rewrites_pending = article_service.get_feed(user_id, topic_filter=topic_filter)
+    feed, rewrites_pending = article_service.get_feed(user_id)
     return render_template(
         "partials/feed_content.html",
         feed=feed,
         rewrites_pending=rewrites_pending,
-        topic_filter=topic_filter,
     )
 
 

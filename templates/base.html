@@ -793,21 +793,13 @@
   {% if session.get('user_id') %}
   <nav class="bottom-tabs" aria-label="{{ _('Main navigation') }}">
     <a href="{{ url_for('reader.index') }}"
-       class="tab-item{% if request.endpoint == 'reader.index' and not topic_filter %} tab-active{% endif %}"
-       aria-current="{% if request.endpoint == 'reader.index' and not topic_filter %}page{% else %}false{% endif %}">
+       class="tab-item{% if request.endpoint == 'reader.index' %} tab-active{% endif %}"
+       aria-current="{% if request.endpoint == 'reader.index' %}page{% else %}false{% endif %}">
       <svg width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24" aria-hidden="true">
         <rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/>
         <rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/>
       </svg>
       <span class="tab-label">{{ _('Feed') }}</span>
-    </a>
-    <a href="#section-nav"
-       class="tab-item{% if request.endpoint == 'reader.index' and topic_filter %} tab-active{% endif %}"
-       aria-current="{% if request.endpoint == 'reader.index' and topic_filter %}page{% else %}false{% endif %}">
-      <svg width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24" aria-hidden="true">
-        <line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="15" y2="12"/><line x1="3" y1="18" x2="18" y2="18"/>
-      </svg>
-      <span class="tab-label">{{ _('Topics') }}</span>
     </a>
     <a href="{{ url_for('settings.settings_page') }}"
        class="tab-item{% if request.endpoint == 'settings.settings_page' %} tab-active{% endif %}"
