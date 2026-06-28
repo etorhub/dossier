@@ -44,3 +44,7 @@ All three steps must pass. Do not remove or skip any of them.
   keep it that way.
 - Do **not** put `build:` directives back into `docker-compose.yml` — production pulls
   `image:` from GHCR. Local build context lives in `docker-compose.override.yml`.
+- Do **not** give a workflow a `master`-only branch trigger. The repo's default branch
+  is **`main`** (PRs merge there); a `master`-only trigger silently never runs on a
+  `main` merge. Always list `branches: [main, master]` and use `{{is_default_branch}}`
+  for the `:latest` tag — never hardcode `github.ref == 'refs/heads/master'`.

@@ -175,6 +175,9 @@ For automated news source discovery (finding feeds by location, validation, qual
 - **Alembic revision IDs**: use simple numeric strings (`"031"`, `"032"`) matching the existing chain — hex IDs collide and cause `Cycle detected` errors.
 - **ruff cache**: if `git commit` fails with "Permission denied" on `.ruff_cache/`, prefix with `RUFF_CACHE_DIR=/tmp/ruff_cache`.
 - **Neon migrations**: use the direct endpoint (no `-pooler` suffix) — Alembic needs real Postgres connections, not PgBouncer.
+- **Default branch is `main`, not `master`**: the repo's default/active branch is `main` (PRs merge there), even though older docs say `master`. **Any workflow with a branch trigger must list both** (`branches: [main, master]`, mirroring `pr-ci.yml`) and use `{{is_default_branch}}` for the `:latest` tag — never hardcode `github.ref == 'refs/heads/master'`. A `master`-only trigger silently does nothing on a `main` merge (this is exactly how `publish.yml` first shipped broken). When wiring deploys (Portainer ref, etc.), point them at `main`.
+- **New GHCR packages are private by default**: the first `publish.yml` run creates `dossier-web`/`dossier-worker` as private. Portainer can't pull them until they're made public (repo → Packages → visibility) or a `read:packages` PAT is added as a Portainer registry. Expect `manifest unknown`/`pull access denied` until both the first publish has run *and* visibility is sorted.
+- **Workflow trigger changes take effect from the commit that lands them**: for `push` events GitHub reads the workflow file from the pushed commit, so merging a trigger fix into `main` both fixes future runs and triggers that very run. A `vX.Y.Z` tag push triggers `publish.yml` regardless of branch — handy to seed images before a trigger fix is merged (but the pre-fix version won't push `:latest`).
 
 ---
 
