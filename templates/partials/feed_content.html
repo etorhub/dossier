@@ -11,7 +11,7 @@
 {% elif rewrites_pending %}
   <div
     id="feed-loading"
-    hx-get="{{ url_for('reader.feed_partial', topic=topic_filter) if topic_filter else url_for('reader.feed_partial') }}"
+    hx-get="{{ url_for('reader.feed_partial') }}"
     hx-trigger="every 5s"
     hx-swap="outerHTML"
     aria-live="polite"

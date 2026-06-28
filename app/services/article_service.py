@@ -102,31 +102,11 @@ def _get_rewrite_with_fallback(
     return rewrites
 
 
-def _story_matches_topic(
-    articles: list[dict[str, Any]],
-    topic_id: str,
-    sources: dict[str, dict[str, Any]],
-) -> bool:
-    """True if any article in the story matches the given topic (via categories or source)."""
-    for art in articles:
-        cats = art.get("categories")
-        if isinstance(cats, list) and cats and topic_id in {c for c in cats if c}:
-            return True
-        sid = art.get("source_id")
-        if sid:
-            src = sources.get(sid, {})
-            if topic_id in set(src.get("topics", [])):
-                return True
-    return False
-
-
 def get_feed(
     user_id: int,
-    topic_filter: str | None = None,
 ) -> tuple[list[dict[str, Any]], bool]:
     """Return today's stories for the user, filtered by catalog topic overlap.
 
-    If topic_filter is set, only stories matching that topic are returned.
     Returns (feed, rewrites_pending). rewrites_pending is True when there are
     stories matching the user's profile but no rewrites yet (e.g. after setup).
     Each feed item has: id (story_id), title, summary, full_text, sources (list
@@ -209,9 +189,6 @@ def get_feed(
     for story_data in visible_stories:
         story_id = story_data["story_id"]
         articles = story_data["articles"]
-
-        if topic_filter and not _story_matches_topic(articles, topic_filter, sources):
-            continue
 
         rw = rewrites_map.get(story_id)
 

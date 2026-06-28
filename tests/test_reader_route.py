@@ -67,50 +67,12 @@ def test_index_renders_feed_for_authenticated_user(client: FlaskClient) -> None:
             "app.routes.reader.profile_service.get_profile_with_selections",
             return_value=_PROFILE,
         ),
-        patch("app.routes.reader.load_config", return_value=_CONFIG),
         patch("app.routes.reader.article_service.get_feed", return_value=([], False)),
         patch("app.db.users.get_user_by_id", return_value={"is_admin": False, "email": "u@e.com"}),
         patch("app.services.profile_service.get_profile_with_selections", return_value=_PROFILE),
     ):
         response = client.get("/")
     assert response.status_code == 200
-
-
-def test_index_topic_filter_ignored_when_not_in_profile(client: FlaskClient) -> None:
-    """GET /?topic=unknown ignores the filter when not in the user's topic list."""
-    _auth(client)
-    with (
-        patch(
-            "app.routes.reader.profile_service.get_profile_with_selections",
-            return_value=_PROFILE,
-        ),
-        patch("app.routes.reader.load_config", return_value=_CONFIG),
-        patch("app.routes.reader.article_service.get_feed", return_value=([], False)) as mock_feed,
-        patch("app.db.users.get_user_by_id", return_value={"is_admin": False, "email": "u@e.com"}),
-        patch("app.services.profile_service.get_profile_with_selections", return_value=_PROFILE),
-    ):
-        client.get("/?topic=nonexistent_topic")
-    # topic_filter should have been cleared to None
-    _call_kwargs = mock_feed.call_args
-    assert _call_kwargs.kwargs.get("topic_filter") is None
-
-
-def test_index_topic_filter_applied_when_valid(client: FlaskClient) -> None:
-    """GET /?topic=general passes the filter through when it is in the profile."""
-    _auth(client)
-    with (
-        patch(
-            "app.routes.reader.profile_service.get_profile_with_selections",
-            return_value=_PROFILE,
-        ),
-        patch("app.routes.reader.load_config", return_value=_CONFIG),
-        patch("app.routes.reader.article_service.get_feed", return_value=([], False)) as mock_feed,
-        patch("app.db.users.get_user_by_id", return_value={"is_admin": False, "email": "u@e.com"}),
-        patch("app.services.profile_service.get_profile_with_selections", return_value=_PROFILE),
-    ):
-        client.get("/?topic=general")
-    _call_kwargs = mock_feed.call_args
-    assert _call_kwargs.kwargs.get("topic_filter") == "general"
 
 
 # ---------------------------------------------------------------------------
