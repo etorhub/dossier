@@ -5,11 +5,13 @@ name: Publish images
 # building from source on the box (CPU-only, shared with inference). Portainer
 # redeploys by polling + re-pulling the image tag (no inbound access needed).
 #
+# Triggers: push to main/master, vX.Y.Z tags, or a manual run from the Actions tab.
+#
 # Tags produced (per image):
-#   :master                      moving tag for the latest master build
+#   :main / :master              moving tag for the latest build of that branch
 #   :sha-<short>                 immutable, exact-commit tag (use for rollback)
 #   :vX.Y.Z / :vX.Y              when a semver tag is pushed (use to pin a release)
-#   :latest                      convenience alias for the latest master build
+#   :latest                      alias for the latest default-branch build
 #
 # Images:
 #   ghcr.io/etorhub/dossier-web      (Dockerfile target: web; used by web, ops, db-init)
@@ -17,8 +19,12 @@ name: Publish images
 
 on:
   push:
-    branches: [master]
+    # Both branches are protected/active in this repo (mirrors pr-ci.yml). The NAS
+    # deploys from the default branch; building on both avoids a master/main mismatch.
+    branches: [main, master]
     tags: ["v*.*.*"]
+  # Lets you trigger a build manually from the Actions tab (e.g. to seed GHCR).
+  workflow_dispatch:
 
 jobs:
   build:
@@ -58,7 +64,7 @@ jobs:
             type=semver,pattern=v{{version}}
             type=semver,pattern=v{{major}}.{{minor}}
             type=sha,prefix=sha-
-            type=raw,value=latest,enable=${{ github.ref == 'refs/heads/master' }}
+            type=raw,value=latest,enable={{is_default_branch}}
 
       - name: Build and push
         uses: docker/build-push-action@v6

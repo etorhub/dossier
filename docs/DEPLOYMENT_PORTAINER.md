@@ -8,7 +8,7 @@ truth for this deployment: it's already tuned for CPU-only inference and low RAM
 
 **The NAS pulls prebuilt images, it does not build from source.** GitHub Actions
 (`.github/workflows/publish.yml`) builds the `web` and `worker` images on every
-push to `master` (and on `vX.Y.Z` tags) and publishes them to GHCR as
+push to `main` or `master` (and on `vX.Y.Z` tags) and publishes them to GHCR as
 `ghcr.io/etorhub/dossier-web` and `ghcr.io/etorhub/dossier-worker`. The NAS only
 pulls — builds no longer compete with the 06:00 inference burst, and you get
 immutable, versioned tags you can pin and roll back to. The image tag is selected
@@ -56,7 +56,8 @@ In Portainer:
 2. Name it `dossier`
 3. Build method: **Repository**
    - Repository URL: `https://github.com/etorhub/dossier`
-   - Repository reference: `refs/heads/master`
+   - Repository reference: `refs/heads/main` (the repo's default branch — use
+     whichever branch you actually merge to; `main` and `master` both build images)
    - Compose path: `docker-compose.yml`
 
 The GHCR images are public (the repo is AGPL/public), so no registry credentials
@@ -78,7 +79,7 @@ SECRET_KEY=<generate-with: python3 -c "import secrets; print(secrets.token_hex(3
 COMPOSE_PROFILES=local-llm
 OLLAMA_HOST=http://ollama:11434
 
-# Optional: which published image tag to run. Default is `latest` (newest master
+# Optional: which published image tag to run. Default is `latest` (newest default-branch
 # build). Pin a release for reproducible deploys / rollback, e.g. DOSSIER_TAG=v1.2.0
 DOSSIER_TAG=latest
 ```
@@ -155,7 +156,7 @@ General guidance:
 
 ## Updating the stack
 
-The pipeline is: **push to `master` → GitHub Actions builds and publishes new images
+The pipeline is: **push to `main` → GitHub Actions builds and publishes new images
 to GHCR → the NAS pulls and redeploys.** The NAS never builds.
 
 **Recommended: polling + re-pull (no inbound access to the NAS required).** On the
@@ -174,7 +175,7 @@ which is fine for a once-a-day digest.
 **Pinning and rolling back.** Because images are versioned, you control exactly what
 runs via `DOSSIER_TAG`:
 
-- Leave `DOSSIER_TAG=latest` to always track the newest `master` build, **or**
+- Leave `DOSSIER_TAG=latest` to always track the newest default-branch build, **or**
 - Set `DOSSIER_TAG=v1.2.0` (a tagged release) or `DOSSIER_TAG=sha-abc1234` (an exact
   commit) for a reproducible deploy.
 - **Roll back** by editing `DOSSIER_TAG` to a known-good tag and redeploying — seconds,
@@ -196,7 +197,7 @@ runs via `DOSSIER_TAG`:
   tag in `DOSSIER_TAG` doesn't exist yet (no published build for it — check the repo's
   **Packages**), or the package was made private (add a GHCR registry with a
   `read:packages` PAT under **Portainer → Registries**). The very first deploy must
-  wait for `publish.yml` to have run at least once on `master`.
+  wait for `publish.yml` to have run at least once on `main`.
 - **Stack not updating after a push**: confirm **Automatic updates → Polling** is on
   with **"Re-pull image"** enabled, and that `publish.yml` succeeded for that commit
   (repo → **Actions**). Polling only redeploys once the new image is actually in GHCR.
