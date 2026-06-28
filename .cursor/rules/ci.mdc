@@ -8,7 +8,8 @@ globs: [".github/workflows/*.yml", ".github/workflows/*.yaml"]
 ## Structure
 
 - `pr-ci.yml` — triggers on PRs targeting `main` or `master`, runs lint → type check → test
-- `publish.yml` — triggers on push to `master` and on `vX.Y.Z` tags; builds the `web`
+- `publish.yml` — triggers on push to `main`/`master`, on `vX.Y.Z` tags, and manual
+  `workflow_dispatch`; builds the `web`
   and `worker` images and pushes versioned tags to GHCR
   (`ghcr.io/etorhub/dossier-web`, `ghcr.io/etorhub/dossier-worker`). The NAS **pulls**
   these prebuilt images (selected by `DOSSIER_TAG`); it does not build from source.
