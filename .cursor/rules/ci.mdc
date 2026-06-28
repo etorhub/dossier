@@ -8,10 +8,15 @@ globs: [".github/workflows/*.yml", ".github/workflows/*.yaml"]
 ## Structure
 
 - `pr-ci.yml` — triggers on PRs targeting `main` or `master`, runs lint → type check → test
+- `publish.yml` — triggers on push to `master` and on `vX.Y.Z` tags; builds the `web`
+  and `worker` images and pushes versioned tags to GHCR
+  (`ghcr.io/etorhub/dossier-web`, `ghcr.io/etorhub/dossier-worker`). The NAS **pulls**
+  these prebuilt images (selected by `DOSSIER_TAG`); it does not build from source.
+  Portainer redeploys via polling + re-pull. See `docs/DEPLOYMENT_PORTAINER.md`.
 
-There are no image-publish workflows: the NAS builds the app image from source via
-`docker compose up --build` (see `docs/DEPLOYMENT_PORTAINER.md`). Don't add one —
-this is a single-deployment-target project (NAS only).
+This is still a single-deployment-target project (NAS only) — `publish.yml` exists to
+move builds off the CPU-bound NAS and to give versioned, roll-back-able images, not to
+add a second target. Don't add deploy workflows for other targets (Pi, GPU, cloud).
 
 Both `main` and `master` are **protected branches**. Branch protection requires the `ci` check from `pr-ci.yml` to pass before a PR can be merged.
 
@@ -33,5 +38,8 @@ All three steps must pass. Do not remove or skip any of them.
 ## What not to do
 
 - Do **not** bypass branch protection or merge without a passing `ci` check.
-- Do **not** add image-publish workflows (deploy/build-pi/etc.) — the NAS builds from
-  source; there is no second deployment target to publish images for.
+- Do **not** add deploy workflows for other targets (Pi/GPU/cloud) — there is one
+  deployment target (the NAS). `publish.yml` builds images **for that one target**;
+  keep it that way.
+- Do **not** put `build:` directives back into `docker-compose.yml` — production pulls
+  `image:` from GHCR. Local build context lives in `docker-compose.override.yml`.

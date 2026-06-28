@@ -6,6 +6,14 @@ using the repo's `docker-compose.yml`. The compose file is the single source of
 truth for this deployment: it's already tuned for CPU-only inference and low RAM
 (no GPU, no separate NAS override file — there's only one deployment target).
 
+**The NAS pulls prebuilt images, it does not build from source.** GitHub Actions
+(`.github/workflows/publish.yml`) builds the `web` and `worker` images on every
+push to `master` (and on `vX.Y.Z` tags) and publishes them to GHCR as
+`ghcr.io/etorhub/dossier-web` and `ghcr.io/etorhub/dossier-worker`. The NAS only
+pulls — builds no longer compete with the 06:00 inference burst, and you get
+immutable, versioned tags you can pin and roll back to. The image tag is selected
+with the `DOSSIER_TAG` environment variable (default `latest`).
+
 ---
 
 ## Architecture (single NAS, one stack)
@@ -37,11 +45,10 @@ Everything runs on the NAS — no external services, no GPU, no second machine.
 
 ## Step 1 — Create the stack from the Git repository
 
-The `web`, `worker`, `db-init`, and `ops` services are built from the repo's
-`Dockerfile` (`build: context: .`). **Portainer's Web editor mode has no source
-checkout, so `build:` directives fail with "Dockerfile: no such file or
-directory"** — you must use the **Repository** build method, which clones the repo
-first.
+Use the **Repository** build method so the `docker-compose.yml` stays
+version-controlled in git — Portainer clones the repo to read the compose file.
+The services reference prebuilt `image:` tags (no `build:` directives), so Portainer
+**pulls** `web`/`worker` images from GHCR rather than building them on the NAS.
 
 In Portainer:
 
@@ -51,6 +58,10 @@ In Portainer:
    - Repository URL: `https://github.com/etorhub/dossier`
    - Repository reference: `refs/heads/master`
    - Compose path: `docker-compose.yml`
+
+The GHCR images are public (the repo is AGPL/public), so no registry credentials
+are needed. If you later make the packages private, add a registry under
+**Portainer → Registries** with a GitHub PAT scoped to `read:packages`.
 
 ---
 
@@ -66,6 +77,10 @@ SECRET_KEY=<generate-with: python3 -c "import secrets; print(secrets.token_hex(3
 # Starts Ollama in this stack (profile local-llm)
 COMPOSE_PROFILES=local-llm
 OLLAMA_HOST=http://ollama:11434
+
+# Optional: which published image tag to run. Default is `latest` (newest master
+# build). Pin a release for reproducible deploys / rollback, e.g. DOSSIER_TAG=v1.2.0
+DOSSIER_TAG=latest
 ```
 
 Never commit these to the repo — they live only in the Portainer stack's environment.
@@ -74,9 +89,9 @@ Never commit these to the repo — they live only in the Portainer stack's envir
 
 ## Step 3 — Deploy and watch the first start
 
-Click **Deploy the stack**. Since Portainer clones the repo, the `Dockerfile` is
-present and the `build:` directives for `web`, `worker`, `db-init`, and `ops`
-resolve correctly. On first start:
+Click **Deploy the stack**. Portainer pulls `ghcr.io/etorhub/dossier-web` and
+`ghcr.io/etorhub/dossier-worker` at the `DOSSIER_TAG` tag (the first pull is the
+slowest app step; subsequent redeploys only pull changed layers). On first start:
 
 1. `db` comes up and passes its healthcheck
 2. `db-init` runs Alembic migrations once, then exits (`service_completed_successfully`)
@@ -140,20 +155,51 @@ General guidance:
 
 ## Updating the stack
 
-With the **Repository** build method, Portainer can poll the `master` branch and
-redeploy automatically (enable "Automatic updates" / webhook on the stack), rebuilding
-the images from the updated `Dockerfile` and re-running `docker-compose.yml`.
+The pipeline is: **push to `master` → GitHub Actions builds and publishes new images
+to GHCR → the NAS pulls and redeploys.** The NAS never builds.
+
+**Recommended: polling + re-pull (no inbound access to the NAS required).** On the
+stack, enable **Automatic updates → Polling**, and make sure **"Re-pull image"** is
+on. Portainer then periodically checks both the git repo (for compose changes) and
+the registry (for a newer image at the `DOSSIER_TAG` tag), and redeploys when either
+moves. This works behind a home router/NAT with no port-forwarding or tunnel — the
+only cost is that a deploy lands within the poll interval rather than instantly,
+which is fine for a once-a-day digest.
+
+> A **webhook** (Portainer generates a URL that Actions `curl`s after publishing) is
+> faster but needs Portainer to be reachable *from GitHub* — i.e. a Cloudflare Tunnel,
+> reverse proxy, or VPN exposing the NAS. Not worth the added exposure for this
+> single-user tool; polling is the better fit.
+
+**Pinning and rolling back.** Because images are versioned, you control exactly what
+runs via `DOSSIER_TAG`:
+
+- Leave `DOSSIER_TAG=latest` to always track the newest `master` build, **or**
+- Set `DOSSIER_TAG=v1.2.0` (a tagged release) or `DOSSIER_TAG=sha-abc1234` (an exact
+  commit) for a reproducible deploy.
+- **Roll back** by editing `DOSSIER_TAG` to a known-good tag and redeploying — seconds,
+  no rebuild. (Available tags are listed under the repo's **Packages** on GitHub.)
 
 `db-init` re-runs Alembic migrations safely on every redeploy (idempotent), and
 `ollama-init` only pulls models that aren't already present in the `ollama_data` volume.
+
+> **Migrations and rollback:** rolling the image back does **not** roll back the
+> database. Alembic migrations are forward-only here, so a rollback is safe only to a
+> tag whose schema matches the current DB. If a release added a migration, downgrade
+> the schema first (or restore a `pgdata` backup) before pinning an older image.
 
 ---
 
 ## Troubleshooting
 
-- **"failed to read dockerfile: open Dockerfile: no such file or directory"**: you're
-  using the Web editor build method — switch to **Repository** (Step 1); Portainer
-  needs the cloned source tree to build `web`/`worker`/`ops`/`db-init`
+- **`manifest unknown` / `pull access denied` for `ghcr.io/etorhub/dossier-*`**: the
+  tag in `DOSSIER_TAG` doesn't exist yet (no published build for it — check the repo's
+  **Packages**), or the package was made private (add a GHCR registry with a
+  `read:packages` PAT under **Portainer → Registries**). The very first deploy must
+  wait for `publish.yml` to have run at least once on `master`.
+- **Stack not updating after a push**: confirm **Automatic updates → Polling** is on
+  with **"Re-pull image"** enabled, and that `publish.yml` succeeded for that commit
+  (repo → **Actions**). Polling only redeploys once the new image is actually in GHCR.
 - **`ollama-init` stuck / failing to pull**: check NAS internet connectivity and disk
   space (`docker system df`); model pulls need ~5 GB free during download+extraction
 - **`worker` logs `waiting for ollama-init`**: normal on first start — wait for the
