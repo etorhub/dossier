@@ -16,7 +16,7 @@ Use INCOHERENT: only when sources are genuinely unrelated. Articles about differ
 Merge and rewrite these news articles about the same event for a general audience.
 
 ## Instructions
-- Output exclusively in {language}. The title, summary (short version), and full text must all be written in {language}. Do not use words, phrases, or expressions from any other language.
+- Output exclusively in {language}. The title, summary (short version), and full text must all be written in {language}. Do not use words, phrases, or expressions from any other language — if {language} is Catalan, this means never Spanish, never French, never English. Watch for Spanish leakage in particular (e.g. "muy", "también", "porque", "está", "años", "pero" are Spanish, not Catalan — use "molt", "també", "perquè", "està", "anys", "però" instead).
 - Write with correct spelling and grammar. No typos or spelling errors are acceptable.
 - No markdown formatting. Use plain text only. Do not wrap the title, summary, or full text in ** or any other markdown.
 - Tone and style: Professional journalism. Formal, clear, and objective. Neutral wire-service brief: lead with the news, short punchy paragraphs, prefer active voice, no marketing or promotional language. Do not simplify away nuance; preserve original complexity where the sources support it. Avoid spoilers in headlines only when the sources withhold the outcome.
