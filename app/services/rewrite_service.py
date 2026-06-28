@@ -50,11 +50,45 @@ _rewrite_progress_lock = threading.Lock()
 _REWRITE_OUTPUT_CONTRACT_PREFIX = (
     "[Output contract — highest priority]\n"
     "Line 1 of your reply must be TITLE: (character T first). No preamble, markdown headings, "
-    "or numbered summaries per source. Use TITLE:, SUMMARY:, FULL: then write only in {language}.\n"
+    "or numbered summaries per source. Use TITLE:, SUMMARY:, FULL: then write only in {language}, "
+    "with no words from any other language mixed in.\n"
     "TITLE, SUMMARY, and FULL must read as published news: report facts directly. "
     "Do not describe the text, an 'update', a 'summary', or 'multiple news items'"
     "—no meta framing.\n\n"
 )
+
+# Appended to the retry prompt when the first attempt leaked Spanish into Catalan output.
+_CATALAN_LANGUAGE_RETRY_SUFFIX = (
+    "\n\n[Language correction — mandatory]\n"
+    "Your previous answer was rejected because it contained Spanish words. "
+    "Rewrite the whole answer in Catalan only. Do not use any Spanish word, "
+    "including common ones like \"muy\", \"también\", \"porque\", \"está\", \"años\", \"pero\", "
+    "\"desde\", \"hasta\", \"según\", \"cuando\". Use the Catalan equivalents instead "
+    "(\"molt\", \"també\", \"perquè\", \"està\", \"anys\", \"però\", \"des de\", \"fins\", "
+    "\"segons\", \"quan\"). Respond again with TITLE:, SUMMARY:, FULL: in Catalan, nothing else."
+)
+
+# Unambiguous Spanish-only words that never appear in correct Catalan text. Used as a
+# cheap heuristic to catch Spanish leakage from the small CPU model without adding a
+# language-detection dependency.
+_SPANISH_ONLY_MARKERS = re.compile(
+    r"\b("
+    r"muy|también|porque|est[áa]n?|hab[ií]a|habr[áa]|hoy|ayer|a[ñn]os?|seg[uú]n|"
+    r"desde|hasta|pero|mientras|cuando|despu[ée]s|aunque|todav[ií]a|adem[áa]s"
+    r")\b",
+    re.IGNORECASE,
+)
+
+
+def _has_spanish_leakage(*texts: str) -> bool:
+    """Heuristic check: True if Catalan output likely contains Spanish words.
+
+    Requires at least two distinct unambiguous-Spanish markers across the given texts
+    to avoid false positives from proper nouns or quoted material.
+    """
+    combined = " ".join(texts)
+    hits = {m.lower() for m in _SPANISH_ONLY_MARKERS.findall(combined)}
+    return len(hits) >= 2
 
 
 def _rewrite_story_title_snippet(articles: list[dict[str, Any]], story_id: str) -> str:
@@ -211,6 +245,14 @@ def _derive_title_from_summary(summary: str) -> str:
     return candidate
 
 
+# Catches the LLM echoing the prompt's instructional placeholder text verbatim
+# (e.g. "the corrected headline (or unchanged if already correct)") instead of real content.
+_PLACEHOLDER_ECHO_RE = re.compile(
+    r"corrected headline|corrected summary|corrected full text|unchanged if already correct",
+    re.IGNORECASE,
+)
+
+
 def _parse_story_llm_response(text: str) -> tuple[str, str, str]:
     """Parse LLM output into (title, summary, full_text).
 
@@ -251,6 +293,8 @@ def _parse_story_llm_response(text: str) -> tuple[str, str, str]:
 
     if not title or not summary or not full_text:
         raise ValueError("Empty TITLE, SUMMARY, or FULL section")
+    if _PLACEHOLDER_ECHO_RE.search(title) or _PLACEHOLDER_ECHO_RE.search(summary):
+        raise ValueError("LLM echoed the prompt's placeholder text instead of real content")
     return (
         _strip_markdown_bold(title),
         _strip_markdown_bold(summary),
@@ -514,6 +558,18 @@ def rewrite_story(
         response = provider.complete(prompt, max_tokens=max_tokens, temperature=rw_temp)
         try:
             title, summary, full_text = _parse_story_llm_response(response)
+            if language == "ca" and _has_spanish_leakage(title, summary, full_text):
+                logger.warning(
+                    "rewrite_story: Spanish leakage detected story_id=%s style=%s, retrying",
+                    story_id,
+                    style,
+                )
+                retry_response = provider.complete(
+                    prompt + _CATALAN_LANGUAGE_RETRY_SUFFIX,
+                    max_tokens=max_tokens,
+                    temperature=rw_temp,
+                )
+                title, summary, full_text = _parse_story_llm_response(retry_response)
         except StoryIncoherentError as sie:
             logger.warning(
                 "rewrite_story: incoherent story_id=%s — dissolving. Reason: %s",
@@ -542,7 +598,7 @@ def rewrite_story(
                 err_msg,
             )
             return False
-        title, summary, full_text = _proofread_if_enabled(
+        proofread_title, proofread_summary, proofread_full_text = _proofread_if_enabled(
             provider,
             title,
             summary,
@@ -550,6 +606,17 @@ def rewrite_story(
             prompt_language,
             config,
         )
+        if language == "ca" and _has_spanish_leakage(
+            proofread_title, proofread_summary, proofread_full_text
+        ):
+            logger.warning(
+                "rewrite_story: proofread introduced Spanish leakage story_id=%s style=%s, "
+                "discarding proofread pass",
+                story_id,
+                style,
+            )
+        else:
+            title, summary, full_text = proofread_title, proofread_summary, proofread_full_text
         db_stories.insert_story_rewrite(
             story_id=story_id,
             style=style,
