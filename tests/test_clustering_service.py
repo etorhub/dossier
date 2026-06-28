@@ -3,6 +3,9 @@
 from unittest.mock import MagicMock, patch
 
 from app.clustering.service import (
+    _cluster_articles,
+    _entity_overlap_relaxation,
+    _extract_salient_tokens,
     _text_to_embed,
     _topics_compatible,
     run_cluster_and_embed,
@@ -117,6 +120,109 @@ def test_text_to_embed_empty_categories_ignored() -> None:
     art = _make_article(title="T", categories=["", "  ", None])
     result = _text_to_embed(art)
     assert "categories" not in result
+
+
+# --- _extract_salient_tokens / _entity_overlap_relaxation ---
+
+
+def test_extract_salient_tokens_picks_proper_nouns_and_numbers() -> None:
+    art = {"title": "Un terremoto en Venezuela eleva a 1.430 las víctimas mortales"}
+    tokens = _extract_salient_tokens(art)
+    assert "venezuela" in tokens
+    assert "n400" in tokens  # "1.430" splits into "1" and "430"; "430" rounds to 400
+
+
+def test_extract_salient_tokens_normalizes_case() -> None:
+    art_a = {"title": "El doble terratrèmol a Venezuela supera els 1.400 morts"}
+    art_b = {"title": "Un terremoto en Venezuela eleva a 1.430 las víctimas mortales"}
+    tokens_a = _extract_salient_tokens(art_a)
+    tokens_b = _extract_salient_tokens(art_b)
+    assert "venezuela" in tokens_a
+    assert tokens_a & tokens_b  # shared entity: "venezuela" and the "n400" number bucket
+
+
+def test_extract_salient_tokens_ignores_short_lowercase_words() -> None:
+    art = {"title": "el doble terratrèmol supera els morts"}
+    tokens = _extract_salient_tokens(art)
+    assert tokens == frozenset()
+
+
+def test_entity_overlap_relaxation_zero_when_no_shared_tokens() -> None:
+    assert _entity_overlap_relaxation(frozenset({"venezuela"}), frozenset({"japan"})) == 0.0
+
+
+def test_entity_overlap_relaxation_zero_when_overlap_below_min_jaccard() -> None:
+    tokens_a = frozenset({"venezuela", "caracas", "maduro", "rodriguez"})
+    tokens_b = frozenset({"venezuela", "tokyo", "kyoto", "osaka"})
+    assert _entity_overlap_relaxation(tokens_a, tokens_b) == 0.0
+
+
+def test_entity_overlap_relaxation_applies_when_jaccard_high() -> None:
+    tokens_a = frozenset({"venezuela", "n1400"})
+    tokens_b = frozenset({"venezuela", "n1400"})
+    assert _entity_overlap_relaxation(tokens_a, tokens_b) > 0.0
+
+
+def test_entity_overlap_relaxation_applies_to_fuzzy_proper_noun_match() -> None:
+    """Single-letter cross-language spelling differences (e.g. 'venecuela' vs 'venezuela')
+    still count as a shared entity."""
+    tokens_a = frozenset({"venecuela", "n1400"})
+    tokens_b = frozenset({"venezuela", "n1400"})
+    assert _entity_overlap_relaxation(tokens_a, tokens_b) > 0.0
+
+
+def test_entity_overlap_relaxation_empty_inputs_return_zero() -> None:
+    assert _entity_overlap_relaxation(frozenset(), frozenset({"venezuela"})) == 0.0
+    assert _entity_overlap_relaxation(frozenset({"venezuela"}), frozenset()) == 0.0
+
+
+# --- _cluster_articles: cross-lingual same-event merge via entity relaxation ---
+
+
+def test_cluster_articles_merges_cross_lingual_pair_via_entity_overlap() -> None:
+    """A Spanish and Catalan article about the same earthquake, with cosine similarity
+    just under the global threshold but sharing salient title entities, should merge."""
+    art_es = {
+        "id": "es1",
+        "title": "Un terremoto en Venezuela eleva a 1.430 las víctimas mortales",
+        "source_id": "src_es",
+        "embedding": [1.0, 0.0],
+    }
+    art_ca = {
+        "id": "ca1",
+        "title": "El doble terratrèmol a Venezuela supera els 1.400 morts",
+        "source_id": "src_ca",
+        # cosine sim with art_es ~ 0.866, below the 0.89 global threshold but within
+        # the 0.04 entity-overlap relaxation (effective tneed ~0.85), thanks to the
+        # shared "venezuela" and "n400" salient tokens.
+        "embedding": [0.866, 0.5],
+    }
+    groups = _cluster_articles(
+        [art_es, art_ca], threshold=0.89, rules=_no_rules(), source_topics={}
+    )
+    assert sorted(groups[0]) == ["ca1", "es1"]
+
+
+def test_cluster_articles_does_not_merge_unrelated_pair_near_threshold() -> None:
+    """Same borderline cosine similarity, but no shared entities: must not merge."""
+    art_a = {
+        "id": "a1",
+        "title": "Resultat del partit de futbol d'ahir",
+        "source_id": "src_a",
+        "embedding": [1.0, 0.0],
+    }
+    art_b = {
+        "id": "b1",
+        "title": "Eleccions municipals a Barcelona",
+        "source_id": "src_b",
+        "embedding": [0.866, 0.5],
+    }
+    groups = _cluster_articles([art_a, art_b], threshold=0.89, rules=_no_rules(), source_topics={})
+    assert sorted(groups) == [["a1"], ["b1"]]
+
+
+def _no_rules() -> MagicMock:
+    return MagicMock(article_pairs=frozenset(), source_pair_thresholds={})
 
 
 # --- cluster gate ---

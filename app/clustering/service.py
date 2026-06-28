@@ -2,8 +2,10 @@
 
 import logging
 import os
+import re
 import shutil
 import sys
+import unicodedata
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from typing import Any
@@ -161,6 +163,106 @@ def _effective_pair_threshold(
 
 def _article_pair_blocked(rules: ExclusionRules, id_a: str, id_b: str) -> bool:
     return frozenset((id_a, id_b)) in rules.article_pairs
+
+
+_SALIENT_TOKEN_RE = re.compile(r"[\w]+", re.UNICODE)
+
+# Max threshold relaxation granted for strongly overlapping titles (shared proper nouns,
+# place names, and multi-digit numbers). Helps cross-lingual same-event pairs (e.g. a
+# Catalan and a Spanish article both naming "Venezuela" and the same casualty count) clear
+# the similarity threshold despite paraphrase-multilingual scoring them lower than
+# same-language pairs.
+_ENTITY_OVERLAP_MAX_RELAXATION = 0.04
+_ENTITY_OVERLAP_MIN_JACCARD = 0.34
+
+
+def _normalize_word(word: str) -> str:
+    """Lowercase and strip diacritics so e.g. 'Política' and 'Politica' compare equal."""
+    decomposed = unicodedata.normalize("NFKD", word)
+    return "".join(c for c in decomposed if not unicodedata.combining(c)).lower()
+
+
+def _number_bucket(digits: str) -> str:
+    """Round a number string to the nearest hundred so e.g. '1.430' and '1.400'
+    (the same event reported with slightly different running tallies) bucket together.
+    Numbers under 100 are kept exact (rounding would erase them, e.g. years like '92')."""
+    value = int(digits)
+    if value < 100:
+        return f"n{value}"
+    return f"n{round(value / 100) * 100}"
+
+
+def _extract_salient_tokens(article: dict[str, Any]) -> frozenset[str]:
+    """Extract proper nouns and multi-digit numbers from an article's title.
+
+    Used only as a relaxation signal on top of embedding similarity, not as a
+    standalone clustering criterion.
+    """
+    title = (article.get("title") or "").strip()
+    tokens: set[str] = set()
+    for match in _SALIENT_TOKEN_RE.finditer(title):
+        word = match.group(0)
+        if word.isdigit():
+            if len(word) >= 2:
+                tokens.add(_number_bucket(word))
+        elif len(word) >= 4 and word[0].isupper():
+            tokens.add(_normalize_word(word))
+    return frozenset(tokens)
+
+
+def _word_fuzzy_match(word_a: str, word_b: str) -> bool:
+    """True if two normalized words are identical or a single edit apart.
+
+    Catches near-identical cross-language spellings of the same proper noun
+    (e.g. 'venezuela' vs 'venecuela') without matching unrelated words.
+    """
+    if word_a == word_b:
+        return True
+    if min(len(word_a), len(word_b)) < 6 or abs(len(word_a) - len(word_b)) > 1:
+        return False
+    return _levenshtein(word_a, word_b) <= 1
+
+
+def _levenshtein(a: str, b: str) -> int:
+    if a == b:
+        return 0
+    prev = list(range(len(b) + 1))
+    for i, ca in enumerate(a, start=1):
+        curr = [i] + [0] * len(b)
+        for j, cb in enumerate(b, start=1):
+            cost = 0 if ca == cb else 1
+            curr[j] = min(prev[j] + 1, curr[j - 1] + 1, prev[j - 1] + cost)
+        prev = curr
+    return prev[-1]
+
+
+def _entity_overlap_relaxation(tokens_a: frozenset[str], tokens_b: frozenset[str]) -> float:
+    """Return a threshold relaxation in [0, _ENTITY_OVERLAP_MAX_RELAXATION].
+
+    Based on Jaccard overlap of salient title tokens (proper nouns / number buckets),
+    with proper nouns matched fuzzily to tolerate cross-language spelling differences.
+    """
+    if not tokens_a or not tokens_b:
+        return 0.0
+    matched_a: set[str] = set()
+    matched_b: set[str] = set()
+    for ta in tokens_a:
+        for tb in tokens_b:
+            if tb in matched_b:
+                continue
+            is_number = ta.startswith("n") and ta[1:].lstrip("-").isdigit()
+            same = ta == tb if is_number else _word_fuzzy_match(ta, tb)
+            if same:
+                matched_a.add(ta)
+                matched_b.add(tb)
+                break
+    if not matched_a:
+        return 0.0
+    union_size = len(tokens_a | tokens_b)
+    jaccard = len(matched_a) / union_size
+    if jaccard < _ENTITY_OVERLAP_MIN_JACCARD:
+        return 0.0
+    return _ENTITY_OVERLAP_MAX_RELAXATION
 
 
 def _text_to_embed(article: dict[str, Any]) -> str:
@@ -325,6 +427,7 @@ def _cluster_articles(
     n = len(articles)
     ids = [a["id"] for a in articles]
     embeddings = [_embedding_from_article(a) for a in articles]
+    salient_tokens = [_extract_salient_tokens(a) for a in articles]
 
     valid_indices = [i for i in range(n) if embeddings[i] is not None]
     invalid_indices = [i for i in range(n) if embeddings[i] is None]
@@ -369,13 +472,16 @@ def _cluster_articles(
                             cross_ok = False
                             break
                         tneed = _effective_pair_threshold(art_a, art_b, threshold, rules)
+                        tneed -= _entity_overlap_relaxation(salient_tokens[a], salient_tokens[b])
                         if raw < tneed:
                             cross_ok = False
                             break
                         min_sim = min(min_sim, raw)
                     if not cross_ok:
                         break
-                if cross_ok and min_sim >= threshold and min_sim > best_min_sim:
+                # Per-pair tneed (incl. entity-overlap relaxation) was already enforced
+                # above via cross_ok; no need to re-check against the unadjusted threshold.
+                if cross_ok and min_sim > best_min_sim:
                     best_min_sim = min_sim
                     best_pair = (gi, gj)
 
