@@ -132,6 +132,7 @@ def test_expand_story_renders_expanded_article(client: FlaskClient) -> None:
             "app.routes.reader.article_service.get_expanded_story",
             return_value=_STORY,
         ),
+        patch("app.routes.reader.update_reading_streak"),
         patch("app.db.users.get_user_by_id", return_value={"is_admin": False, "email": "u@e.com"}),
         patch("app.services.profile_service.get_profile_with_selections", return_value=_PROFILE),
     ):
@@ -219,6 +220,7 @@ def test_article_page_renders_story(client: FlaskClient) -> None:
             "app.routes.reader.article_service.get_expanded_story",
             return_value=_STORY,
         ),
+        patch("app.routes.reader.update_reading_streak"),
         patch("app.db.users.get_user_by_id", return_value={"is_admin": False, "email": "u@e.com"}),
         patch("app.services.profile_service.get_profile_with_selections", return_value=_PROFILE),
     ):
