@@ -14,7 +14,7 @@ The pipeline runs automatically. Once a day at 6:00 the worker scores all cluste
 
 ## Who We Are Building For
 
-**This is a personal tool, built for personal use.** The deployment is a self-hosted NAS (UGreen DSP 2800); the content is in Catalan; the digest runs once a day in the morning. The database and auth system support multiple accounts (useful for testing and for family members who might use it), but the design priority is a single user who wants a clean, fast, daily news briefing.
+**This is a personal tool, built for personal use.** The content is in Catalan; the digest runs once a day in the morning. The database and auth system support multiple accounts (useful for testing and for family members who might use it), but the design priority is a single user who wants a clean, fast, daily news briefing.
 
 **Neither the end user nor anyone setting up the instance ever needs to touch the codebase.** Access is via the web app only. Creating an account and completing the setup wizard is all that is required.
 
@@ -22,9 +22,13 @@ The pipeline runs automatically. Once a day at 6:00 the worker scores all cluste
 
 ## Deployment Model
 
-The project is open source (AGPL). The **only** deployment target is a self-hosted **NAS UGreen DSP 2800** running Docker via `docker-compose.yml` (CPU-only inference, no GPU). Ollama runs on the same machine with `qwen2.5:3b` — light enough for CPU inference, adequate for 10 stories per day. See [`docs/DEPLOYMENT_PORTAINER.md`](docs/DEPLOYMENT_PORTAINER.md) for the Portainer setup guide.
+The project is open source (AGPL). Two supported targets, one `docker-compose.yml`:
 
-There is no Raspberry Pi, GPU, hybrid, Oracle Cloud, or VPS deployment path — keep the codebase scoped to the single NAS target. Don't reintroduce split-scheduler modes, GPU device reservations, or multi-machine compose overrides.
+**Local machine (primary — GPU, RTX 4070 or similar):** `docker compose up --build`. Ollama runs with `qwen2.5:14b` (rewrite, ~8.7 GB Q4, fits in 12 GB VRAM) and `bge-m3` (embeddings, 1024-dim, MTEB #1 multilingual). This is the default config in `app.yaml` and the default build.
+
+**NAS (UGreen DSP 2800, CPU-only):** same compose file, but Portainer sets `DOSSIER_LLM_MODEL=qwen2.5:3b` in the stack environment to pull and use the lighter rewrite model. `bge-m3` works on CPU too. See [`docs/DEPLOYMENT_PORTAINER.md`](docs/DEPLOYMENT_PORTAINER.md) for the full Portainer setup guide.
+
+Don't reintroduce split-scheduler modes, separate compose files per environment, GPU device reservations in compose, or multi-machine overrides. The single env var `DOSSIER_LLM_MODEL` is the only knob needed between the two targets.
 
 ---
 
@@ -72,8 +76,8 @@ See `docs/TECH_STACK.md` for full details, project structure, dependencies, Dock
 
 - **Backend:** Python 3.12+ with Flask
 - **Database:** PostgreSQL 18
-- **LLM:** Ollama (local, no API key) via provider interface — `qwen2.5:3b` for rewriting (adequate for 10 stories/day on CPU); text generation and embeddings
-- **Embeddings:** Ollama (paraphrase-multilingual) for article clustering
+- **LLM:** Ollama (local, no API key) via provider interface — `qwen2.5:14b` locally (GPU), `qwen2.5:3b` on NAS (set via `DOSSIER_LLM_MODEL`); text generation and embeddings
+- **Embeddings:** Ollama (`bge-m3`, 1024-dim) for article clustering — MTEB #1 multilingual, handles Catalan/Spanish cross-lingual pairs accurately
 - **Frontend:** Plain HTML + CSS + HTMX
 - **Scheduling:** APScheduler runs the pipeline in the worker: fetch feeds → enrich (extract full text) → embed → cluster → rewrite. The daily rewrite (06:00) selects the top 10 stories by relevance score and rewrites them in Catalan only — no cascade, no translation step. Content is ready when the user opens the app.
 - **Content filtering:** `app/feed/classifier.py` classifies articles as `news` or `non_news` using keyword heuristics (recipes, horoscopes, classifieds, promotions). Applied at fetch time (title + raw_text) and again at enrich time (full text). Non-news articles are stored with `article_type = 'non_news'` and excluded from enrichment, embedding, and clustering. Operators review and override via the ops dashboard.

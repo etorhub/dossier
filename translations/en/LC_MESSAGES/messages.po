@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PROJECT VERSION\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2026-07-02 01:12+0200\n"
+"POT-Creation-Date: 2026-07-02 01:23+0200\n"
 "PO-Revision-Date: 2026-03-17 12:11+0100\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language: en\n"
@@ -90,7 +90,7 @@ msgstr ""
 msgid "Email already registered."
 msgstr ""
 
-#: app/routes/reader.py:85 app/routes/reader.py:114 app/routes/reader.py:139
+#: app/routes/reader.py:91 app/routes/reader.py:121 app/routes/reader.py:146
 msgid "Article not found."
 msgstr ""
 
@@ -125,7 +125,7 @@ msgid "Back"
 msgstr ""
 
 #: templates/article.html:16 templates/partials/article_card.html:14
-#: templates/partials/article_expanded.html:13
+#: templates/partials/article_expanded.html:14
 msgid "Image source:"
 msgstr ""
 
@@ -137,57 +137,57 @@ msgstr[0] ""
 msgstr[1] ""
 
 #: templates/article.html:26 templates/partials/article_card.html:22
-#: templates/partials/article_expanded.html:21
+#: templates/partials/article_expanded.html:22
 #, fuzzy, python-format
 msgid "%(num)d source"
 msgid_plural "%(num)d sources"
 msgstr[0] ""
 msgstr[1] ""
 
-#: templates/article.html:34 templates/base.html:768
-#: templates/partials/article_expanded.html:29
+#: templates/article.html:34 templates/base.html:774
+#: templates/partials/article_expanded.html:30
 msgid "Read article aloud"
 msgstr ""
 
-#: templates/article.html:36 templates/base.html:765
-#: templates/partials/article_expanded.html:30
+#: templates/article.html:36 templates/base.html:771
+#: templates/partials/article_expanded.html:31
 msgid "Listen"
 msgstr ""
 
-#: templates/article.html:41 templates/article.html:44 templates/base.html:767
-#: templates/partials/article_expanded.html:35
-#: templates/partials/article_expanded.html:39
+#: templates/article.html:41 templates/article.html:44 templates/base.html:773
+#: templates/partials/article_expanded.html:36
+#: templates/partials/article_expanded.html:40
 msgid "Volume"
 msgstr ""
 
-#: templates/base.html:766
+#: templates/base.html:772
 msgid "Stop"
 msgstr ""
 
-#: templates/base.html:773 templates/base.html:802
+#: templates/base.html:779 templates/base.html:808
 msgid "Feed"
 msgstr ""
 
-#: templates/base.html:774 templates/base.html:810 templates/settings.html:2
+#: templates/base.html:780 templates/base.html:816 templates/settings.html:2
 #: templates/settings.html:4
 msgid "Settings"
 msgstr ""
 
-#: templates/base.html:780
+#: templates/base.html:786
 msgid "Log out"
 msgstr ""
 
-#: templates/base.html:785 templates/login.html:2 templates/login.html:5
+#: templates/base.html:791 templates/login.html:2 templates/login.html:5
 #: templates/login.html:20 templates/register.html:23
 msgid "Log in"
 msgstr ""
 
-#: templates/base.html:786 templates/login.html:23 templates/register.html:2
+#: templates/base.html:792 templates/login.html:23 templates/register.html:2
 #: templates/register.html:5 templates/register.html:20
 msgid "Register"
 msgstr ""
 
-#: templates/base.html:794
+#: templates/base.html:800
 msgid "Main navigation"
 msgstr ""
 
@@ -199,6 +199,13 @@ msgstr ""
 #, python-format
 msgid "%(num)d article"
 msgid_plural "%(num)d articles"
+msgstr[0] ""
+msgstr[1] ""
+
+#: templates/index.html:7
+#, python-format
+msgid "%(num)d day streak"
+msgid_plural "%(num)d day streak"
 msgstr[0] ""
 msgstr[1] ""
 
@@ -320,19 +327,19 @@ msgstr ""
 msgid "Read full story"
 msgstr ""
 
-#: templates/partials/article_expanded.html:55
+#: templates/partials/article_expanded.html:56
 msgid "View original article, opens in new tab"
 msgstr ""
 
-#: templates/partials/article_expanded.html:55
+#: templates/partials/article_expanded.html:56
 msgid "View original"
 msgstr ""
 
-#: templates/partials/article_expanded.html:63
+#: templates/partials/article_expanded.html:64
 msgid "Show less:"
 msgstr ""
 
-#: templates/partials/article_expanded.html:63
+#: templates/partials/article_expanded.html:64
 msgid "Show less"
 msgstr ""
 
@@ -420,8 +427,4 @@ msgstr ""
 #~ msgid "Language"
 #~ msgstr ""
 
-#~ msgid "%(num)d day streak"
-#~ msgid_plural "%(num)d day streak"
-#~ msgstr[0] ""
-#~ msgstr[1] ""
 

@@ -28,7 +28,7 @@ flowchart TD
 
     subgraph EMBED["③ EMBED  ·  hourly :15"]
         EM1["Build embedding text\n(topics + categories + title + body)"]
-        EM2["Ollama paraphrase-multilingual\n→ 768-dim vector"]
+        EM2["Ollama bge-m3\n→ 1024-dim vector"]
         EM1 --> EM2
     end
 
@@ -160,7 +160,7 @@ Non-news articles (`article_type = 'non_news'`) are stored but excluded from eve
    Article title here. First 2000 characters of body…
    ```
    Topic labels come from the source's entry in `sources.yaml` (e.g. a politics-only outlet gets `topics: politics` prepended). This biases the vector space so domain-exclusive sources cluster with topically similar ones rather than drifting toward general-purpose outlets.
-3. Call `Ollama paraphrase-multilingual` → 768-dimensional float vector.
+3. Call `Ollama bge-m3` → 1024-dimensional float vector.
 4. Store as `articles.embedding` (JSONB).
 
 ### Inputs → Outputs
@@ -174,7 +174,7 @@ Non-news articles (`article_type = 'non_news'`) are stored but excluded from eve
 
 | Key | Default | Effect |
 |---|---|---|
-| `embeddings.model` | `paraphrase-multilingual` | Ollama model |
+| `embeddings.model` | `bge-m3` | Ollama model (1024-dim, MTEB #1 multilingual) |
 | `embeddings.max_input_chars` | 8000 | Truncate before sending |
 | `processing.embed_batch_size` | 0 (unlimited) | Cap articles per run |
 
@@ -254,13 +254,13 @@ One story produces one rewrite variant per `(style, language)` combination confi
 
 ```mermaid
 flowchart TD
-    SRC["Source articles\n(up to 18, ≤ 8000 chars each, ≤ 52 000 chars total)"]
-    R["① Rewrite\nqwen2.5:3b · T=0.2\nMerge sources → neutral journalistic text"]
-    P["② Proofread  (optional)\nqwen2.5:3b · T=0.1\nSpelling and grammar only"]
+    SRC["Source articles\n(up to 30, ≤ 8000 chars each, ≤ 100 000 chars total)"]
+    R["① Rewrite\nqwen2.5:14b · T=0.2\nMerge sources → neutral journalistic text"]
+    P["② Proofread  (optional)\nqwen2.5:14b · T=0.1\nSpelling and grammar only"]
     S{"style\n= simple?"}
-    SIM["③ Simplify\nqwen2.5:3b · T=0.2\nReduce reading level"]
+    SIM["③ Simplify\nqwen2.5:14b · T=0.2\nReduce reading level"]
     TR{"lang ≠\nbase_lang?"}
-    TRL["④ Translate\nqwen2.5:3b · T=0.15\nTarget language with writing notes"]
+    TRL["④ Translate\nqwen2.5:14b · T=0.15\nTarget language with writing notes"]
     OUT["story_rewrites row\n(story_id, style, language,\ntitle, summary, full_text)"]
 
     SRC --> R --> P --> S
@@ -284,7 +284,7 @@ The parser strips markdown bold, normalises localised header aliases (`TÍTULO:`
 
 ### Concurrency
 
-A thread pool processes stories in parallel (default `rewrite_parallel_workers = 1`). A single `_OLLAMA_CHAT_LOCK` serialises all actual LLM calls — two concurrent large-context requests would exceed RAM on the NAS's CPU-only Ollama.
+A thread pool processes stories in parallel (`rewrite_parallel_workers = 2` on GPU). A single `_OLLAMA_CHAT_LOCK` serialises the actual Ollama calls so two threads don't flood the same GPU context simultaneously. On CPU-only NAS, set `rewrite_parallel_workers = 1`.
 
 ### Inputs → Outputs
 
@@ -298,9 +298,9 @@ A thread pool processes stories in parallel (default `rewrite_parallel_workers =
 
 | Key | Default | Effect |
 |---|---|---|
-| `llm.rewrite_model` | `qwen2.5:3b` | The only model pulled on the NAS — sized for CPU inference |
-| `llm.simplify_model` | `qwen2.5:3b` | Falls back to `rewrite_model`; not activated in the current Catalan-only config |
-| `llm.translate_model` | `qwen2.5:3b` | Falls back to `rewrite_model`; not activated (single-language digest) |
+| `llm.rewrite_model` | `qwen2.5:14b` | Override with `DOSSIER_LLM_MODEL=qwen2.5:3b` for NAS/CPU |
+| `llm.simplify_model` | `qwen2.5:14b` | Falls back to `rewrite_model`; not activated in the current Catalan-only config |
+| `llm.translate_model` | `qwen2.5:14b` | Falls back to `rewrite_model`; not activated (single-language digest) |
 | `processing.rewrite_proofread_enabled` | `true` | Toggle the proofread pass |
 | `rewriting.base_language` | `ca` | Language of the initial rewrite — Catalan only, no translation step |
 

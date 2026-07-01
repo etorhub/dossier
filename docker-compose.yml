@@ -3,16 +3,20 @@ services:
   # COMPOSE_PROFILES=local-llm) or pass --profile local-llm. Without it, point
   # OLLAMA_HOST at host Ollama (see .env.example).
   #
-  # Tuned for CPU-only inference on a NAS (UGreen DSP 2800): a single thread pool
-  # and one resident model keep peak RAM low — the daily job never runs the
-  # rewrite (qwen2.5:3b) and embedding (paraphrase-multilingual) models concurrently.
+  # Default config targets a local GPU machine (RTX 4070 or similar, 12 GB VRAM):
+  #   LLM:        qwen2.5:14b  (~8.7 GB Q4, fits in VRAM)
+  #   Embeddings: bge-m3       (MTEB #1 multilingual, 1024-dim)
+  #
+  # For NAS deployment (CPU-only, UGreen DSP 2800), add to Portainer env vars:
+  #   DOSSIER_LLM_MODEL=qwen2.5:3b   (lighter rewrite model for CPU inference)
+  # bge-m3 works on CPU too (~30s/article, fine for 10–20 articles/day).
   ollama:
     profiles: ["local-llm"]
     image: ollama/ollama
     volumes:
       - ollama_data:/root/.ollama
     environment:
-      OLLAMA_NUM_PARALLEL: "1"
+      OLLAMA_NUM_PARALLEL: "2"
       OLLAMA_MAX_LOADED_MODELS: "1"
     healthcheck:
       test: ["CMD", "ollama", "list"]
@@ -29,11 +33,12 @@ services:
         condition: service_healthy
     environment:
       OLLAMA_HOST: http://ollama:11434
+      DOSSIER_LLM_MODEL: ${DOSSIER_LLM_MODEL:-qwen2.5:14b}
     entrypoint:
       [
         "sh",
         "-c",
-        "set -eu && echo 'ollama-init: pulling qwen2.5:3b and paraphrase-multilingual (first start can take a while)...' && ollama pull qwen2.5:3b && ollama pull paraphrase-multilingual && echo 'ollama-init: pulls complete.'",
+        "set -eu && echo \"ollama-init: pulling $$DOSSIER_LLM_MODEL and bge-m3 (first start can take a while)...\" && ollama pull $$DOSSIER_LLM_MODEL && ollama pull bge-m3 && echo 'ollama-init: pulls complete.'",
       ]
     restart: "no"
 

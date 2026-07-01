@@ -4,7 +4,7 @@
 <div class="app-layout">
   <div class="main-content">
     <div class="feed-header">
-      <h1>{{ _("Today's feed") }}{% if feed %} <span class="feed-count">{{ ngettext('%(num)d article', '%(num)d articles', feed|length)|format(num=feed|length) }}</span>{% endif %}</h1>
+      <h1>{{ _("Today's feed") }}{% if feed %} <span class="feed-count">{{ ngettext('%(num)d article', '%(num)d articles', feed|length)|format(num=feed|length) }}</span>{% endif %}<span id="streak-counter" class="streak-counter" aria-live="polite"{% if show_streak %} aria-label="{{ ngettext('%(num)d day streak', '%(num)d day streak', profile.reading_streak)|format(num=profile.reading_streak) }}"{% else %} hidden{% endif %}>{% if show_streak %}🔥 {{ profile.reading_streak }}{% endif %}</span></h1>
     </div>
     <div id="feed-container">
       {% include "partials/feed_content.html" %}

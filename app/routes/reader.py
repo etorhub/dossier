@@ -1,11 +1,13 @@
 """Reader routes: main feed and article expansion."""
 
+from datetime import date
 from typing import Any
 
 from flask import Blueprint, redirect, render_template, request, session, url_for
 from flask_babel import gettext
 
 from app.config import load_config
+from app.db.users import update_reading_streak
 from app.services import article_service, profile_service
 
 reader_bp = Blueprint("reader", __name__)
@@ -23,12 +25,16 @@ def index() -> Any:
         return redirect(url_for("setup.setup_page"))
 
     feed, rewrites_pending = article_service.get_feed(user_id)
+    show_streak = bool(
+        profile.get("reading_streak", 0) > 0 and profile.get("last_read_date") != date.today()
+    )
 
     return render_template(
         "index.html",
         feed=feed,
         rewrites_pending=rewrites_pending,
         profile=profile,
+        show_streak=show_streak,
     )
 
 
@@ -85,6 +91,7 @@ def expand_story(story_id: str) -> Any:
             error=gettext("Article not found."),
             archive=archive,
         )
+    update_reading_streak(user_id)
     return render_template(
         "partials/article_expanded.html",
         article=story,
@@ -137,4 +144,5 @@ def article_page(story_id: str) -> Any:
     story = article_service.get_expanded_story(story_id, style, language, config)
     if not story:
         return render_template("article.html", article=None, error=gettext("Article not found."))
+    update_reading_streak(user_id)
     return render_template("article.html", article=story)

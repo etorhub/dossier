@@ -2,9 +2,13 @@
 
 This guide deploys the **full Dossier stack** — database, web, worker, ops dashboard,
 and a local Ollama (CPU inference) — as a single Portainer **stack** on the NAS,
-using the repo's `docker-compose.yml`. The compose file is the single source of
-truth for this deployment: it's already tuned for CPU-only inference and low RAM
-(no GPU, no separate NAS override file — there's only one deployment target).
+using the repo's `docker-compose.yml`.
+
+> **Model note:** the default `docker-compose.yml` targets a local GPU machine
+> (`qwen2.5:14b` + `bge-m3`). For the NAS (CPU-only) you **must** add
+> `DOSSIER_LLM_MODEL=qwen2.5:3b` to the Portainer stack environment — this
+> overrides the rewrite model without changing any files. `bge-m3` runs on
+> CPU too (~30s/article), so no override needed for embeddings.
 
 **The NAS pulls prebuilt images, it does not build from source.** GitHub Actions
 (`.github/workflows/publish.yml`) builds the `web` and `worker` images on every
@@ -21,7 +25,7 @@ with the `DOSSIER_TAG` environment variable (default `latest`).
 ```
 UGreen DSP 2800
   ├── db          — PostgreSQL 18 + pgvector
-  ├── ollama      — qwen2.5:3b (rewrite) + paraphrase-multilingual (embeddings), CPU only
+  ├── ollama      — qwen2.5:3b (rewrite, via DOSSIER_LLM_MODEL override) + bge-m3 (embeddings), CPU only
   ├── ollama-init — one-shot model pull, runs once on first start
   ├── db-init     — one-shot Alembic migration, runs once on first start
   ├── web         — Flask app, port 5000
@@ -79,6 +83,10 @@ SECRET_KEY=<generate-with: python3 -c "import secrets; print(secrets.token_hex(3
 COMPOSE_PROFILES=local-llm
 OLLAMA_HOST=http://ollama:11434
 
+# NAS model override — the default config targets a GPU machine (qwen2.5:14b).
+# This tells ollama-init to pull qwen2.5:3b instead, and tells the worker to use it.
+DOSSIER_LLM_MODEL=qwen2.5:3b
+
 # Optional: which published image tag to run. Default is `latest` (newest default-branch
 # build). Pin a release for reproducible deploys / rollback, e.g. DOSSIER_TAG=v1.2.0
 DOSSIER_TAG=latest
@@ -96,11 +104,11 @@ slowest app step; subsequent redeploys only pull changed layers). On first start
 
 1. `db` comes up and passes its healthcheck
 2. `db-init` runs Alembic migrations once, then exits (`service_completed_successfully`)
-3. `ollama` starts in CPU mode (`OLLAMA_NUM_PARALLEL=1`, `OLLAMA_MAX_LOADED_MODELS=1`
+3. `ollama` starts in CPU mode (`OLLAMA_NUM_PARALLEL=2`, `OLLAMA_MAX_LOADED_MODELS=1`
    — one model resident at a time, since the daily job never runs rewrite and
    embedding concurrently)
-4. `ollama-init` pulls `qwen2.5:3b` and `paraphrase-multilingual` (~2–3 GB total) — the slowest step
-   on first run, expect 10–30 minutes depending on NAS bandwidth/disk speed — then exits
+4. `ollama-init` pulls `qwen2.5:3b` (via `DOSSIER_LLM_MODEL`) and `bge-m3` (~2.5 GB total)
+   — the slowest step on first run; expect 10–30 min depending on NAS bandwidth — then exits
 5. `web`, `worker`, and `ops` start once their dependencies are healthy/complete
 
 Watch progress in Portainer: **Stacks → dossier → Containers**, check logs on
@@ -138,13 +146,14 @@ observe resource pressure (Portainer → container stats, or the NAS's own resou
 
 | Setting | Default | When to change |
 |---|---|---|
-| `OLLAMA_NUM_PARALLEL` | `1` | Raise to `2` only if RAM ≥ 16 GB and rewrites feel slow |
+| `DOSSIER_LLM_MODEL` | `qwen2.5:3b` (set in Portainer env) | Leave at `qwen2.5:3b` for the NAS — do not pull `qwen2.5:14b` on CPU |
+| `OLLAMA_NUM_PARALLEL` | `2` | Lower to `1` if RAM is tight and rewrites contend |
 | `OLLAMA_MAX_LOADED_MODELS` | `1` | Keep at `1` — embedding and rewriting never run concurrently in the daily job |
 | gunicorn workers (`web`, `ops`) | default (compose doesn't pin `-w`) | If RAM is tight, edit the service `command` to add `-w 1` |
 
 General guidance:
-- `qwen2.5:3b` is the right model for 10 stories/day on CPU — it's the only model
-  this deployment pulls and uses
+- `qwen2.5:3b` (via `DOSSIER_LLM_MODEL` override) is the right model for 10 stories/day on CPU
+- `bge-m3` works fine on CPU at ~30s/article — only ~10–20 articles need embedding per day at steady state
 - Postgres, Ollama, and the article/job-run data all persist in named volumes/bind
   mounts — back up `pgdata`, `ollama_data`, and `./data/job_runs` before any major
   Portainer stack recreation

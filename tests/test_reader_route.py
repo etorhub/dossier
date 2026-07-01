@@ -132,6 +132,7 @@ def test_expand_story_renders_expanded_article(client: FlaskClient) -> None:
             "app.routes.reader.article_service.get_expanded_story",
             return_value=_STORY,
         ),
+        patch("app.routes.reader.update_reading_streak"),
         patch("app.db.users.get_user_by_id", return_value={"is_admin": False, "email": "u@e.com"}),
         patch("app.services.profile_service.get_profile_with_selections", return_value=_PROFILE),
     ):
@@ -219,6 +220,7 @@ def test_article_page_renders_story(client: FlaskClient) -> None:
             "app.routes.reader.article_service.get_expanded_story",
             return_value=_STORY,
         ),
+        patch("app.routes.reader.update_reading_streak"),
         patch("app.db.users.get_user_by_id", return_value={"is_admin": False, "email": "u@e.com"}),
         patch("app.services.profile_service.get_profile_with_selections", return_value=_PROFILE),
     ):
@@ -267,3 +269,80 @@ def test_redirect_collapse_cluster_returns_301(client: FlaskClient) -> None:
     response = client.get("/clusters/abc123/collapse", follow_redirects=False)
     assert response.status_code == 301
     assert "/stories/abc123/collapse" in response.location
+
+
+# ---------------------------------------------------------------------------
+# Reading streak — route-level trigger tests
+# ---------------------------------------------------------------------------
+
+
+def test_expand_story_calls_streak_update(client: FlaskClient) -> None:
+    """GET /stories/<id>/expand calls update_reading_streak when story exists."""
+    _auth(client)
+    with (
+        patch(
+            "app.routes.reader.profile_service.get_profile_with_selections",
+            return_value=_PROFILE,
+        ),
+        patch("app.routes.reader.load_config", return_value=_CONFIG),
+        patch(
+            "app.routes.reader.profile_service.get_reading_variant",
+            return_value=("neutral", "en"),
+        ),
+        patch(
+            "app.routes.reader.article_service.get_expanded_story",
+            return_value=_STORY,
+        ),
+        patch("app.routes.reader.update_reading_streak") as mock_streak,
+        patch("app.db.users.get_user_by_id", return_value={"is_admin": False, "email": "u@e.com"}),
+        patch("app.services.profile_service.get_profile_with_selections", return_value=_PROFILE),
+    ):
+        client.get("/stories/story-uuid-1/expand")
+    mock_streak.assert_called_once_with(1)
+
+
+def test_article_page_calls_streak_update(client: FlaskClient) -> None:
+    """GET /article/<id> calls update_reading_streak when story exists."""
+    _auth(client)
+    with (
+        patch(
+            "app.routes.reader.profile_service.get_profile_with_selections",
+            return_value=_PROFILE,
+        ),
+        patch("app.routes.reader.load_config", return_value=_CONFIG),
+        patch(
+            "app.routes.reader.profile_service.get_reading_variant",
+            return_value=("neutral", "en"),
+        ),
+        patch(
+            "app.routes.reader.article_service.get_expanded_story",
+            return_value=_STORY,
+        ),
+        patch("app.routes.reader.update_reading_streak") as mock_streak,
+        patch("app.db.users.get_user_by_id", return_value={"is_admin": False, "email": "u@e.com"}),
+        patch("app.services.profile_service.get_profile_with_selections", return_value=_PROFILE),
+    ):
+        client.get("/article/story-uuid-1")
+    mock_streak.assert_called_once_with(1)
+
+
+def test_missing_story_does_not_call_streak_update(client: FlaskClient) -> None:
+    """GET /stories/<id>/expand does not call update_reading_streak when story is missing."""
+    _auth(client)
+    with (
+        patch(
+            "app.routes.reader.profile_service.get_profile_with_selections",
+            return_value=_PROFILE,
+        ),
+        patch("app.routes.reader.load_config", return_value=_CONFIG),
+        patch(
+            "app.routes.reader.profile_service.get_reading_variant",
+            return_value=("neutral", "en"),
+        ),
+        patch("app.routes.reader.article_service.get_expanded_story", return_value=None),
+        patch("app.routes.reader.update_reading_streak") as mock_streak,
+        patch("app.db.users.get_user_by_id", return_value={"is_admin": False, "email": "u@e.com"}),
+        patch("app.services.profile_service.get_profile_with_selections", return_value=_PROFILE),
+    ):
+        client.get("/stories/nonexistent/expand")
+    mock_streak.assert_not_called()
