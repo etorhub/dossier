@@ -28,6 +28,30 @@ def mock_profile() -> dict:
     }
 
 
+def test_settings_get_does_not_render_language_switcher(
+    client: FlaskClient,
+    mock_sources: list[dict],
+    mock_profile: dict,
+) -> None:
+    """GET /settings/ no longer renders a language dropdown (app is Catalan-only)."""
+    with (
+        patch("app.routes.settings.load_sources", return_value=mock_sources),
+        patch(
+            "app.routes.settings.profile_service.get_profile_with_selections",
+            return_value=mock_profile,
+        ),
+        patch("app.db.users.get_user_by_id", return_value={"is_admin": False, "email": "t@t.com"}),
+        patch("app.db.users.get_profile", return_value=mock_profile),
+    ):
+        with client.session_transaction() as sess:
+            sess["user_id"] = 1
+
+        response = client.get("/settings/")
+
+    assert response.status_code == 200
+    assert b'name="language"' not in response.data
+
+
 def test_settings_post_only_high_contrast_saves_without_confirmation(
     client: FlaskClient,
     mock_sources: list[dict],
@@ -55,7 +79,6 @@ def test_settings_post_only_high_contrast_saves_without_confirmation(
             "/settings/",
             data={
                 "location": "Barcelona",
-                "language": "ca",
                 "preferred_style": "neutral",
                 "high_contrast": "on",
                 "topics": ["general"],
@@ -94,7 +117,6 @@ def test_settings_post_regeneration_field_saves_when_confirmed(
             "/settings/",
             data={
                 "location": "Barcelona",
-                "language": "es",
                 "preferred_style": "neutral",
                 "confirm_regenerate": "1",
                 "topics": ["general"],
@@ -133,7 +155,6 @@ def test_settings_post_regeneration_needed_shows_confirmation(
             "/settings/",
             data={
                 "location": "Barcelona",
-                "language": "es",
                 "preferred_style": "neutral",
                 "topics": ["general"],
             },

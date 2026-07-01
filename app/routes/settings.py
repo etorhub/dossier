@@ -43,14 +43,6 @@ def settings_page() -> Any:
 
     if request.method == "GET":
         config = load_config()
-        languages = config.get("rewriting", {}).get(
-            "languages",
-            [
-                {"id": "ca", "label": "Catalan"},
-                {"id": "es", "label": "Spanish"},
-                {"id": "en", "label": "English"},
-            ],
-        )
         topic_infos = _topic_infos(topics, config)
         return render_template(
             "settings.html",
@@ -59,13 +51,11 @@ def settings_page() -> Any:
             topics=topics,
             topic_infos=topic_infos,
             style_options=profile_service.get_style_options(config),
-            languages=languages,
             needs_regeneration_confirmation=False,
         )
 
     config = load_config()
     location = request.form.get("location", "").strip() or None
-    language = request.form.get("language", "ca").strip()
     preferred_style = profile_service.normalize_preferred_style(
         request.form.get("preferred_style", "neutral"), config
     )
@@ -78,7 +68,6 @@ def settings_page() -> Any:
 
     form_data = {
         "location": location,
-        "language": language,
         "preferred_style": preferred_style,
         "high_contrast": high_contrast,
         "color_scheme": color_scheme,
@@ -91,20 +80,11 @@ def settings_page() -> Any:
         display_profile = {
             **profile,
             "location": form_data.get("location"),
-            "language": form_data.get("language"),
             "preferred_style": form_data.get("preferred_style"),
             "high_contrast": form_data.get("high_contrast"),
             "color_scheme": form_data.get("color_scheme"),
             "topic_ids": topic_ids,
         }
-        languages = config.get("rewriting", {}).get(
-            "languages",
-            [
-                {"id": "ca", "label": "Catalan"},
-                {"id": "es", "label": "Spanish"},
-                {"id": "en", "label": "English"},
-            ],
-        )
         topic_infos = _topic_infos(topics, config)
         return render_template(
             "settings.html",
@@ -113,7 +93,6 @@ def settings_page() -> Any:
             topics=topics,
             topic_infos=topic_infos,
             style_options=profile_service.get_style_options(config),
-            languages=languages,
             needs_regeneration_confirmation=True,
         )
 

@@ -11,14 +11,6 @@
       <input type="text" id="location" name="location" placeholder="{{ _('e.g. Catalonia') }}">
     </div>
     <div class="form-group">
-      <label for="language">{{ _('Language') }}</label>
-      <select id="language" name="language">
-        {% for lang in languages %}
-        <option value="{{ lang.id }}" {% if lang.id == 'ca' %}selected{% endif %}>{{ _(lang.label) }}</option>
-        {% endfor %}
-      </select>
-    </div>
-    <div class="form-group">
       <label for="preferred_style">{{ _('Reading style') }}</label>
       <select id="preferred_style" name="preferred_style">
         {% for value, label in style_options %}

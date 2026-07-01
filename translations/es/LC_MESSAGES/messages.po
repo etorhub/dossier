@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PROJECT VERSION\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2026-03-27 11:36+0100\n"
+"POT-Creation-Date: 2026-07-02 01:12+0200\n"
 "PO-Revision-Date: 2026-03-17 12:11+0100\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language: es\n"
@@ -70,27 +70,27 @@ msgstr "Ciencia"
 msgid "Sports"
 msgstr "Deportes"
 
-#: app/i18n_strings.py:27 templates/index.html:11 templates/index.html:28
+#: app/i18n_strings.py:27
 msgid "All"
 msgstr "Todo"
 
-#: app/routes/auth.py:23 app/routes/auth.py:45
+#: app/routes/auth.py:26 app/routes/auth.py:50
 msgid "Email and password are required."
 msgstr "Se requieren el correo y la contraseña."
 
-#: app/routes/auth.py:28
+#: app/routes/auth.py:31
 msgid "Invalid email or password."
 msgstr "Correo o contraseña incorrectos."
 
-#: app/routes/auth.py:51
+#: app/routes/auth.py:56
 msgid "Password must be at least 8 characters."
 msgstr "La contraseña debe tener al menos 8 caracteres."
 
-#: app/routes/auth.py:58
+#: app/routes/auth.py:63
 msgid "Email already registered."
 msgstr "Este correo ya está registrado."
 
-#: app/routes/reader.py:104 app/routes/reader.py:133 app/routes/reader.py:158
+#: app/routes/reader.py:85 app/routes/reader.py:114 app/routes/reader.py:139
 msgid "Article not found."
 msgstr "Artículo no encontrado."
 
@@ -106,7 +106,9 @@ msgstr "Dossier"
 
 #: templates/500.html:20
 msgid "An unexpected error occurred. You can try again or go back to the feed."
-msgstr "Se ha producido un error inesperado. Puedes intentarlo de nuevo o volver al inicio."
+msgstr ""
+"Se ha producido un error inesperado. Puedes intentarlo de nuevo o volver "
+"al inicio."
 
 #: templates/500.html:24
 msgid "Try again"
@@ -164,11 +166,11 @@ msgstr "Volumen"
 msgid "Stop"
 msgstr "Detener"
 
-#: templates/base.html:774 templates/base.html:802
+#: templates/base.html:773 templates/base.html:802
 msgid "Feed"
 msgstr "Resumen"
 
-#: templates/base.html:775 templates/base.html:818 templates/settings.html:2
+#: templates/base.html:774 templates/base.html:810 templates/settings.html:2
 #: templates/settings.html:4
 msgid "Settings"
 msgstr "Configuración"
@@ -178,12 +180,12 @@ msgid "Log out"
 msgstr "Cerrar sesión"
 
 #: templates/base.html:785 templates/login.html:2 templates/login.html:5
-#: templates/login.html:19 templates/register.html:22
+#: templates/login.html:20 templates/register.html:23
 msgid "Log in"
 msgstr "Iniciar sesión"
 
-#: templates/base.html:786 templates/login.html:22 templates/register.html:2
-#: templates/register.html:5 templates/register.html:19
+#: templates/base.html:786 templates/login.html:23 templates/register.html:2
+#: templates/register.html:5 templates/register.html:20
 msgid "Register"
 msgstr "Registrarse"
 
@@ -191,43 +193,34 @@ msgstr "Registrarse"
 msgid "Main navigation"
 msgstr "Navegación principal"
 
-#: templates/base.html:810 templates/index.html:6 templates/index.html:7
-#: templates/settings.html:72 templates/setup.html:54
-msgid "Topics"
-msgstr "Temas"
-
-#: templates/index.html:2 templates/index.html:24
+#: templates/index.html:2 templates/index.html:7
 msgid "Today's feed"
 msgstr "El resumen de hoy"
 
-#: templates/index.html:24
+#: templates/index.html:7
 #, python-format
 msgid "%(num)d article"
 msgid_plural "%(num)d articles"
 msgstr[0] "%(num)d artículo"
 msgstr[1] "%(num)d artículos"
 
-#: templates/index.html:27
-msgid "News sections"
-msgstr "Secciones de noticias"
-
-#: templates/login.html:11 templates/register.html:11
+#: templates/login.html:12 templates/register.html:12
 msgid "Email"
 msgstr "Correo electrónico"
 
-#: templates/login.html:15
+#: templates/login.html:16
 msgid "Password"
 msgstr "Contraseña"
 
-#: templates/login.html:22
+#: templates/login.html:23
 msgid "Don't have an account?"
 msgstr "¿No tienes cuenta?"
 
-#: templates/register.html:15
+#: templates/register.html:16
 msgid "Password (at least 8 characters)"
 msgstr "Contraseña (al menos 8 caracteres)"
 
-#: templates/register.html:22
+#: templates/register.html:23
 msgid "Already have an account?"
 msgstr "¿Ya tienes cuenta?"
 
@@ -247,7 +240,7 @@ msgstr ""
 "Cambiar esta configuración regenerará tu resumen. Puede tardar unos "
 "minutos. Los nuevos artículos aparecerán cuando estén listos."
 
-#: templates/settings.html:13 templates/settings.html:77
+#: templates/settings.html:13 templates/settings.html:69
 msgid "Confirm and save"
 msgstr "Confirmar y guardar"
 
@@ -268,38 +261,38 @@ msgid "e.g. Catalonia"
 msgstr "p. ej. Cataluña"
 
 #: templates/settings.html:29 templates/setup.html:14
-msgid "Language"
-msgstr "Idioma"
-
-#: templates/settings.html:37 templates/setup.html:22
 msgid "Reading style"
 msgstr "Estilo de lectura"
 
-#: templates/settings.html:47 templates/setup.html:32
+#: templates/settings.html:39 templates/setup.html:24
 msgid "High contrast mode"
 msgstr "Modo de alto contraste"
 
-#: templates/settings.html:51 templates/setup.html:36
+#: templates/settings.html:43 templates/setup.html:28
 msgid "Color scheme"
 msgstr "Esquema de color"
 
-#: templates/settings.html:56 templates/setup.html:40
+#: templates/settings.html:48 templates/setup.html:32
 msgid "System default"
 msgstr "Predeterminado del sistema"
 
-#: templates/settings.html:61 templates/setup.html:44
+#: templates/settings.html:53 templates/setup.html:36
 msgid "Light"
 msgstr "Claro"
 
-#: templates/settings.html:66 templates/setup.html:48
+#: templates/settings.html:58 templates/setup.html:40
 msgid "Dark"
 msgstr "Oscuro"
 
-#: templates/settings.html:73
+#: templates/settings.html:64 templates/setup.html:46
+msgid "Topics"
+msgstr "Temas"
+
+#: templates/settings.html:65
 msgid "Select the topics you're interested in."
 msgstr "Selecciona los temas que te interesan."
 
-#: templates/settings.html:77
+#: templates/settings.html:69
 msgid "Save"
 msgstr "Guardar"
 
@@ -317,11 +310,11 @@ msgstr ""
 "Configura tus preferencias. Puedes cambiarlas en cualquier momento en "
 "Configuración."
 
-#: templates/setup.html:55
+#: templates/setup.html:47
 msgid "Select the topics you're interested in (all selected by default)."
 msgstr "Selecciona los temas que te interesan (todos seleccionados por defecto)."
 
-#: templates/setup.html:59
+#: templates/setup.html:51
 msgid "Save and continue"
 msgstr "Guardar y continuar"
 
@@ -430,4 +423,15 @@ msgstr "Revisa tu configuración"
 
 #~ msgid "to change which sources and topics you follow."
 #~ msgstr "para cambiar qué fuentes y temas sigues."
+
+#~ msgid "News sections"
+#~ msgstr "Secciones de noticias"
+
+#~ msgid "Language"
+#~ msgstr "Idioma"
+
+#~ msgid "%(num)d day streak"
+#~ msgid_plural "%(num)d day streak"
+#~ msgstr[0] "%(num)d día de racha"
+#~ msgstr[1] "%(num)d días de racha"
 

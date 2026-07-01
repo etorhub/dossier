@@ -31,16 +31,10 @@ babel = Babel()
 
 
 def get_locale() -> str:
-    """Return the locale for the current request (user profile or Accept-Language)."""
-    user_id = session.get("user_id")
-    if user_id:
-        profile = db_users.get_profile(user_id)
-        if profile and profile.get("language"):
-            return str(profile["language"])
-    config = load_config()
-    default: str = str(config.get("rewriting", {}).get("default_language", "ca"))
-    matched = request.accept_languages.best_match(["ca", "es", "en"], default=default)
-    return matched if matched is not None else default
+    """Return the UI locale. Hardcoded to Catalan — the app is Catalan-only
+    for end users. flask-babel scaffolding and the es/en catalogs are kept
+    on disk in case multi-language output is reactivated later."""
+    return "ca"
 
 
 def create_app(config_path: str | Path | None = None) -> Flask:

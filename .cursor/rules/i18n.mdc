@@ -5,14 +5,14 @@ globs: ['**/*.html', '**/*.py', 'app/**/*.py', 'templates/**/*.html']
 
 # Internationalization (i18n)
 
-The platform supports **Catalan** (`ca`), **Spanish** (`es`), and **English** (`en`). Every user-facing string must be wrapped for translation. See `docs/I18N.md` for the full workflow.
+The app is **Catalan-only** (`ca`) for end users — `get_locale()` is hardcoded to `"ca"`. The gettext scaffolding and the `es`/`en` catalogs are retained on disk in case multi-language output is reactivated later, but every user-facing string must still be wrapped for translation so the Catalan catalog stays complete. See `docs/I18N.md` for the full workflow.
 
 ## Rules
 
-1. **Never hardcode user-facing text.** Wrap all UI strings in `_()` or `ngettext()`.
+1. **Never hardcode user-facing text.** Wrap all UI strings in `_()` or `ngettext()`, with an English source msgid.
 2. **Templates:** Use `{{ _('string') }}` for static text, `{{ ngettext('singular', 'plural', count)|format(...) }}` for plurals with counts.
 3. **Python (routes, services):** Use `from flask_babel import gettext` and `gettext("string")` for user-facing messages (errors, flash, etc.).
-4. **Config labels** (languages, styles, topics) are translated at runtime via `_(lang.label)`; add literals to `app/i18n_strings.py` so pybabel extracts them.
+4. **Config labels** (styles, topics) are translated at runtime via `_(label)`; add literals to `app/i18n_strings.py` so pybabel extracts them.
 5. **After adding or changing translatable strings**, run:
    ```bash
    pybabel extract -F babel.cfg -o messages.pot .
