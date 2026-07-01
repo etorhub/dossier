@@ -1,5 +1,6 @@
 """CRUD operations for users, user_profiles, and user_topics."""
 
+import contextlib
 from typing import Any
 
 import psycopg2.extras
@@ -139,13 +140,56 @@ def get_profile(user_id: int) -> dict[str, Any] | None:
                 """
                 SELECT user_id, location, language,
                        rewrite_tone, high_contrast, preferred_style,
-                       color_scheme, created_at, updated_at
+                       color_scheme, created_at, updated_at,
+                       reading_streak, longest_streak, last_read_date
                 FROM user_profiles WHERE user_id = %s
                 """,
                 (user_id,),
             )
             row = cur.fetchone()
             return dict(row) if row else None
+    finally:
+        return_connection(conn)
+
+
+def update_reading_streak(user_id: int) -> None:
+    """Atomically update the reading streak for today's read.
+
+    Same-day reads are no-ops. Consecutive days increment. Missed days reset to 1.
+    Never raises — a streak failure must not break the article render.
+    """
+    conn = get_connection()
+    try:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                UPDATE user_profiles SET
+                  last_read_date = CURRENT_DATE,
+                  reading_streak = CASE
+                    WHEN last_read_date = CURRENT_DATE
+                      THEN reading_streak
+                    WHEN last_read_date = CURRENT_DATE - INTERVAL '1 day'
+                      THEN reading_streak + 1
+                    ELSE 1
+                  END,
+                  longest_streak = GREATEST(
+                    longest_streak,
+                    CASE
+                      WHEN last_read_date = CURRENT_DATE
+                        THEN reading_streak
+                      WHEN last_read_date = CURRENT_DATE - INTERVAL '1 day'
+                        THEN reading_streak + 1
+                      ELSE 1
+                    END
+                  )
+                WHERE user_id = %s
+                """,
+                (user_id,),
+            )
+        conn.commit()
+    except Exception:
+        with contextlib.suppress(Exception):
+            conn.rollback()
     finally:
         return_connection(conn)
 

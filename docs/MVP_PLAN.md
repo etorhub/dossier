@@ -79,7 +79,7 @@ Canonical phased plan for the minimum viable product. This document replaces sca
 |-----|----------|------|
 | fetch | every 60 min | Fetch all due RSS feeds, store articles |
 | enrich | :05 hourly | Extract full text via Trafilatura |
-| cluster | :15 hourly | Embed articles (paraphrase-multilingual) and assign to stories by cosine similarity |
+| cluster | :15 hourly | Embed articles (bge-m3, 1024-dim) and assign to stories by cosine similarity |
 | availability | every 10 min | HTTP HEAD checks on feeds |
 
 ### Output
@@ -106,7 +106,7 @@ Canonical phased plan for the minimum viable product. This document replaces sca
    - `run_rewrite_batch` filters to top-N before calling the LLM.
    - Single variant: `neutral / ca` (Catalan).
    - No cascading simplify/translate steps.
-   - Model: `qwen2.5:3b` on Ollama (CPU, NAS).
+   - Model: `qwen2.5:14b` on Ollama (local GPU). Use `DOSSIER_LLM_MODEL=qwen2.5:3b` for NAS/CPU deployment.
    - Output: `TITLE: / SUMMARY: / FULL:` per story, stored in `story_rewrites`.
 
 ### Schedule
@@ -168,7 +168,7 @@ digest:
 | Continuous fetching and enrichment                                     | ✅     |
 | Story clustering (cosine similarity on BGE-M3 embeddings)             | ✅     |
 | Daily digest selection (top-10 by recency + coverage)                  | ✅     |
-| Rewrite in Catalan only (`qwen2.5:3b`)                                 | ✅     |
+| Rewrite in Catalan only (`qwen2.5:14b` local / `qwen2.5:3b` NAS)       | ✅     |
 | Auth (email + password)                                                | ✅     |
 | Setup wizard (topics, tone)                                            | ✅     |
 | Digest view (10 stories, expandable, TTS)                              | ✅     |
@@ -186,22 +186,27 @@ digest:
 
 ---
 
-## Future: Reading Streak
+## Reading Streak
 
 Track how many consecutive days the user reads their digest.
 
-**Schema additions needed:**
+**Schema additions (migration 035, on `user_profiles`):**
 ```sql
-ALTER TABLE users ADD COLUMN streak_current INT NOT NULL DEFAULT 0;
-ALTER TABLE users ADD COLUMN streak_best INT NOT NULL DEFAULT 0;
-ALTER TABLE users ADD COLUMN streak_last_read_date DATE;
+ALTER TABLE user_profiles
+  ADD COLUMN reading_streak INT NOT NULL DEFAULT 0,
+  ADD COLUMN longest_streak INT NOT NULL DEFAULT 0,
+  ADD COLUMN last_read_date DATE;
 ```
 
-**Logic:** When the user opens the digest and reads at least one story, update `streak_last_read_date = today`. On each page load, compute current streak and display a counter (e.g. "🔥 7 dies seguids").
+Note: columns live on `user_profiles`, not `users`. This keeps streak data with the user's preference row and avoids touching the auth table.
+
+**Logic:** When the user expands a story (`expand_story` route) or views the full article (`article_page` route), `update_reading_streak(user_id)` fires atomically. Same-day reads are no-ops. The streak counter shows in the feed header before reading and disappears after the first read of the day (anti-anxiety design — quiet motivation before, clean after).
+
+**Display:** `🔥 N` inline in the feed header h1, hidden when streak = 0 or already read today. Updates without a page reload via `hx-swap-oob` on the article expand partial.
 
 **Gamification ideas (backlog):**
 - Badge milestones (7 days, 30 days, 100 days)
-- "You're on a 5-day streak — don't break it!" reminder if no read by 22:00
+- User timezone support for accurate day boundaries (tracked in TODOS.md)
 
 ---
 

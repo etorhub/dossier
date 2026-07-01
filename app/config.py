@@ -1,5 +1,6 @@
 """Load configuration from YAML files."""
 
+import os
 from pathlib import Path
 from typing import Any
 
@@ -11,10 +12,10 @@ DEFAULTS: dict[str, Any] = {
     },
     "llm": {
         "provider": "ollama",
-        "model": "qwen2.5:3b",
-        "rewrite_model": "qwen2.5:3b",
-        "simplify_model": "qwen2.5:3b",
-        "translate_model": "qwen2.5:3b",
+        "model": "qwen2.5:14b",
+        "rewrite_model": "qwen2.5:14b",
+        "simplify_model": "qwen2.5:14b",
+        "translate_model": "qwen2.5:14b",
         "host": "http://ollama:11434",
         "api_base": "",
         "timeout_seconds": 120,
@@ -27,7 +28,7 @@ DEFAULTS: dict[str, Any] = {
     },
     "embeddings": {
         "provider": "ollama",
-        "model": "paraphrase-multilingual",
+        "model": "bge-m3",
         "host": "http://ollama:11434",
         "api_base": "",
         "timeout_seconds": 60,
@@ -121,17 +122,35 @@ DEFAULTS: dict[str, Any] = {
 
 
 def load_config(config_path: str | Path | None = None) -> dict[str, Any]:
-    """Load app config from YAML file, falling back to defaults if missing."""
+    """Load app config from YAML file, falling back to defaults if missing.
+
+    Two env vars allow per-deployment model overrides without touching app.yaml.
+    Useful for the NAS (CPU-only) which needs lighter models than the local GPU setup:
+      DOSSIER_LLM_MODEL       — overrides llm.model and all *_model task overrides
+      DOSSIER_EMBEDDING_MODEL — overrides embeddings.model
+    """
     if config_path is None:
         config_path = Path(__file__).resolve().parent.parent / "config" / "app.yaml"
     path = Path(config_path)
     if not path.exists():
-        return DEFAULTS.copy()
-    with path.open() as f:
-        data = yaml.safe_load(f)
-    if not isinstance(data, dict):
-        return DEFAULTS.copy()
-    return _deep_merge(DEFAULTS.copy(), data)
+        config = DEFAULTS.copy()
+    else:
+        with path.open() as f:
+            data = yaml.safe_load(f)
+        config = _deep_merge(DEFAULTS.copy(), data) if isinstance(data, dict) else DEFAULTS.copy()
+
+    llm_model = os.environ.get("DOSSIER_LLM_MODEL")
+    if llm_model:
+        config["llm"]["model"] = llm_model
+        config["llm"]["rewrite_model"] = llm_model
+        config["llm"]["simplify_model"] = llm_model
+        config["llm"]["translate_model"] = llm_model
+
+    embedding_model = os.environ.get("DOSSIER_EMBEDDING_MODEL")
+    if embedding_model:
+        config["embeddings"]["model"] = embedding_model
+
+    return config
 
 
 def get_topic_info(topic_id: str, config: dict[str, Any] | None = None) -> dict[str, str]:

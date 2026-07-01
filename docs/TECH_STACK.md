@@ -10,7 +10,7 @@ Technology choices for Dossier, with rationale.
 | --- | --- | --- |
 | Backend | Python 3.12+ with Flask | Lightweight, well-understood, Jinja2 built-in |
 | Database | PostgreSQL 18 | Robust, multi-user, JSONB support, wide hosting availability |
-| LLM | Ollama (local), CPU inference via provider interface | `qwen2.5:3b` for rewriting, `paraphrase-multilingual` for embeddings — sized for 10 stories/day on the NAS's CPU |
+| LLM | Ollama (local) via provider interface | `qwen2.5:14b` for rewriting, `bge-m3` for embeddings — tuned for local GPU (RTX 4070). NAS deployment overrides to `qwen2.5:3b` via `DOSSIER_LLM_MODEL`. |
 | Frontend | Plain HTML + CSS + HTMX | No build step, no JS framework, server-rendered throughout |
 | Templating | Jinja2 (Flask built-in) | Tight Flask integration, partial rendering for HTMX |
 | Scheduling | APScheduler in dedicated worker container | Web and worker run as separate containers; web has zero ML/LLM deps |
@@ -155,7 +155,7 @@ docker compose up -d ops
 
 Five services: PostgreSQL, Ollama (LLM/embeddings), the Flask web app (slim image), the worker (feed processing + ollama client), and the ops dashboard.
 
-- **ollama** — Runs Ollama server in CPU-only mode (no GPU — the NAS has none). Models (`qwen2.5:3b`, `paraphrase-multilingual`) are pulled on first start via `ollama-init`. `OLLAMA_NUM_PARALLEL=1` and `OLLAMA_MAX_LOADED_MODELS=1` keep peak RAM low on shared hardware.
+- **ollama** — Runs Ollama server. Default config targets a local GPU (RTX 4070): `qwen2.5:14b` + `bge-m3`, `OLLAMA_NUM_PARALLEL=2`. The model pulled by `ollama-init` is controlled by `DOSSIER_LLM_MODEL` (default `qwen2.5:14b`). For NAS deployment (CPU-only) set `DOSSIER_LLM_MODEL=qwen2.5:3b` in the Portainer stack env vars. `OLLAMA_MAX_LOADED_MODELS=1` keeps one model resident at a time (rewrite and embed never run concurrently).
 - **web** — Gunicorn serves the Flask app. Uses `requirements-web.txt` (no ollama, no feed processing). Runs `alembic upgrade head` on startup, then Gunicorn.
 - **worker** — Runs APScheduler (`python -m app.scheduler`) for scheduled pipeline jobs (fetch, enrich, cluster, rewrite, check_source_availability). Uses `requirements.txt` (includes ollama Python client). Connects to ollama service for LLM and embeddings. Processing CLI commands run here: `docker compose exec worker python -m app.worker_cli fetch-feeds`, etc.
 - **ops** — Separate Flask app for operators. Serves the ops dashboard at port 5001. Uses the same database; no auth by default.
@@ -253,13 +253,13 @@ The reader UI needs Flask (HTMX); you can skip **worker** and **Ollama** and sti
 
 ## LLM Provider Interface
 
-The app never calls Ollama directly. All LLM access goes through `app/llm/provider.py`, which defines an abstract `LLMProvider` class. Implementations include `OllamaProvider` (default), Gemini, Anthropic, and `VllmOpenAIProvider` for any OpenAI-compatible HTTP server (e.g. vLLM, SGLang). Config in `config/app.yaml`: `llm.provider` (`ollama` \| `vllm` \| …), `llm.model`, `llm.host` (Ollama default `http://ollama:11434`). For `llm.provider: vllm`, set `llm.api_base` to the server’s OpenAI root (e.g. `http://localhost:8000/v1`). Per-task models for the rewrite cascade: `rewrite_model`, `simplify_model`, `translate_model` (each falls back to `model` when unset). The NAS config sets all of them to `qwen2.5:3b` — sized for CPU inference on 10 stories/day. No API key required for Ollama.
+The app never calls Ollama directly. All LLM access goes through `app/llm/provider.py`, which defines an abstract `LLMProvider` class. Implementations include `OllamaProvider` (default), Gemini, Anthropic, and `VllmOpenAIProvider` for any OpenAI-compatible HTTP server (e.g. vLLM, SGLang). Config in `config/app.yaml`: `llm.provider` (`ollama` \| `vllm` \| …), `llm.model`, `llm.host` (Ollama default `http://ollama:11434`). For `llm.provider: vllm`, set `llm.api_base` to the server’s OpenAI root (e.g. `http://localhost:8000/v1`). Per-task models for the rewrite cascade: `rewrite_model`, `simplify_model`, `translate_model` (each falls back to `model` when unset). Default is `qwen2.5:14b` — set `DOSSIER_LLM_MODEL=qwen2.5:3b` for NAS/CPU deployment. No API key required for Ollama.
 
 Rewrite throughput: `schedule.rewrite_parallel_workers` runs multiple stories concurrently; each story parallelizes translation steps. Align with Ollama’s `OLLAMA_NUM_PARALLEL` (see `docker-compose.yml`). Benchmark: `python scripts/benchmark_rewrite_llm.py --help`.
 
 ## Embedding Provider
 
-Article clustering uses embeddings for similarity via **Ollama** (`paraphrase-multilingual`). Config: `embeddings.model`, `embeddings.host`. No API key required.
+Article clustering uses embeddings for similarity via **Ollama** (`bge-m3`, 1024-dim). BGE-M3 is the top multilingual embedding model on MTEB and handles Catalan/Spanish cross-lingual pairs accurately. Config: `embeddings.model`, `embeddings.host`. Override with `DOSSIER_EMBEDDING_MODEL` if needed. No API key required.
 
 ---
 

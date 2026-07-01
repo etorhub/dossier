@@ -5,14 +5,15 @@ paths:
 
 llm:
   provider: ollama
-  model: qwen2.5:3b # fallback for any task without its own model
+  model: qwen2.5:14b # fallback for any task without its own model
   # Per-task models. Only rewrite is used in single-language digest mode.
-  rewrite_model: qwen2.5:3b # merge sources → rewrite in target language
+  rewrite_model: qwen2.5:14b # merge sources → rewrite in target language
   host: http://ollama:11434
   # Per-call retries for Ollama chat (transient errors)
   max_retries: 3
   # Per-call timeout in seconds for Ollama chat requests. Prevents hung LLM calls
   # from blocking rewrite workers indefinitely. Increase on slow hardware.
+  # 300s is generous even for 14b on GPU; keep high for NAS CPU fallback.
   request_timeout_seconds: 300
   # Sampling temperature per pipeline step (lower = more deterministic, fewer typos).
   rewrite_temperature: 0.2
@@ -46,7 +47,7 @@ digest:
 
 embeddings:
   provider: ollama
-  model: paraphrase-multilingual
+  model: bge-m3
   host: http://ollama:11434
   max_retries: 3
   max_input_chars: 8000
@@ -66,10 +67,9 @@ schedule:
   availability_check_interval_minutes: 10
   # Cap stories per rewrite run to 20 to prevent multi-hour blocking (0 = unlimited, not recommended)
   rewrite_batch_size: 20
-  # Story-level thread pool. Keep at 1 on CPU-only Ollama (the NAS): concurrent rewrites
-  # contend for the same CPU cores with no real parallel gain. Raise only if Ollama has
-  # headroom (see docker-compose OLLAMA_NUM_PARALLEL).
-  rewrite_parallel_workers: 1
+  # Story-level thread pool. GPU (RTX 4070) handles 2 concurrent rewrite threads well.
+  # On CPU-only NAS set DOSSIER_REWRITE_WORKERS=1 to avoid core contention.
+  rewrite_parallel_workers: 2
   fetcher:
     circuit_breaker_threshold: 5
     request_timeout_seconds: 30
@@ -109,10 +109,11 @@ processing:
   summary_sentences: 2
   # Max tokens for rewrite output (TITLE/SUMMARY/FULL). Too low truncates FULL: and breaks parsing.
   rewrite_max_tokens: 4096
-  # Keep merged-source prompts inside local LLM context (avoids hangs / empty replies). 0 = no limit.
-  rewrite_max_sources_per_story: 18
+  # qwen2.5:14b has a 128K context window — raise caps accordingly.
+  # NAS users (qwen2.5:3b, 8K context) should override these down via app.yaml or env.
+  rewrite_max_sources_per_story: 30
   rewrite_max_chars_per_article: 8000
-  rewrite_max_articles_text_chars: 52000
+  rewrite_max_articles_text_chars: 100000
   # Extra LLM call per variant to fix spelling/grammar only; disable to reduce load/timeouts under parallel rewrite.
   rewrite_proofread_enabled: true
   # Time window for clustering: only articles within this window participate (48h = 2 days of articles).
@@ -120,13 +121,12 @@ processing:
   cluster_window_hours: 48
   # Minimum cosine similarity for two articles to belong to the same story (new cluster formation).
   # Higher = stricter; only articles about the same specific event are grouped.
-  # Recommended range: 0.85–0.92. Default: 0.89 (lowered from 0.92 — paraphrase-multilingual
-  # embeddings score same-event cross-lingual pairs, e.g. Catalan/Spanish, lower than
-  # same-language pairs; see shared-entity relaxation below for additional cross-lingual help).
-  story_similarity_threshold: 0.89
+  # bge-m3 scores same-event cross-lingual pairs (Catalan/Spanish) accurately — no need
+  # to lower the threshold as was required with paraphrase-multilingual.
+  story_similarity_threshold: 0.92
   # Minimum cosine similarity for adding a new article to an existing story (centroid-based check).
   # Should be >= story_similarity_threshold; higher prevents centroid drift from admitting outliers.
-  story_assignment_threshold: 0.92
+  story_assignment_threshold: 0.95
   story_min_sources: 2
   # 0 = embed every pending article in the window each cluster run; >0 caps per run
   embed_batch_size: 0
