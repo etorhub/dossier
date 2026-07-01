@@ -45,7 +45,7 @@ def test_500_returns_status_code(app: Flask, client: FlaskClient) -> None:
 
 
 def test_500_returns_html_with_error_message(app: Flask, client: FlaskClient) -> None:
-    """500 error handler renders the branded error page."""
+    """500 error handler renders the branded error page, always in Catalan."""
     from flask import abort
 
     @app.route("/test-500-html")
@@ -54,10 +54,11 @@ def test_500_returns_html_with_error_message(app: Flask, client: FlaskClient) ->
 
     with client.session_transaction() as sess:
         sess["user_id"] = 1
+    # Accept-Language is intentionally ignored — the app is Catalan-only.
     response = client.get("/test-500-html", headers={"Accept-Language": "en"})
-    assert b"Something went wrong" in response.data
-    assert b"Try again" in response.data
-    assert b"Go to feed" in response.data
+    assert b"Alguna cosa ha anat malament" in response.data
+    assert b"Torna-ho a intentar" in response.data
+    assert b"Anar a l'inici" in response.data
 
 
 def test_500_htmx_request_returns_empty_body(app: Flask, client: FlaskClient) -> None:

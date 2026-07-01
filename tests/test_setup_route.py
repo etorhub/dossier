@@ -60,6 +60,7 @@ def test_setup_get_renders_form_for_authenticated_user(client: FlaskClient) -> N
         response = client.get("/setup/")
     assert response.status_code == 200
     assert b"<form" in response.data
+    assert b'name="language"' not in response.data
 
 
 def test_setup_get_includes_all_unique_topics(client: FlaskClient) -> None:
@@ -108,7 +109,6 @@ def test_setup_post_saves_and_redirects_to_reader(client: FlaskClient) -> None:
             "/setup/",
             data={
                 "location": "Barcelona",
-                "language": "ca",
                 "preferred_style": "neutral",
                 "topics": ["general", "technology"],
             },
@@ -133,7 +133,7 @@ def test_setup_post_uses_all_topics_when_none_selected(client: FlaskClient) -> N
     ):
         client.post(
             "/setup/",
-            data={"location": "", "language": "ca", "preferred_style": "neutral"},
+            data={"location": "", "preferred_style": "neutral"},
             follow_redirects=False,
         )
 
@@ -156,7 +156,6 @@ def test_setup_post_passes_high_contrast_flag(client: FlaskClient) -> None:
         client.post(
             "/setup/",
             data={
-                "language": "en",
                 "preferred_style": "neutral",
                 "high_contrast": "on",
                 "topics": ["general"],
@@ -181,7 +180,7 @@ def test_setup_post_location_is_none_when_blank(client: FlaskClient) -> None:
     ):
         client.post(
             "/setup/",
-            data={"location": "   ", "language": "ca", "preferred_style": "neutral"},
+            data={"location": "   ", "preferred_style": "neutral"},
             follow_redirects=False,
         )
 

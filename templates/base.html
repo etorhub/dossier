@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="{{ locale or 'en' }}">
+<html lang="{{ locale or 'ca' }}">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -836,6 +836,7 @@
       var listenLbl = document.body.dataset.ttsListen || 'Listen';
       var stopLbl = document.body.dataset.ttsStop || 'Stop';
       var u = new SpeechSynthesisUtterance(text);
+      u.lang = 'ca-ES';
       u.volume = volEl ? parseFloat(volEl.value) : 1;
       var len = text.length;
       u.onboundary = function(e) {

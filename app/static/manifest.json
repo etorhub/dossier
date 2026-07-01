@@ -2,7 +2,7 @@
   "id": "/",
   "name": "Dossier",
   "short_name": "Dossier",
-  "description": "Your personal AI news digest",
+  "description": "El teu resum diari de notícies",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",

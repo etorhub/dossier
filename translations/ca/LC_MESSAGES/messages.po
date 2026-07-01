@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PROJECT VERSION\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2026-03-27 11:36+0100\n"
+"POT-Creation-Date: 2026-07-02 01:12+0200\n"
 "PO-Revision-Date: 2026-03-17 12:11+0100\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language: ca\n"
@@ -70,27 +70,27 @@ msgstr "Ciència"
 msgid "Sports"
 msgstr "Esports"
 
-#: app/i18n_strings.py:27 templates/index.html:11 templates/index.html:28
+#: app/i18n_strings.py:27
 msgid "All"
 msgstr "Tot"
 
-#: app/routes/auth.py:23 app/routes/auth.py:45
+#: app/routes/auth.py:26 app/routes/auth.py:50
 msgid "Email and password are required."
 msgstr "Cal l'adreça de correu i la contrasenya."
 
-#: app/routes/auth.py:28
+#: app/routes/auth.py:31
 msgid "Invalid email or password."
 msgstr "Adreça de correu o contrasenya incorrectes."
 
-#: app/routes/auth.py:51
+#: app/routes/auth.py:56
 msgid "Password must be at least 8 characters."
 msgstr "La contrasenya ha de tenir almenys 8 caràcters."
 
-#: app/routes/auth.py:58
+#: app/routes/auth.py:63
 msgid "Email already registered."
 msgstr "Aquesta adreça de correu ja està registrada."
 
-#: app/routes/reader.py:104 app/routes/reader.py:133 app/routes/reader.py:158
+#: app/routes/reader.py:85 app/routes/reader.py:114 app/routes/reader.py:139
 msgid "Article not found."
 msgstr "Article no trobat."
 
@@ -106,7 +106,9 @@ msgstr "Dossier"
 
 #: templates/500.html:20
 msgid "An unexpected error occurred. You can try again or go back to the feed."
-msgstr "S'ha produït un error inesperat. Pots tornar-ho a intentar o tornar a l'inici."
+msgstr ""
+"S'ha produït un error inesperat. Pots tornar-ho a intentar o tornar a "
+"l'inici."
 
 #: templates/500.html:24
 msgid "Try again"
@@ -164,11 +166,11 @@ msgstr "Volum"
 msgid "Stop"
 msgstr "Aturar"
 
-#: templates/base.html:774 templates/base.html:802
+#: templates/base.html:773 templates/base.html:802
 msgid "Feed"
 msgstr "Dossier"
 
-#: templates/base.html:775 templates/base.html:818 templates/settings.html:2
+#: templates/base.html:774 templates/base.html:810 templates/settings.html:2
 #: templates/settings.html:4
 msgid "Settings"
 msgstr "Configuració"
@@ -178,12 +180,12 @@ msgid "Log out"
 msgstr "Tancar sessió"
 
 #: templates/base.html:785 templates/login.html:2 templates/login.html:5
-#: templates/login.html:19 templates/register.html:22
+#: templates/login.html:20 templates/register.html:23
 msgid "Log in"
 msgstr "Iniciar sessió"
 
-#: templates/base.html:786 templates/login.html:22 templates/register.html:2
-#: templates/register.html:5 templates/register.html:19
+#: templates/base.html:786 templates/login.html:23 templates/register.html:2
+#: templates/register.html:5 templates/register.html:20
 msgid "Register"
 msgstr "Registrar-se"
 
@@ -191,43 +193,34 @@ msgstr "Registrar-se"
 msgid "Main navigation"
 msgstr "Navegació principal"
 
-#: templates/base.html:810 templates/index.html:6 templates/index.html:7
-#: templates/settings.html:72 templates/setup.html:54
-msgid "Topics"
-msgstr "Temes"
-
-#: templates/index.html:2 templates/index.html:24
+#: templates/index.html:2 templates/index.html:7
 msgid "Today's feed"
 msgstr "El dossier d'avui"
 
-#: templates/index.html:24
+#: templates/index.html:7
 #, python-format
 msgid "%(num)d article"
 msgid_plural "%(num)d articles"
 msgstr[0] "%(num)d article"
 msgstr[1] "%(num)d articles"
 
-#: templates/index.html:27
-msgid "News sections"
-msgstr "Seccions de notícies"
-
-#: templates/login.html:11 templates/register.html:11
+#: templates/login.html:12 templates/register.html:12
 msgid "Email"
 msgstr "Adreça de correu"
 
-#: templates/login.html:15
+#: templates/login.html:16
 msgid "Password"
 msgstr "Contrasenya"
 
-#: templates/login.html:22
+#: templates/login.html:23
 msgid "Don't have an account?"
 msgstr "No tens compte?"
 
-#: templates/register.html:15
+#: templates/register.html:16
 msgid "Password (at least 8 characters)"
 msgstr "Contrasenya (almenys 8 caràcters)"
 
-#: templates/register.html:22
+#: templates/register.html:23
 msgid "Already have an account?"
 msgstr "Ja tens compte?"
 
@@ -247,7 +240,7 @@ msgstr ""
 "Canviar aquesta configuració regenerarà el teu dossier. Pot trigar uns "
 "minuts. Els nous articles apareixeran quan estiguin preparats."
 
-#: templates/settings.html:13 templates/settings.html:77
+#: templates/settings.html:13 templates/settings.html:69
 msgid "Confirm and save"
 msgstr "Confirmar i desar"
 
@@ -268,38 +261,38 @@ msgid "e.g. Catalonia"
 msgstr "p. ex. Catalunya"
 
 #: templates/settings.html:29 templates/setup.html:14
-msgid "Language"
-msgstr "Idioma"
-
-#: templates/settings.html:37 templates/setup.html:22
 msgid "Reading style"
 msgstr "Estil de lectura"
 
-#: templates/settings.html:47 templates/setup.html:32
+#: templates/settings.html:39 templates/setup.html:24
 msgid "High contrast mode"
 msgstr "Mode d'alt contrast"
 
-#: templates/settings.html:51 templates/setup.html:36
+#: templates/settings.html:43 templates/setup.html:28
 msgid "Color scheme"
 msgstr "Esquema de color"
 
-#: templates/settings.html:56 templates/setup.html:40
+#: templates/settings.html:48 templates/setup.html:32
 msgid "System default"
 msgstr "Predeterminat del sistema"
 
-#: templates/settings.html:61 templates/setup.html:44
+#: templates/settings.html:53 templates/setup.html:36
 msgid "Light"
 msgstr "Clar"
 
-#: templates/settings.html:66 templates/setup.html:48
+#: templates/settings.html:58 templates/setup.html:40
 msgid "Dark"
 msgstr "Fosc"
 
-#: templates/settings.html:73
+#: templates/settings.html:64 templates/setup.html:46
+msgid "Topics"
+msgstr "Temes"
+
+#: templates/settings.html:65
 msgid "Select the topics you're interested in."
 msgstr "Selecciona els temes que t'interessen."
 
-#: templates/settings.html:77
+#: templates/settings.html:69
 msgid "Save"
 msgstr "Desar"
 
@@ -317,11 +310,11 @@ msgstr ""
 "Configura les teves preferències. Pots canviar-les en qualsevol moment a "
 "Configuració."
 
-#: templates/setup.html:55
+#: templates/setup.html:47
 msgid "Select the topics you're interested in (all selected by default)."
 msgstr "Selecciona els temes que t'interessen (tots seleccionats per defecte)."
 
-#: templates/setup.html:59
+#: templates/setup.html:51
 msgid "Save and continue"
 msgstr "Desar i continuar"
 
@@ -430,4 +423,15 @@ msgstr "Comprova la configuració"
 
 #~ msgid "to change which sources and topics you follow."
 #~ msgstr "per canviar quines fonts i temes segueixes."
+
+#~ msgid "News sections"
+#~ msgstr "Seccions de notícies"
+
+#~ msgid "Language"
+#~ msgstr "Idioma"
+
+#~ msgid "%(num)d day streak"
+#~ msgid_plural "%(num)d day streak"
+#~ msgstr[0] "%(num)d dia de ratxa"
+#~ msgstr[1] "%(num)d dies de ratxa"
 
