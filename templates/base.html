@@ -451,54 +451,6 @@
       color: var(--fg-muted);
     }
 
-    /* Section navigation — topic filter pills */
-    .section-nav {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 0.4rem;
-      margin-bottom: 1.25rem;
-      padding-bottom: 0.75rem;
-      border-bottom: 1px solid var(--border);
-      overflow-x: auto;
-      -webkit-overflow-scrolling: touch;
-      scrollbar-width: none;
-    }
-    .section-nav::-webkit-scrollbar { display: none; }
-    .section-link {
-      display: inline-flex;
-      align-items: center;
-      gap: 0.25rem;
-      min-height: var(--touch-min);
-      padding: 0.25rem 0.75rem;
-      font-family: var(--font-ui);
-      font-size: 0.8rem;
-      font-weight: 500;
-      text-decoration: none;
-      color: var(--fg-muted);
-      border: 1.5px solid var(--border);
-      border-radius: var(--radius-full);
-      background: transparent;
-      white-space: nowrap;
-      transition: color 0.15s, border-color 0.15s, background 0.15s;
-    }
-    .section-link:hover {
-      color: var(--fg);
-      border-color: var(--border-strong);
-      background: var(--surface);
-    }
-    .section-link.section-active {
-      color: var(--accent-text);
-      font-weight: 600;
-      border-color: var(--accent);
-      background: var(--accent-bg);
-    }
-    .section-link .topic-icon {
-      width: 1rem;
-      height: 1rem;
-      flex-shrink: 0;
-      opacity: 0.75;
-    }
-
     /* Topic selector in setup/settings */
     .topic-grid {
       display: grid;
@@ -624,35 +576,14 @@
       .tab-active .tab-label { font-weight: 700; }
       /* Push content above bottom tabs on mobile */
       body { padding-bottom: calc(60px + env(safe-area-inset-bottom, 0)); }
-      /* Hide desktop top nav on mobile; .bottom-tabs and .section-nav remain visible */
-      nav:not(.bottom-tabs):not(.section-nav) { display: none; }
-
-      /* Topics row: single scrollable strip (no multi-line wrap), tighter chips */
-      .section-nav {
-        flex-wrap: nowrap;
-        gap: 0.3rem;
-        margin-left: -1rem;
-        margin-right: -1rem;
-        padding-left: 1rem;
-        padding-right: 1rem;
-        margin-bottom: 0.65rem;
-        padding-bottom: 0.45rem;
-      }
-      .section-nav .section-link {
-        flex-shrink: 0;
-        padding: 0.2rem 0.6rem;
-        font-size: 0.75rem;
-        gap: 0;
-      }
-      .section-nav .section-link .topic-icon {
-        display: none;
-      }
+      /* Hide desktop top nav on mobile; .bottom-tabs remains visible */
+      nav:not(.bottom-tabs) { display: none; }
     }
 
     /* Desktop layout */
     @media (min-width: 768px) {
       body { padding: 0; }
-      nav:not(.bottom-tabs):not(.section-nav) {
+      nav:not(.bottom-tabs) {
         max-width: 1100px;
         margin: 0 auto;
         padding: 0.75rem 2rem;
@@ -666,11 +597,10 @@
       }
     }
 
-    /* ── Desktop sidebar layout ── */
+    /* ── Feed layout ── */
     .app-layout {
-      display: block; /* single column on mobile */
+      display: block;
     }
-    .topic-sidebar { display: none; } /* hidden on mobile */
     .main-content { width: 100%; }
     .feed-header h1 { margin-bottom: 0.5rem; }
     .feed-count {
@@ -684,57 +614,6 @@
       font-weight: 400;
       color: var(--fg-muted);
       margin-left: 0.5rem;
-    }
-    .sidebar-heading {
-      font-family: var(--font-ui);
-      font-size: 0.7rem;
-      font-weight: 700;
-      letter-spacing: 0.1em;
-      text-transform: uppercase;
-      color: var(--fg-faint);
-      margin: 0 0 0.5rem;
-      padding: 0 0.75rem;
-    }
-    .sidebar-link {
-      display: flex;
-      align-items: center;
-      min-height: var(--touch-min);
-      padding: 0.4rem 0.75rem;
-      font-family: var(--font-ui);
-      font-size: 0.875rem;
-      color: var(--fg-muted);
-      text-decoration: none;
-      border-radius: var(--radius);
-      border-left: 2px solid transparent;
-      transition: color 0.15s, background 0.15s;
-    }
-    .sidebar-link:hover {
-      color: var(--fg);
-      background: var(--surface);
-    }
-    .sidebar-link--active {
-      color: var(--accent-text);
-      font-weight: 600;
-      background: var(--accent-bg);
-      border-left-color: var(--accent);
-    }
-
-    @media (min-width: 1024px) {
-      .app-layout {
-        display: grid;
-        grid-template-columns: 200px 1fr;
-        gap: 0 2rem;
-        align-items: start;
-      }
-      .topic-sidebar {
-        display: block;
-        position: sticky;
-        top: 1.5rem;
-        padding-right: 1rem;
-        border-right: 1px solid var(--border);
-      }
-      /* Hide mobile pill nav on desktop — sidebar takes over */
-      .section-nav { display: none; }
     }
 
     /* Auth / centered form layout */
