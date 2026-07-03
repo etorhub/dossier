@@ -30,6 +30,8 @@ The project is open source (AGPL). Two supported targets, one `docker-compose.ym
 
 Don't reintroduce split-scheduler modes, separate compose files per environment, GPU device reservations in compose, or multi-machine overrides. The single env var `DOSSIER_LLM_MODEL` is the only knob needed between the two targets.
 
+The NAS's internal 06:00 rewrite schedule is a fallback, not the only way to run that job — it can also be run on demand from a local machine or an ad-hoc/VPS box, against the NAS's production database, over a Cloudflare Tunnel using a scoped `dossier_pipeline` Postgres role. This is an ops/CLI capability (`app/worker_cli.py rewrite-articles`, already existing), not a new scheduler mode. See [`docs/REMOTE_REWRITE.md`](docs/REMOTE_REWRITE.md).
+
 ---
 
 ## Key Features

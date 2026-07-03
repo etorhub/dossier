@@ -29,6 +29,8 @@ At 06:00 the pipeline scores all clustered stories, picks the top 10 by relevanc
 
 The project is open source (AGPL). The **only** deployment target: **NAS UGreen DSP 2800** running Docker via `docker-compose.yml` (CPU-only, no GPU). Ollama runs on the same machine with `qwen2.5:3b` — CPU inference, adequate for 10 stories/day. See `docs/DEPLOYMENT_PORTAINER.md`. There is no Pi/GPU/hybrid/Oracle/VPS path — keep the codebase scoped to this single target.
 
+The NAS's internal 06:00 rewrite schedule is a fallback, not the only way to run that job — it can also be run on demand from a local machine or an ad-hoc/VPS box, against the NAS's production database, over a Cloudflare Tunnel using a scoped `dossier_pipeline` Postgres role. This is an ops/CLI capability (`app/worker_cli.py rewrite-articles`, already existing), not a new scheduler mode. See `docs/REMOTE_REWRITE.md`.
+
 ---
 
 ## Key Features
