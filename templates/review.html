@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+{% block title %}{{ _('Review') }} — {{ _('Dossier') }}{% endblock %}
+{% block content %}
+<div class="app-layout">
+  <div class="main-content">
+    <div class="feed-header">
+      <h1>{{ _('Review') }}{% if feed %} <span class="feed-count">{{ ngettext('%(num)d article', '%(num)d articles', feed|length)|format(num=feed|length) }}</span>{% endif %}</h1>
+    </div>
+    <div id="feed-container">
+      {% include "partials/feed_content.html" %}
+    </div>
+  </div>
+</div>
+{% endblock %}

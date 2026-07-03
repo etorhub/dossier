@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% block title %}{{ _('Your reading stats') }} — {{ _('Dossier') }}{% endblock %}
+{% block content %}
+<h1>{{ _('Your reading stats') }}</h1>
+
+<div class="stats-grid">
+  <div class="stat-tile">
+    <div class="stat-tile-value flame"><span aria-hidden="true">🔥</span> {{ profile.reading_streak or 0 }}</div>
+    <div class="stat-tile-label">{{ _('Current streak') }}</div>
+  </div>
+  <div class="stat-tile">
+    <div class="stat-tile-value"><span aria-hidden="true">🏆</span> {{ profile.longest_streak or 0 }}</div>
+    <div class="stat-tile-label">{{ _('Longest streak') }}</div>
+  </div>
+</div>
+
+{% if total %}
+<div class="session-progress stats-today">
+  <span class="session-progress-label">{{ _('Today') }}: {{ ngettext('%(done)d of %(total)d read', '%(done)d of %(total)d read', total, done=read_count, total=total) }}</span>
+  <div class="progress-bar"
+       role="progressbar"
+       aria-valuenow="{{ read_count }}"
+       aria-valuemin="0"
+       aria-valuemax="{{ total }}"
+       aria-label="{{ _('Reading progress') }}">
+    <div class="progress-fill" style="width: {{ ((read_count / total) * 100)|round(0, 'floor')|int }}%;"></div>
+  </div>
+</div>
+{% if completed %}
+<p class="stats-note">{{ _("You're all caught up for today.") }}</p>
+{% else %}
+<p class="stats-note"><a href="{{ url_for('reader.index') }}">{{ _('Continue reading') }} <span aria-hidden="true">→</span></a></p>
+{% endif %}
+{% endif %}
+
+{% if profile.last_read_date %}
+<p class="stats-note stats-last-read">{{ _('Last read:') }} <time datetime="{{ profile.last_read_date.isoformat() }}">{{ profile.last_read_date.strftime('%Y-%m-%d') }}</time></p>
+{% endif %}
+{% endblock %}
