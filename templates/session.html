@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% block title %}{{ _("Today's reading") }} — {{ _('Dossier') }}{% endblock %}
+{% block content %}
+<div class="session-wrap">
+  <div id="session-container">
+    {% if completed %}
+      {% include "partials/session_complete.html" %}
+    {% elif current %}
+      {% include "partials/session_step.html" %}
+    {% elif rewrites_pending %}
+      <div
+        id="session-preparing"
+        hx-get="{{ url_for('reader.index') }}"
+        hx-trigger="every 5s"
+        hx-select="#session-container > *"
+        hx-target="#session-container"
+        hx-swap="innerHTML"
+        aria-live="polite"
+        role="status"
+        aria-label="{{ _('Articles being prepared') }}">
+        <div class="session-message">
+          <p>{{ _('Preparing your articles') }}<span class="feed-loading-dots" aria-hidden="true"></span></p>
+          <p class="session-message-sub">{{ _('This may take a minute on first run.') }}</p>
+        </div>
+      </div>
+    {% else %}
+      <div class="session-message" aria-live="polite">
+        <p>{{ _('No articles yet.') }} <a href="{{ url_for('settings.settings_page') }}">{{ _('Check your settings') }}</a></p>
+      </div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

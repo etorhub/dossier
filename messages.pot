@@ -8,14 +8,14 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PROJECT VERSION\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2026-07-02 01:23+0200\n"
+"POT-Creation-Date: 2026-07-03 17:16+0000\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=utf-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"Generated-By: Babel 2.10.3\n"
+"Generated-By: Babel 2.18.0\n"
 
 #: app/i18n_strings.py:13
 msgid "Catalan"
@@ -89,7 +89,7 @@ msgstr ""
 msgid "Email already registered."
 msgstr ""
 
-#: app/routes/reader.py:91 app/routes/reader.py:121 app/routes/reader.py:146
+#: app/routes/reader.py:155 app/routes/reader.py:186 app/routes/reader.py:211
 msgid "Article not found."
 msgstr ""
 
@@ -98,8 +98,9 @@ msgid "Something went wrong"
 msgstr ""
 
 #: templates/500.html:3 templates/article.html:3 templates/base.html:6
-#: templates/index.html:2 templates/login.html:2 templates/register.html:2
-#: templates/settings.html:2 templates/setup.html:2
+#: templates/login.html:2 templates/register.html:2 templates/review.html:2
+#: templates/session.html:2 templates/settings.html:2 templates/setup.html:2
+#: templates/stats.html:2
 msgid "Dossier"
 msgstr ""
 
@@ -125,6 +126,7 @@ msgstr ""
 
 #: templates/article.html:16 templates/partials/article_card.html:14
 #: templates/partials/article_expanded.html:14
+#: templates/partials/session_step.html:24
 msgid "Image source:"
 msgstr ""
 
@@ -135,78 +137,74 @@ msgid_plural "%(num)d sources aggregated"
 msgstr[0] ""
 msgstr[1] ""
 
-#: templates/article.html:26 templates/partials/article_card.html:22
+#: templates/article.html:26 templates/partials/article_card.html:23
 #: templates/partials/article_expanded.html:22
+#: templates/partials/session_step.html:31
 #, python-format
 msgid "%(num)d source"
 msgid_plural "%(num)d sources"
 msgstr[0] ""
 msgstr[1] ""
 
-#: templates/article.html:34 templates/base.html:774
+#: templates/article.html:34 templates/base.html:858
 #: templates/partials/article_expanded.html:30
+#: templates/partials/session_step.html:39
 msgid "Read article aloud"
 msgstr ""
 
-#: templates/article.html:36 templates/base.html:771
+#: templates/article.html:36 templates/base.html:855
 #: templates/partials/article_expanded.html:31
+#: templates/partials/session_step.html:40
 msgid "Listen"
 msgstr ""
 
-#: templates/article.html:41 templates/article.html:44 templates/base.html:773
+#: templates/article.html:41 templates/article.html:44 templates/base.html:857
 #: templates/partials/article_expanded.html:36
 #: templates/partials/article_expanded.html:40
+#: templates/partials/session_step.html:45
+#: templates/partials/session_step.html:49
 msgid "Volume"
 msgstr ""
 
-#: templates/base.html:772
+#: templates/base.html:856
 msgid "Stop"
 msgstr ""
 
-#: templates/base.html:779 templates/base.html:808
-msgid "Feed"
+#: templates/base.html:863 templates/base.html:893 templates/stats.html:19
+msgid "Today"
 msgstr ""
 
-#: templates/base.html:780 templates/base.html:816 templates/settings.html:2
+#: templates/base.html:864 templates/base.html:902 templates/review.html:2
+#: templates/review.html:7
+msgid "Review"
+msgstr ""
+
+#: templates/base.html:865 templates/base.html:910
+msgid "Stats"
+msgstr ""
+
+#: templates/base.html:866 templates/base.html:918 templates/settings.html:2
 #: templates/settings.html:4
 msgid "Settings"
 msgstr ""
 
-#: templates/base.html:786
+#: templates/base.html:872
 msgid "Log out"
 msgstr ""
 
-#: templates/base.html:791 templates/login.html:2 templates/login.html:5
+#: templates/base.html:877 templates/login.html:2 templates/login.html:5
 #: templates/login.html:20 templates/register.html:23
 msgid "Log in"
 msgstr ""
 
-#: templates/base.html:792 templates/login.html:23 templates/register.html:2
+#: templates/base.html:878 templates/login.html:23 templates/register.html:2
 #: templates/register.html:5 templates/register.html:20
 msgid "Register"
 msgstr ""
 
-#: templates/base.html:800
+#: templates/base.html:886
 msgid "Main navigation"
 msgstr ""
-
-#: templates/index.html:2 templates/index.html:7
-msgid "Today's feed"
-msgstr ""
-
-#: templates/index.html:7
-#, python-format
-msgid "%(num)d article"
-msgid_plural "%(num)d articles"
-msgstr[0] ""
-msgstr[1] ""
-
-#: templates/index.html:7
-#, python-format
-msgid "%(num)d day streak"
-msgid_plural "%(num)d day streak"
-msgstr[0] ""
-msgstr[1] ""
 
 #: templates/login.html:12 templates/register.html:12
 msgid "Email"
@@ -226,6 +224,37 @@ msgstr ""
 
 #: templates/register.html:23
 msgid "Already have an account?"
+msgstr ""
+
+#: templates/review.html:7
+#, python-format
+msgid "%(num)d article"
+msgid_plural "%(num)d articles"
+msgstr[0] ""
+msgstr[1] ""
+
+#: templates/session.html:2
+msgid "Today's reading"
+msgstr ""
+
+#: templates/partials/feed_content.html:19 templates/session.html:20
+msgid "Articles being prepared"
+msgstr ""
+
+#: templates/partials/feed_content.html:21 templates/session.html:22
+msgid "Preparing your articles"
+msgstr ""
+
+#: templates/partials/feed_content.html:22 templates/session.html:23
+msgid "This may take a minute on first run."
+msgstr ""
+
+#: templates/partials/feed_content.html:28 templates/session.html:28
+msgid "No articles yet."
+msgstr ""
+
+#: templates/partials/feed_content.html:28 templates/session.html:28
+msgid "Check your settings"
 msgstr ""
 
 #: templates/settings.html:6
@@ -318,11 +347,50 @@ msgstr ""
 msgid "Save and continue"
 msgstr ""
 
-#: templates/partials/article_card.html:35
+#: templates/stats.html:2 templates/stats.html:4
+msgid "Your reading stats"
+msgstr ""
+
+#: templates/stats.html:9
+msgid "Current streak"
+msgstr ""
+
+#: templates/stats.html:13
+msgid "Longest streak"
+msgstr ""
+
+#: templates/partials/session_step.html:4 templates/stats.html:19
+#, python-format
+msgid "%(done)d of %(total)d read"
+msgid_plural "%(done)d of %(total)d read"
+msgstr[0] ""
+msgstr[1] ""
+
+#: templates/partials/session_step.html:10 templates/stats.html:25
+msgid "Reading progress"
+msgstr ""
+
+#: templates/stats.html:30
+msgid "You're all caught up for today."
+msgstr ""
+
+#: templates/stats.html:32
+msgid "Continue reading"
+msgstr ""
+
+#: templates/stats.html:37
+msgid "Last read:"
+msgstr ""
+
+#: templates/partials/article_card.html:20
+msgid "Read"
+msgstr ""
+
+#: templates/partials/article_card.html:36
 msgid "Read full story:"
 msgstr ""
 
-#: templates/partials/article_card.html:35
+#: templates/partials/article_card.html:36
 msgid "Read full story"
 msgstr ""
 
@@ -342,23 +410,41 @@ msgstr ""
 msgid "Show less"
 msgstr ""
 
-#: templates/partials/feed_content.html:19
-msgid "Articles being prepared"
+#: templates/partials/session_complete.html:3
+msgid "All caught up!"
 msgstr ""
 
-#: templates/partials/feed_content.html:21
-msgid "Preparing your articles"
+#: templates/partials/session_complete.html:4
+#, python-format
+msgid "You've read all %(num)d story today."
+msgid_plural "You've read all %(num)d stories today."
+msgstr[0] ""
+msgstr[1] ""
+
+#: templates/partials/session_complete.html:7
+#, python-format
+msgid "%(num)d day streak"
+msgid_plural "%(num)d day streak"
+msgstr[0] ""
+msgstr[1] ""
+
+#: templates/partials/session_complete.html:12
+msgid "New personal best!"
 msgstr ""
 
-#: templates/partials/feed_content.html:22
-msgid "This may take a minute on first run."
+#: templates/partials/session_complete.html:16
+msgid "Review articles"
 msgstr ""
 
-#: templates/partials/feed_content.html:28
-msgid "No articles yet."
+#: templates/partials/session_complete.html:17
+msgid "View stats"
 msgstr ""
 
-#: templates/partials/feed_content.html:28
-msgid "Check your settings"
+#: templates/partials/session_step.html:73
+msgid "Finish"
+msgstr ""
+
+#: templates/partials/session_step.html:73
+msgid "Next"
 msgstr ""
 

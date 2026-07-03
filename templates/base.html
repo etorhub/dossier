@@ -129,6 +129,52 @@
       --accent-text:  #ffffff;
     }
 
+    /* ── Gamification palette (theme-aware; declared as a group so
+       high-contrast stays last and wins). Colorful, but every colored
+       surface also carries text/borders so nothing relies on hue alone. ── */
+    :root {
+      --success:       #16a34a;
+      --streak-flame:  #f59e0b;
+      --progress-from: #2563eb;
+      --progress-to:   #7c3aed;
+      --celebrate-from:#4f46e5;
+      --celebrate-to:  #9333ea;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --success:       #4ade80;
+        --streak-flame:  #fbbf24;
+        --progress-from: #60a5fa;
+        --progress-to:   #a78bfa;
+        --celebrate-from:#4f46e5;
+        --celebrate-to:  #7c3aed;
+      }
+    }
+    body.dark {
+      --success:       #4ade80;
+      --streak-flame:  #fbbf24;
+      --progress-from: #60a5fa;
+      --progress-to:   #a78bfa;
+      --celebrate-from:#4f46e5;
+      --celebrate-to:  #7c3aed;
+    }
+    body.light {
+      --success:       #16a34a;
+      --streak-flame:  #f59e0b;
+      --progress-from: #2563eb;
+      --progress-to:   #7c3aed;
+      --celebrate-from:#4f46e5;
+      --celebrate-to:  #9333ea;
+    }
+    body.high-contrast {
+      --success:       #ffffff;
+      --streak-flame:  #ffffff;
+      --progress-from: #ffffff;
+      --progress-to:   #ffffff;
+      --celebrate-from:#000000;
+      --celebrate-to:  #000000;
+    }
+
     * { box-sizing: border-box; }
 
     body {
@@ -643,6 +689,165 @@
     .form-link { text-align: center; font-family: var(--font-ui); font-size: 0.875rem; color: var(--fg-muted); }
     .flash-success { color: var(--accent); font-family: var(--font-ui); font-size: 0.875rem; padding: 0.5rem 0; }
     .flash-error { color: #dc2626; font-family: var(--font-ui); font-size: 0.875rem; padding: 0.5rem 0; }
+
+    /* ── Guided reading session ── */
+    .session-wrap { width: 100%; }
+    .session-progress {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      margin-bottom: 1.5rem;
+      font-family: var(--font-ui);
+    }
+    .session-progress-label {
+      font-size: 0.8rem;
+      font-weight: 600;
+      color: var(--fg-muted);
+      white-space: nowrap;
+    }
+    .progress-bar {
+      flex: 1;
+      height: 10px;
+      border-radius: var(--radius-full);
+      background: var(--surface-2);
+      border: 1px solid var(--border);
+      overflow: hidden;
+    }
+    .progress-fill {
+      height: 100%;
+      border-radius: var(--radius-full);
+      background: linear-gradient(90deg, var(--progress-from), var(--progress-to));
+      transition: width 0.4s ease;
+    }
+    .session-actions {
+      margin-top: 1.75rem;
+      display: flex;
+      gap: 0.75rem;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+    .btn-next {
+      background: linear-gradient(90deg, var(--progress-from), var(--progress-to));
+      color: #ffffff;
+      border: 1.5px solid transparent;
+      font-weight: 700;
+      font-size: 1.05rem;
+      padding: 0.75rem 1.75rem;
+    }
+    .btn-next:hover { filter: brightness(1.06); }
+    body.high-contrast .btn-next {
+      background: #000000;
+      color: #ffffff;
+      border-color: #ffffff;
+      filter: none;
+    }
+    .session-message {
+      padding: 3rem 0;
+      text-align: center;
+      color: var(--fg-faint);
+      font-family: var(--font-ui);
+    }
+    .session-message-sub { font-size: 0.8rem; margin-top: 0.5rem; }
+
+    /* ── Completion celebration ── */
+    .completion {
+      text-align: center;
+      padding: 2.5rem 1.5rem;
+      border-radius: var(--radius-lg);
+      background: linear-gradient(135deg, var(--celebrate-from), var(--celebrate-to));
+      color: #ffffff;
+      border: 1.5px solid transparent;
+      margin: 1rem 0;
+    }
+    body.high-contrast .completion { border-color: #ffffff; }
+    .completion-emoji {
+      display: block;
+      font-size: 3.5rem;
+      line-height: 1;
+      margin-bottom: 0.75rem;
+      animation: completion-pop 0.5s ease;
+    }
+    @keyframes completion-pop {
+      0% { transform: scale(0.3); opacity: 0; }
+      70% { transform: scale(1.15); }
+      100% { transform: scale(1); opacity: 1; }
+    }
+    .completion h1 { color: #ffffff; font-size: 1.6rem; margin: 0 0 0.5rem; }
+    .completion p { color: rgba(255,255,255,0.92); font-family: var(--font-ui); margin: 0.35rem 0; }
+    .completion-streak {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      margin: 1.25rem 0;
+      font-size: 2rem;
+      font-weight: 800;
+      background: rgba(255,255,255,0.18);
+      padding: 0.5rem 1.25rem;
+      border-radius: var(--radius-full);
+    }
+    .completion-streak-plus { font-size: 1rem; font-weight: 700; opacity: 0.9; }
+    .completion-actions {
+      margin-top: 1.5rem;
+      display: flex;
+      gap: 0.75rem;
+      justify-content: center;
+      flex-wrap: wrap;
+    }
+    .completion-actions .btn {
+      background: rgba(255,255,255,0.15);
+      color: #ffffff;
+      border: 1.5px solid rgba(255,255,255,0.55);
+    }
+    .completion-actions .btn:hover { background: rgba(255,255,255,0.28); }
+
+    /* ── Reading stats ── */
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+      gap: 1rem;
+      margin: 1.5rem 0;
+    }
+    .stat-tile {
+      padding: 1.75rem 1rem;
+      text-align: center;
+      border-radius: var(--radius-lg);
+      background: var(--surface);
+      border: 1px solid var(--border);
+    }
+    .stat-tile-value {
+      font-family: var(--font-ui);
+      font-size: 2.5rem;
+      font-weight: 800;
+      line-height: 1;
+      color: var(--fg);
+    }
+    .stat-tile-value.flame { color: var(--streak-flame); }
+    body.high-contrast .stat-tile-value.flame { color: var(--fg); }
+    .stat-tile-label {
+      margin-top: 0.6rem;
+      font-family: var(--font-ui);
+      font-size: 0.75rem;
+      color: var(--fg-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+    }
+    .stats-today { margin-top: 1.75rem; }
+    .stats-note { font-family: var(--font-ui); font-size: 0.9rem; color: var(--fg-muted); margin: 0.75rem 0; }
+
+    /* ── Review "read" marker ── */
+    .read-badge {
+      font-family: var(--font-ui);
+      font-size: 0.7rem;
+      font-weight: 700;
+      color: var(--success);
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      .progress-fill { transition: none; }
+      .completion-emoji { animation: none; }
+    }
   </style>
   {% block head %}{% endblock %}
 </head>
@@ -655,7 +860,9 @@
   <nav>
     {% if session.get('user_id') %}
       <div>
-        <a href="{{ url_for('reader.index') }}"{% if request.endpoint == 'reader.index' %} class="nav-active"{% endif %}>{{ _('Feed') }}</a>
+        <a href="{{ url_for('reader.index') }}"{% if request.endpoint == 'reader.index' %} class="nav-active"{% endif %}>{{ _('Today') }}</a>
+        <a href="{{ url_for('reader.review') }}"{% if request.endpoint == 'reader.review' %} class="nav-active"{% endif %}>{{ _('Review') }}</a>
+        <a href="{{ url_for('reader.stats') }}"{% if request.endpoint == 'reader.stats' %} class="nav-active"{% endif %}>{{ _('Stats') }}</a>
         <a href="{{ url_for('settings.settings_page') }}"{% if request.endpoint == 'settings.settings_page' %} class="nav-active"{% endif %}>{{ _('Settings') }}</a>
       </div>
       <div class="nav-right">
@@ -681,10 +888,26 @@
        class="tab-item{% if request.endpoint == 'reader.index' %} tab-active{% endif %}"
        aria-current="{% if request.endpoint == 'reader.index' %}page{% else %}false{% endif %}">
       <svg width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/>
+      </svg>
+      <span class="tab-label">{{ _('Today') }}</span>
+    </a>
+    <a href="{{ url_for('reader.review') }}"
+       class="tab-item{% if request.endpoint == 'reader.review' %} tab-active{% endif %}"
+       aria-current="{% if request.endpoint == 'reader.review' %}page{% else %}false{% endif %}">
+      <svg width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24" aria-hidden="true">
         <rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/>
         <rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/>
       </svg>
-      <span class="tab-label">{{ _('Feed') }}</span>
+      <span class="tab-label">{{ _('Review') }}</span>
+    </a>
+    <a href="{{ url_for('reader.stats') }}"
+       class="tab-item{% if request.endpoint == 'reader.stats' %} tab-active{% endif %}"
+       aria-current="{% if request.endpoint == 'reader.stats' %}page{% else %}false{% endif %}">
+      <svg width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24" aria-hidden="true">
+        <line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/>
+      </svg>
+      <span class="tab-label">{{ _('Stats') }}</span>
     </a>
     <a href="{{ url_for('settings.settings_page') }}"
        class="tab-item{% if request.endpoint == 'settings.settings_page' %} tab-active{% endif %}"
