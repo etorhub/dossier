@@ -607,6 +607,10 @@ def run_cluster_and_embed(config: dict[str, Any] | None = None) -> StoryReport:
     articles_embedded, has_embedding_provider = _run_embed_pass(
         cfg, since, embed_limit, source_topics
     )
+    logger.info(
+        "Embedding pass done: %d article(s) embedded; starting clustering",
+        articles_embedded,
+    )
     report = StoryReport(
         articles_embedded=articles_embedded, articles_clustered=0, stories_created=0
     )
@@ -628,17 +632,22 @@ def run_cluster_and_embed(config: dict[str, Any] | None = None) -> StoryReport:
     else:
         to_cluster = db_articles.get_articles_not_in_story(since)
     if not to_cluster:
+        logger.info("No unassigned articles to cluster; nothing to do")
         return report
 
     report.articles_clustered = len(to_cluster)
+    logger.info("Clustering %d unassigned article(s)", len(to_cluster))
 
     # 2b. Backfill centroids for existing stories that don't have one
     if has_embedding_provider:
         story_rows = db_stories.get_stories_with_articles_in_window(since)
+        backfilled = 0
         for row in story_rows:
             sid = row["story_id"]
             if not db_stories.get_story_centroid(sid):
                 _update_story_centroid(sid)
+                backfilled += 1
+        logger.info("Backfilled centroids for %d existing story(ies)", backfilled)
 
     # 3. Incremental assignment: try to assign to existing stories with centroids
     use_ann = bool(processing.get("cluster_use_ivfflat", False))
@@ -671,6 +680,11 @@ def run_cluster_and_embed(config: dict[str, Any] | None = None) -> StoryReport:
                 source_topics,
                 story_source_ids,
             )
+        logger.info(
+            "Assigned %d article(s) to existing stories; %d remaining for batch clustering",
+            len(assigned),
+            len(to_cluster),
+        )
         for article_id, story_id in assigned:
             db_stories.add_article_to_story(story_id, article_id)
             articles_in_story = db_stories.get_articles_in_story(story_id)
@@ -682,11 +696,12 @@ def run_cluster_and_embed(config: dict[str, Any] | None = None) -> StoryReport:
             report.stories_created += 0  # no new story, but article assigned
 
     # 4. Batch cluster remaining articles
-    groups = (
-        _cluster_articles(to_cluster, threshold, exclusion_rules, source_topics)
-        if to_cluster
-        else []
-    )
+    if to_cluster:
+        logger.info("Batch clustering %d article(s)...", len(to_cluster))
+        groups = _cluster_articles(to_cluster, threshold, exclusion_rules, source_topics)
+        logger.info("Batch clustering produced %d group(s)", len(groups))
+    else:
+        groups = []
 
     # 5. Create story records only for groups with >= min_sources distinct sources
     for article_ids in groups:
@@ -698,4 +713,5 @@ def run_cluster_and_embed(config: dict[str, Any] | None = None) -> StoryReport:
         _update_story_centroid(story_id)
         report.stories_created += 1
 
+    logger.info("Created %d new story(ies)", report.stories_created)
     return report
