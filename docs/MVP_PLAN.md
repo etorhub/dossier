@@ -172,6 +172,9 @@ digest:
 | Auth (email + password)                                                | ✅     |
 | Setup wizard (topics, tone)                                            | ✅     |
 | Digest view (10 stories, expandable, TTS)                              | ✅     |
+| Guided reading session (one story at a time → completion screen)       | ✅     |
+| Reading streak (advances on full-digest completion) + Stats view       | ✅     |
+| Review view (revisit stories with read markers)                        | ✅     |
 | Ops dashboard (port 5001)                                              | ✅     |
 
 ---
@@ -179,34 +182,38 @@ digest:
 ## What the MVP Excludes (for now)
 
 - Multi-language output (config supports it, not activated)
-- Reading streak / gamification — **planned next phase** (see below)
 - OAuth or social login
 - Paywalled content bypass
 - Native mobile app
 
 ---
 
-## Reading Streak
+## Guided Reading Session, Streak & Stats (shipped)
 
-Track how many consecutive days the user reads their digest.
+The digest is delivered as a **guided, one-article-at-a-time session** (Duolingo-for-news), not a scrollable feed. The reading streak advances when the **whole digest is completed**.
 
-**Schema additions (migration 035, on `user_profiles`):**
+**Flow:**
+- **`/` (guided session, `session.html`):** shows one story at a time with a colored progress bar. The reader presses **Next →** to advance (a `POST /read/advance` form; HTMX swaps `#session-container`, with a no-JS full-page redirect fallback). Finishing the last story renders the celebration screen `partials/session_complete.html` (🎉 + updated 🔥 streak). Resumable — reopening `/` picks up at the first unread story.
+- **`/review` (`review.html`):** the scrollable feed for revisiting stories (expand/collapse), with a ✓ read marker on already-read cards.
+- **`/stats` (`stats.html`):** current streak (🔥 N) + longest streak (best N) + today's progress.
+
+**Read tracking:** the previously-orphaned `user_read_stories(user_id, story_id, read_at)` table (migrations 010→017) is now written via `app/db/reading.py` (`mark_story_read`, `get_read_story_ids`). `app/services/reading_service.py` computes session state and detects completion (every story in today's `get_feed` result is read). Reading in the guided session, in Review, or on the full-page article all count toward completion.
+
+**Streak schema (migration 035, on `user_profiles`):**
 ```sql
 ALTER TABLE user_profiles
   ADD COLUMN reading_streak INT NOT NULL DEFAULT 0,
   ADD COLUMN longest_streak INT NOT NULL DEFAULT 0,
   ADD COLUMN last_read_date DATE;
 ```
+Columns live on `user_profiles` (preference row), not `users` (auth table).
 
-Note: columns live on `user_profiles`, not `users`. This keeps streak data with the user's preference row and avoids touching the auth table.
+**Streak logic:** on digest completion, `reading_service.mark_read_and_maybe_complete()` calls `update_reading_streak(user_id)` (atomic; same-day reads are idempotent no-ops, consecutive days increment, missed days reset to 1). This replaced the earlier per-article trigger on `expand_story`/`article_page`.
 
-**Logic:** When the user expands a story (`expand_story` route) or views the full article (`article_page` route), `update_reading_streak(user_id)` fires atomically. Same-day reads are no-ops. The streak counter shows in the feed header before reading and disappears after the first read of the day (anti-anxiety design — quiet motivation before, clean after).
-
-**Display:** `🔥 N` inline in the feed header h1, hidden when streak = 0 or already read today. Updates without a page reload via `hx-swap-oob` on the article expand partial.
-
-**Gamification ideas (backlog):**
+**Backlog (still open):**
 - Badge milestones (7 days, 30 days, 100 days)
-- User timezone support for accurate day boundaries (tracked in TODOS.md)
+- User timezone support for accurate day boundaries (tracked in TODOS.md — streak still uses Postgres `CURRENT_DATE`/UTC)
+- Surface streak columns in the ops dashboard user view (TODOS.md)
 
 ---
 

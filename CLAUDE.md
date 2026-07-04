@@ -64,7 +64,7 @@ Refer to `docs/MVP_PLAN.md` for the phased plan. The core loop is:
 
 - Profile configuration (topics, rewrite tone)
 - Account management designed to be set up once and left alone
-- **Future:** reading streak / gamification (documented in MVP_PLAN.md, not yet implemented)
+- **Daily reading session (gamified):** the home page (`/`) guides the user through today's digest one article at a time; finishing the last one shows a completion/celebration screen. The reading streak (🔥) advances when the **whole digest is completed** (not per-article). A **Review** view (`/review`) revisits stories (with read markers) and a **Stats** view (`/stats`) shows current + longest streak. Backed by the `user_read_stories` table via `app/db/reading.py` and `app/services/reading_service.py`. Remaining backlog (badge milestones, per-user timezone) is tracked in MVP_PLAN.md / TODOS.md.
 
 ### Operator-facing
 
@@ -190,7 +190,6 @@ For automated news source discovery (finding feeds by location, validation, qual
 ## Out of Scope (for now)
 
 - Multi-language output (currently Catalan only; the config and provider interface support it, but it is not activated)
-- Reading streak / gamification (planned feature, not yet implemented — see MVP_PLAN.md)
 - Paywalled content bypass
 - Training or fine-tuning a custom model
 - Native mobile app (web-first, responsive)

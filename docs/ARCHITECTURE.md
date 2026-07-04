@@ -166,7 +166,7 @@ All PostgreSQL access. No other module writes to the database directly.
 
 Flask blueprints. Routes are thin wrappers: parse request, call service, return template.
 
-- `reader.py` — main reader interface (`/`, `/?topic=<id>`, `/feed`, `/clusters/<id>/expand`, `/article/<story_id>`)
+- `reader.py` — reader interface: guided reading session (`/`), advance a step (`POST /read/advance`), review feed (`/review`, `/feed`), reading stats (`/stats`), story expand/collapse (`/stories/<id>/expand|collapse`), full-page article (`/article/<story_id>`), and legacy `/clusters/<id>/…` redirects
 - `auth.py` — login, register, logout
 - `setup.py` — initial configuration wizard (`GET /setup`, `POST /setup`)
 - `settings.py` — configuration interface; allows editing profile fields after initial setup
@@ -185,18 +185,22 @@ Jinja2 templates. Main app templates live at project root `templates/`; ops temp
 
 ```
 templates/                  # Main Dossier reader UI
-├── base.html               # Shell: nav, font settings; contains inline <script> for Web Speech API TTS only
-├── index.html              # Main reader view (today's digest); section nav (All + topic sections), feed content
+├── base.html               # Shell: nav (Today/Review/Stats/Settings), font settings; inline <script> for Web Speech API TTS only
+├── session.html            # Guided reading session (today's digest, one story at a time) — the `/` view
+├── review.html             # Review feed (revisit today's stories, with read markers) — the `/review` view
+├── stats.html              # Reading stats: current + longest streak, today's progress — the `/stats` view
 ├── article.html            # Full-page single article view
 ├── login.html              # Login page
 ├── register.html           # Registration page
 ├── setup.html              # Initial configuration wizard
 ├── settings.html           # Settings page
 └── partials/
-    ├── article_card.html      # Summary card (one cluster in list)
-    ├── article_expanded.html  # Full simplified article (expanded inline)
-    ├── feed_content.html      # Feed list, loading state, or empty state
-    └── setup_topics.html      # Topic selection checkboxes (included in setup.html and settings.html)
+    ├── article_card.html         # Summary card (one story in the review list)
+    ├── article_expanded.html     # Full simplified article (expanded inline)
+    ├── feed_content.html         # Review feed list, loading state, or empty state
+    ├── session_step.html         # One story in the guided session (progress bar + article + Next button)
+    ├── session_complete.html     # Completion/celebration screen (🎉 + streak)
+    └── setup_topics.html         # Topic selection checkboxes (included in setup.html and settings.html)
 ```
 
 ---
@@ -393,7 +397,7 @@ The `rewrite_requests` table and `app/db/rewrite_requests.py` exist as infrastru
 
 The daily digest is an **in-app experience only**. There is no email or push notification. When a user opens the app after the rewrite job has run, their feed shows all stories that have a cached rewrite matching their `(style, language)` variant — no waiting, no loading spinner.
 
-The `user_read_stories` table exists as infrastructure for future per-user read-state tracking (e.g. "N new articles since your last visit"). The DB table is defined in migration 010 but has no application code layer yet; read state is not currently tracked.
+The `user_read_stories` table (defined in migration 010, renamed in 017) tracks which stories each user has read. It is written by `app/db/reading.py` (`mark_story_read`, `get_read_story_ids`) and driven by `app/services/reading_service.py`, which powers the guided reading session's progress and detects when the whole daily digest has been completed (the trigger that advances the reading streak).
 
 ### Language and source mismatch
 
