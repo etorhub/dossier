@@ -24,13 +24,13 @@ The pipeline runs automatically. Once a day at 6:00 the worker scores all cluste
 
 The project is open source (AGPL). Two supported targets, one `docker-compose.yml`:
 
-**Local machine (primary — GPU, RTX 4070 or similar):** `docker compose up --build`. Ollama runs with `qwen2.5:14b` (rewrite, ~8.7 GB Q4, fits in 12 GB VRAM) and `bge-m3` (embeddings, 1024-dim, MTEB #1 multilingual). This is the default config in `app.yaml` and the default build.
+**Local machine (primary — GPU, RTX 4070 or similar):** `docker compose up --build`. Ollama runs with `qwen2.5:14b` (rewrite, ~8.7 GB Q4, fits in 12 GB VRAM) and `bge-m3` (embeddings, 1024-dim, MTEB #1 multilingual). This is the default config in `app.yaml` and the default build — the full pipeline (including all LLM stages) runs here.
 
-**NAS (UGreen DSP 2800, CPU-only):** same compose file, but Portainer sets `DOSSIER_LLM_MODEL=qwen2.5:3b` in the stack environment to pull and use the lighter rewrite model. `bge-m3` works on CPU too. See [`docs/DEPLOYMENT_PORTAINER.md`](docs/DEPLOYMENT_PORTAINER.md) for the full Portainer setup guide.
+**NAS (UGreen DSP 2800, CPU-only) — runs no Ollama.** Same compose file, but Portainer sets `DOSSIER_LLM_JOBS_ENABLED=false` and does **not** enable the `local-llm` profile. The NAS worker runs "light": fetch → enrich → availability only. The GPU-heavy LLM stages (embed + cluster → rewrite → highlight) run **off-host** against the NAS's Postgres — primarily on **Modal (free-tier on-demand GPU)**, or any local/VPS box — over a Cloudflare Tunnel using the scoped `dossier_pipeline` Postgres role. On GPU the off-host runner uses the full `qwen2.5:14b`. See [`docs/DEPLOYMENT_PORTAINER.md`](docs/DEPLOYMENT_PORTAINER.md) (NAS stack), [`docs/REMOTE_REWRITE.md`](docs/REMOTE_REWRITE.md) (off-host setup), and [`deploy/modal/`](deploy/modal/) (Modal runner).
 
-Don't reintroduce split-scheduler modes, separate compose files per environment, GPU device reservations in compose, or multi-machine overrides. The single env var `DOSSIER_LLM_MODEL` is the only knob needed between the two targets.
+This is a deliberate **light-NAS / full-external split**, driven by the single `DOSSIER_LLM_JOBS_ENABLED` env var (plus `DOSSIER_LLM_MODEL` on the local GPU stack if you want a different model). Keep it that way: don't split the compose file per environment, add GPU device reservations to compose, or invent per-machine overrides beyond these env vars. The off-host runner is the CLI capability `app/worker_cli.py run-llm-stages` (embed+cluster → rewrite → highlight), reached via `scripts/run-remote-pipeline.sh` or the Modal app.
 
-The NAS's internal 06:00 rewrite schedule is a fallback, not the only way to run that job — it can also be run on demand from a local machine or an ad-hoc/VPS box, against the NAS's production database, over a Cloudflare Tunnel using a scoped `dossier_pipeline` Postgres role. This is an ops/CLI capability (`app/worker_cli.py rewrite-articles`, already existing), not a new scheduler mode. See [`docs/REMOTE_REWRITE.md`](docs/REMOTE_REWRITE.md).
+Because the NAS runs no Ollama, it can't produce the digest on its own — the off-host runner is **required daily** for fresh content (the Modal Cron handles this; there is no NAS-side rewrite fallback anymore).
 
 ---
 
@@ -78,10 +78,10 @@ See `docs/TECH_STACK.md` for full details, project structure, dependencies, Dock
 
 - **Backend:** Python 3.12+ with Flask
 - **Database:** PostgreSQL 18
-- **LLM:** Ollama (local, no API key) via provider interface — `qwen2.5:14b` locally (GPU), `qwen2.5:3b` on NAS (set via `DOSSIER_LLM_MODEL`); text generation and embeddings
+- **LLM:** Ollama (no API key) via provider interface — `qwen2.5:14b` on GPU (local dev, and the off-host runner for NAS deployments); text generation and embeddings. The NAS runs no Ollama (see Deployment Model).
 - **Embeddings:** Ollama (`bge-m3`, 1024-dim) for article clustering — MTEB #1 multilingual, handles Catalan/Spanish cross-lingual pairs accurately
 - **Frontend:** Plain HTML + CSS + HTMX
-- **Scheduling:** APScheduler runs the pipeline in the worker: fetch feeds → enrich (extract full text) → embed → cluster → rewrite. The daily rewrite (06:00) selects the top 10 stories by relevance score and rewrites them in Catalan only — no cascade, no translation step. Content is ready when the user opens the app.
+- **Scheduling:** APScheduler runs the pipeline in the worker. On a full (local/GPU) worker: fetch feeds → enrich (extract full text) → embed → cluster → rewrite → highlight. On a light (NAS) worker (`DOSSIER_LLM_JOBS_ENABLED=false`) only the non-LLM stages (fetch → enrich → availability) run; the LLM stages run off-host on a daily schedule (Modal Cron / cron). The rewrite step selects the top 10 stories by relevance score and rewrites them in Catalan only — no cascade, no translation step. Content is ready when the user opens the app.
 - **Content filtering:** `app/feed/classifier.py` classifies articles as `news` or `non_news` using keyword heuristics (recipes, horoscopes, classifieds, promotions). Applied at fetch time (title + raw_text) and again at enrich time (full text). Non-news articles are stored with `article_type = 'non_news'` and excluded from enrichment, embedding, and clustering. Operators review and override via the ops dashboard.
 - **Packaging:** Docker + docker-compose (db, web, worker, ollama, ops). Web uses slim image; worker uses ollama client; ollama runs models in dedicated container; ops dashboard on port 5001.
 - **Dev tooling:** Ruff (lint/format), Mypy (type check), Pytest, Lefthook (git hooks), Commitizen (conventional commits). All tools are managed by **`uv`** — always invoke via `uv run ruff`, `uv run mypy`, `uv run pytest`, etc. Bare tool invocations (e.g. `ruff check`) will use the wrong environment or fail. Lefthook hooks call `uv run` automatically, so `git commit` works without any prefix. `RUFF_CACHE_DIR=/tmp/ruff-cache` is set in `lefthook.yml` to avoid cache permission issues.

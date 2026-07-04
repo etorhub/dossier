@@ -1,8 +1,10 @@
 #!/usr/bin/env bash
-# Run the daily rewrite job against the NAS's production Postgres from any
-# machine with `cloudflared` and `docker` installed (local machine, an
-# ad-hoc box, a VPS). See docs/REMOTE_REWRITE.md for one-time setup
-# (Cloudflare Access service token, dossier_pipeline role password).
+# Run the off-host LLM pipeline stages (embed+cluster → rewrite → highlight)
+# against the NAS's production Postgres from any machine with `cloudflared` and
+# `docker` installed (local machine, an ad-hoc box, a VPS). The NAS worker runs
+# "light" (fetch/enrich/availability only); this script produces the digest.
+# See docs/REMOTE_REWRITE.md for one-time setup (Cloudflare Access service token,
+# dossier_pipeline role password). For the primary Modal runner, see deploy/modal/.
 #
 # Required env vars:
 #   CF_DB_HOSTNAME              e.g. db.yourdomain.com (the Tunnel's TCP ingress hostname)
@@ -42,4 +44,4 @@ docker run --rm \
   -e OLLAMA_HOST="${OLLAMA_HOST:-http://host.docker.internal:11434}" \
   --network host \
   "ghcr.io/etorhub/dossier-worker:${DOSSIER_TAG:-latest}" \
-  python -m app.worker_cli rewrite-articles
+  python -m app.worker_cli run-llm-stages

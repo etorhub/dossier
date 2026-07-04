@@ -7,9 +7,10 @@ services:
   #   LLM:        qwen2.5:14b  (~8.7 GB Q4, fits in VRAM)
   #   Embeddings: bge-m3       (MTEB #1 multilingual, 1024-dim)
   #
-  # For NAS deployment (CPU-only, UGreen DSP 2800), add to Portainer env vars:
-  #   DOSSIER_LLM_MODEL=qwen2.5:3b   (lighter rewrite model for CPU inference)
-  # bge-m3 works on CPU too (~30s/article, fine for 10–20 articles/day).
+  # The NAS runs NO Ollama: do not enable the local-llm profile there, and set
+  # DOSSIER_LLM_JOBS_ENABLED=false so the worker runs light (fetch/enrich/availability
+  # only). The LLM stages run off-host on GPU — see docs/REMOTE_REWRITE.md and
+  # deploy/modal/. This ollama service is for the local GPU dev stack.
   ollama:
     profiles: ["local-llm"]
     image: ollama/ollama

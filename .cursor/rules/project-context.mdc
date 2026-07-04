@@ -27,9 +27,13 @@ At 06:00 the pipeline scores all clustered stories, picks the top 10 by relevanc
 
 ## Deployment Model
 
-The project is open source (AGPL). The **only** deployment target: **NAS UGreen DSP 2800** running Docker via `docker-compose.yml` (CPU-only, no GPU). Ollama runs on the same machine with `qwen2.5:3b` — CPU inference, adequate for 10 stories/day. See `docs/DEPLOYMENT_PORTAINER.md`. There is no Pi/GPU/hybrid/Oracle/VPS path — keep the codebase scoped to this single target.
+The project is open source (AGPL). Deployment is a **light-NAS / full-external split** (mirrors `CLAUDE.md` — keep them in sync):
 
-The NAS's internal 06:00 rewrite schedule is a fallback, not the only way to run that job — it can also be run on demand from a local machine or an ad-hoc/VPS box, against the NAS's production database, over a Cloudflare Tunnel using a scoped `dossier_pipeline` Postgres role. This is an ops/CLI capability (`app/worker_cli.py rewrite-articles`, already existing), not a new scheduler mode. See `docs/REMOTE_REWRITE.md`.
+- **NAS (UGreen DSP 2800, CPU-only) runs no Ollama.** Portainer deploys `docker-compose.yml` with `DOSSIER_LLM_JOBS_ENABLED=false` and does not enable the `local-llm` profile. The NAS worker runs "light": fetch → enrich → availability only. See `docs/DEPLOYMENT_PORTAINER.md`.
+- **The LLM stages (embed + cluster → rewrite → highlight) run off-host on GPU** against the NAS's Postgres over a Cloudflare Tunnel (scoped `dossier_pipeline` role) — primarily on **Modal (free-tier on-demand GPU)**, or any local/VPS box. On GPU the runner uses `qwen2.5:14b`. See `docs/REMOTE_REWRITE.md` and `deploy/modal/`.
+- **Local dev (GPU)** runs the full stack including all LLM stages via `docker compose up --build` (default config, `qwen2.5:14b`).
+
+The off-host runner is the CLI capability `app/worker_cli.py run-llm-stages`, reached via `scripts/run-remote-pipeline.sh` or the Modal app. Because the NAS runs no Ollama it can't produce the digest itself — the off-host runner is required daily (Modal Cron), with no NAS-side fallback. Don't split the compose per environment or add per-machine overrides beyond the `DOSSIER_LLM_JOBS_ENABLED` / `DOSSIER_LLM_MODEL` env vars.
 
 ---
 

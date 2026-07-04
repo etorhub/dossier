@@ -45,6 +45,11 @@ DEFAULTS: dict[str, Any] = {
         "cluster_gate_max_pending": 5,  # tolerate up to N pending before blocking cluster
     },
     "schedule": {
+        # When False, the worker's scheduler runs only the non-LLM stages
+        # (fetch, enrich, availability). The LLM stages (embed+cluster, rewrite,
+        # highlight) then run off-host against this DB — see docs/REMOTE_REWRITE.md.
+        # The NAS sets DOSSIER_LLM_JOBS_ENABLED=false; local GPU stacks leave it True.
+        "llm_jobs_enabled": True,
         "fetch_interval_minutes": 5,
         "enrichment_cron": "*/5 * * * *",
         "cluster_cron": "*/5 * * * *",
@@ -124,10 +129,13 @@ DEFAULTS: dict[str, Any] = {
 def load_config(config_path: str | Path | None = None) -> dict[str, Any]:
     """Load app config from YAML file, falling back to defaults if missing.
 
-    Two env vars allow per-deployment model overrides without touching app.yaml.
-    Useful for the NAS (CPU-only) which needs lighter models than the local GPU setup:
-      DOSSIER_LLM_MODEL       — overrides llm.model and all *_model task overrides
-      DOSSIER_EMBEDDING_MODEL — overrides embeddings.model
+    Env vars allow per-deployment overrides without touching app.yaml. Useful for
+    the NAS, which runs no Ollama and only the non-LLM pipeline stages:
+      DOSSIER_LLM_MODEL         — overrides llm.model and all *_model task overrides
+      DOSSIER_EMBEDDING_MODEL   — overrides embeddings.model
+      DOSSIER_LLM_JOBS_ENABLED  — false disables the embed/cluster/rewrite/highlight
+                                  jobs in the scheduler (NAS "light" worker); those
+                                  stages then run off-host (Modal/local/VPS).
     """
     if config_path is None:
         config_path = Path(__file__).resolve().parent.parent / "config" / "app.yaml"
@@ -150,7 +158,16 @@ def load_config(config_path: str | Path | None = None) -> dict[str, Any]:
     if embedding_model:
         config["embeddings"]["model"] = embedding_model
 
+    llm_jobs_enabled = os.environ.get("DOSSIER_LLM_JOBS_ENABLED")
+    if llm_jobs_enabled is not None:
+        config["schedule"]["llm_jobs_enabled"] = _parse_bool(llm_jobs_enabled)
+
     return config
+
+
+def _parse_bool(value: str) -> bool:
+    """Parse a truthy/falsy env string. Anything not clearly false is True."""
+    return value.strip().lower() not in {"0", "false", "no", "off", ""}
 
 
 def get_topic_info(topic_id: str, config: dict[str, Any] | None = None) -> dict[str, str]:

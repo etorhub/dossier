@@ -1,39 +1,50 @@
 # Deployment: NAS via Portainer (UGreen DSP 2800)
 
-This guide deploys the **full Dossier stack** — database, web, worker, ops dashboard,
-and a local Ollama (CPU inference) — as a single Portainer **stack** on the NAS,
-using the repo's `docker-compose.yml`.
+This guide deploys Dossier's **NAS half** — database, web, worker, and ops
+dashboard — as a single Portainer **stack** on the NAS, using the repo's
+`docker-compose.yml`.
 
-> **Model note:** the default `docker-compose.yml` targets a local GPU machine
-> (`qwen2.5:14b` + `bge-m3`). For the NAS (CPU-only) you **must** add
-> `DOSSIER_LLM_MODEL=qwen2.5:3b` to the Portainer stack environment — this
-> overrides the rewrite model without changing any files. `bge-m3` runs on
-> CPU too (~30s/article), so no override needed for embeddings.
+> **No Ollama on the NAS.** The NAS worker runs "light": it fetches feeds,
+> enriches full text, and checks source availability, but runs **none** of the
+> LLM stages (embed, cluster, rewrite, highlight) and no Ollama. Those run
+> off-host on an on-demand GPU (Modal free tier, or a local/VPS box) against this
+> same Postgres over a Cloudflare Tunnel — see
+> [`docs/REMOTE_REWRITE.md`](REMOTE_REWRITE.md) and [`deploy/modal/`](../deploy/modal/).
+> Set `DOSSIER_LLM_JOBS_ENABLED=false` in the Portainer stack environment (below)
+> to enable light mode.
+>
+> Consequence: the NAS can't produce the digest on its own, so the off-host
+> runner is **required daily** for fresh content (the Modal Cron handles this).
 
 **The NAS pulls prebuilt images, it does not build from source.** GitHub Actions
 (`.github/workflows/publish.yml`) builds the `web` and `worker` images on every
 push to `main` or `master` (and on `vX.Y.Z` tags) and publishes them to GHCR as
 `ghcr.io/etorhub/dossier-web` and `ghcr.io/etorhub/dossier-worker`. The NAS only
-pulls — builds no longer compete with the 06:00 inference burst, and you get
+pulls — no build load on the NAS, and you get
 immutable, versioned tags you can pin and roll back to. The image tag is selected
 with the `DOSSIER_TAG` environment variable (default `latest`).
 
 ---
 
-## Architecture (single NAS, one stack)
+## Architecture (NAS stack + off-host LLM runner)
 
 ```
-UGreen DSP 2800
+UGreen DSP 2800 (CPU-only, no Ollama)
   ├── db          — PostgreSQL 18 + pgvector
-  ├── ollama      — qwen2.5:3b (rewrite, via DOSSIER_LLM_MODEL override) + bge-m3 (embeddings), CPU only
-  ├── ollama-init — one-shot model pull, runs once on first start
   ├── db-init     — one-shot Alembic migration, runs once on first start
   ├── web         — Flask app, port 5000
-  ├── worker      — APScheduler pipeline (fetch → enrich → embed → cluster → rewrite)
+  ├── worker      — APScheduler, LIGHT: fetch → enrich → availability only
   └── ops         — operator dashboard, port 5001
+
+Off-host runner (Modal free-tier GPU / local / VPS), daily:
+  └── embed + cluster → rewrite → highlight  (Ollama runs here, on GPU)
+        └── connects to db over a Cloudflare Tunnel (scoped dossier_pipeline role)
 ```
 
-Everything runs on the NAS — no external services, no GPU, no second machine.
+The NAS does the light, always-on work (keeping the article store fresh); the
+GPU-heavy LLM stages run elsewhere on a schedule. See
+[`docs/REMOTE_REWRITE.md`](REMOTE_REWRITE.md) for the off-host setup and
+[`deploy/modal/`](../deploy/modal/) for the primary Modal runner.
 
 ---
 
@@ -41,9 +52,9 @@ Everything runs on the NAS — no external services, no GPU, no second machine.
 
 - Portainer CE installed and reachable on the NAS (Container Manager → Portainer, or
   the UGOS Docker app)
-- The NAS has internet access to build the app image and pull `db`/`ollama` images
-- At least ~6 GB free RAM and ~10 GB free disk (Postgres data + Ollama models +
-  article cache grow over time)
+- The NAS has internet access to pull the `db`, `web`, and `worker` images from GHCR
+- At least ~3 GB free RAM and ~10 GB free disk (Postgres data + article cache grow
+  over time; no Ollama models are stored on the NAS)
 
 ---
 
@@ -79,18 +90,19 @@ In the stack's **Environment variables** section, add:
 POSTGRES_PASSWORD=<choose-a-strong-password>
 SECRET_KEY=<generate-with: python3 -c "import secrets; print(secrets.token_hex(32))">
 
-# Starts Ollama in this stack (profile local-llm)
-COMPOSE_PROFILES=local-llm
-OLLAMA_HOST=http://ollama:11434
-
-# NAS model override — the default config targets a GPU machine (qwen2.5:14b).
-# This tells ollama-init to pull qwen2.5:3b instead, and tells the worker to use it.
-DOSSIER_LLM_MODEL=qwen2.5:3b
+# Light worker: run only the non-LLM stages (fetch/enrich/availability) here and
+# no Ollama. The LLM stages run off-host — see docs/REMOTE_REWRITE.md.
+DOSSIER_LLM_JOBS_ENABLED=false
 
 # Optional: which published image tag to run. Default is `latest` (newest default-branch
 # build). Pin a release for reproducible deploys / rollback, e.g. DOSSIER_TAG=v1.2.0
 DOSSIER_TAG=latest
 ```
+
+> Do **not** set `COMPOSE_PROFILES=local-llm` on the NAS — that profile starts
+> Ollama, which the NAS no longer runs. Leaving it unset keeps the `ollama` and
+> `ollama-init` services out of the stack entirely. `DOSSIER_LLM_MODEL` /
+> `OLLAMA_HOST` are likewise unnecessary here.
 
 Never commit these to the repo — they live only in the Portainer stack's environment.
 
@@ -100,20 +112,18 @@ Never commit these to the repo — they live only in the Portainer stack's envir
 
 Click **Deploy the stack**. Portainer pulls `ghcr.io/etorhub/dossier-web` and
 `ghcr.io/etorhub/dossier-worker` at the `DOSSIER_TAG` tag (the first pull is the
-slowest app step; subsequent redeploys only pull changed layers). On first start:
+slowest step; subsequent redeploys only pull changed layers). On first start:
 
 1. `db` comes up and passes its healthcheck
 2. `db-init` runs Alembic migrations once, then exits (`service_completed_successfully`)
-3. `ollama` starts in CPU mode (`OLLAMA_NUM_PARALLEL=2`, `OLLAMA_MAX_LOADED_MODELS=1`
-   — one model resident at a time, since the daily job never runs rewrite and
-   embedding concurrently)
-4. `ollama-init` pulls `qwen2.5:3b` (via `DOSSIER_LLM_MODEL`) and `bge-m3` (~2.5 GB total)
-   — the slowest step on first run; expect 10–30 min depending on NAS bandwidth — then exits
-5. `web`, `worker`, and `ops` start once their dependencies are healthy/complete
+3. `web`, `worker`, and `ops` start once `db-init` completes
 
-Watch progress in Portainer: **Stacks → dossier → Containers**, check logs on
-`ollama-init` for pull progress, and on `worker` for `"waiting for ollama-init"` →
-`"Scheduler started"`.
+There is no Ollama service and no model pull, so the stack is ready in the time it
+takes to pull images and migrate — no 10–30 min model download.
+
+Watch progress in Portainer: **Stacks → dossier → Containers**, and check the
+`worker` log for `"Scheduler started (light): ... LLM stages ... are disabled
+here"` — that confirms light mode is active.
 
 ---
 
@@ -133,33 +143,34 @@ Once `web` is healthy:
 
    (find the exact container name in Portainer's container list, e.g. `dossier-worker-1`)
 
-The daily pipeline then runs unattended: fetch → enrich → embed → cluster
-continuously, and the 06:00 job selects the top 10 stories and rewrites them in
-Catalan, ready to read when you open the app.
+The NAS worker then runs unattended: fetch → enrich → availability continuously,
+keeping the article store fresh. The LLM stages (embed → cluster → rewrite →
+highlight) that turn those articles into the daily digest run **off-host** — set
+that up next in [`docs/REMOTE_REWRITE.md`](REMOTE_REWRITE.md) (primary runner:
+[`deploy/modal/`](../deploy/modal/)). Until the off-host runner has run once,
+the app has fetched articles but no rewritten digest.
 
 ---
 
 ## Performance tuning for the DSP 2800
 
-`docker-compose.yml` already applies the safe defaults below. Adjust only if you
-observe resource pressure (Portainer → container stats, or the NAS's own resource monitor):
+Without Ollama on the NAS, the stack is light — the worker only fetches, enriches,
+and checks availability. Adjust only if you observe resource pressure (Portainer →
+container stats, or the NAS's own resource monitor):
 
 | Setting | Default | When to change |
 |---|---|---|
-| `DOSSIER_LLM_MODEL` | `qwen2.5:3b` (set in Portainer env) | Leave at `qwen2.5:3b` for the NAS — do not pull `qwen2.5:14b` on CPU |
-| `OLLAMA_NUM_PARALLEL` | `2` | Lower to `1` if RAM is tight and rewrites contend |
-| `OLLAMA_MAX_LOADED_MODELS` | `1` | Keep at `1` — embedding and rewriting never run concurrently in the daily job |
+| `DOSSIER_LLM_JOBS_ENABLED` | `false` (set in Portainer env) | Keep `false` on the NAS — the LLM stages run off-host, not on this CPU |
 | gunicorn workers (`web`, `ops`) | default (compose doesn't pin `-w`) | If RAM is tight, edit the service `command` to add `-w 1` |
 
 General guidance:
-- `qwen2.5:3b` (via `DOSSIER_LLM_MODEL` override) is the right model for 10 stories/day on CPU
-- `bge-m3` works fine on CPU at ~30s/article — only ~10–20 articles need embedding per day at steady state
-- Postgres, Ollama, and the article/job-run data all persist in named volumes/bind
-  mounts — back up `pgdata`, `ollama_data`, and `./data/job_runs` before any major
-  Portainer stack recreation
-- If the NAS also runs other containers (Plex, etc.), consider setting per-service
-  memory limits in the compose (`mem_limit:`) so Dossier can't starve them during the
-  06:00 rewrite burst
+- No model download and no GPU/CPU inference burst on the NAS — the heavy work is
+  offloaded, so the DSP 2800 stays comfortably within its RAM budget.
+- Postgres and the article/job-run data persist in a named volume / bind mount —
+  back up `pgdata` and `./data/job_runs` before any major Portainer stack recreation.
+  (There is no `ollama_data` volume to back up on the NAS anymore.)
+- If the NAS also runs other containers (Plex, etc.), the light worker is unlikely
+  to contend for RAM, but you can still set per-service `mem_limit:` in the compose.
 
 ---
 
@@ -190,8 +201,7 @@ runs via `DOSSIER_TAG`:
 - **Roll back** by editing `DOSSIER_TAG` to a known-good tag and redeploying — seconds,
   no rebuild. (Available tags are listed under the repo's **Packages** on GitHub.)
 
-`db-init` re-runs Alembic migrations safely on every redeploy (idempotent), and
-`ollama-init` only pulls models that aren't already present in the `ollama_data` volume.
+`db-init` re-runs Alembic migrations safely on every redeploy (idempotent).
 
 > **Migrations and rollback:** rolling the image back does **not** roll back the
 > database. Alembic migrations are forward-only here, so a rollback is safe only to a
@@ -210,12 +220,13 @@ runs via `DOSSIER_TAG`:
 - **Stack not updating after a push**: confirm **Automatic updates → Polling** is on
   with **"Re-pull image"** enabled, and that `publish.yml` succeeded for that commit
   (repo → **Actions**). Polling only redeploys once the new image is actually in GHCR.
-- **`ollama-init` stuck / failing to pull**: check NAS internet connectivity and disk
-  space (`docker system df`); model pulls need ~5 GB free during download+extraction
-- **`worker` logs `waiting for ollama-init`**: normal on first start — wait for the
-  pull to finish; subsequent restarts skip this since models persist in `ollama_data`
-- **Web UI slow on first open**: the worker hasn't completed its first pipeline pass
-  yet — run `./scripts/fetch-news.sh` manually (Step 4) to seed content immediately
-- **Out of memory**: `OLLAMA_NUM_PARALLEL`/`OLLAMA_MAX_LOADED_MODELS` are already at
-  the minimum (`1`); add `-w 1` to gunicorn commands, or check for other containers
-  competing for RAM during the 06:00 rewrite window
+- **`worker` log shows the LLM jobs still registered / it tries to reach Ollama**:
+  `DOSSIER_LLM_JOBS_ENABLED=false` isn't set — add it to the stack env and redeploy.
+  The log should read `"Scheduler started (light): ..."`.
+- **Articles appear but no rewritten digest**: expected — the LLM stages run off-host.
+  Confirm the off-host runner has run (Modal schedule / `run-remote-pipeline.sh`) and
+  check its `job_runs` rows on the ops dashboard. See [`docs/REMOTE_REWRITE.md`](REMOTE_REWRITE.md).
+- **Web UI slow / empty on first open**: the worker hasn't completed its first fetch
+  pass yet — run `./scripts/fetch-news.sh` manually (Step 4) to seed content immediately.
+- **Out of memory**: unlikely without Ollama; add `-w 1` to the `web`/`ops` gunicorn
+  commands, or check for other containers competing for RAM.

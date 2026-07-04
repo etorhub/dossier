@@ -177,3 +177,56 @@ def test_main_registers_all_pipeline_jobs() -> None:
     assert "cluster_articles" in job_ids
     assert "rewrite_articles" in job_ids
     assert "highlight_stories" in job_ids
+
+
+def test_main_light_mode_skips_llm_jobs() -> None:
+    """With llm_jobs_enabled=False, main() registers only the non-LLM jobs."""
+    config: dict = {
+        "schedule": {
+            "llm_jobs_enabled": False,
+            "fetch_interval_minutes": 60,
+            "enrichment_cron": "10 * * * *",
+            "cluster_cron": "5 * * * *",
+            "rewrite_cron": "0 6 * * *",
+            "highlight_cron": "15-59/30 * * * *",
+            "availability_check_interval_minutes": 10,
+        }
+    }
+
+    mock_scheduler = MagicMock()
+
+    with (
+        patch("app.scheduler.load_config", return_value=config),
+        patch("app.scheduler.BlockingScheduler", return_value=mock_scheduler),
+    ):
+        from app.scheduler import main
+
+        with contextlib.suppress(SystemExit):
+            main()
+
+    job_ids = [call.kwargs.get("id") for call in mock_scheduler.add_job.call_args_list]
+    # Non-LLM stages still run on the light (NAS) worker.
+    assert "fetch_feeds" in job_ids
+    assert "enrich_articles" in job_ids
+    assert "check_source_availability" in job_ids
+    # LLM stages are gated off and run off-host instead.
+    assert "cluster_articles" not in job_ids
+    assert "rewrite_articles" not in job_ids
+    assert "highlight_stories" not in job_ids
+
+
+def test_main_light_mode_sets_origin_mode_light() -> None:
+    """Light mode tags job_runs with origin_mode='light'."""
+    import app.scheduler as scheduler_mod
+
+    config: dict = {"schedule": {"llm_jobs_enabled": False}}
+    mock_scheduler = MagicMock()
+
+    with (
+        patch("app.scheduler.load_config", return_value=config),
+        patch("app.scheduler.BlockingScheduler", return_value=mock_scheduler),
+        contextlib.suppress(SystemExit),
+    ):
+        scheduler_mod.main()
+
+    assert scheduler_mod._ORIGIN_MODE == "light"

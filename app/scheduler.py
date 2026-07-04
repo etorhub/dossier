@@ -34,6 +34,12 @@ try:
 except OSError:
     _ORIGIN_IP = None
 
+# Set in main() from config: "full" when the worker runs every stage, "light"
+# when the LLM stages (embed/cluster/rewrite/highlight) run off-host and this
+# worker only fetches/enriches/checks availability. Surfaced on job_runs so the
+# ops dashboard shows where each job actually ran.
+_ORIGIN_MODE: str = "full"
+
 
 def _cluster_articles_guarded(config: dict[str, Any]) -> Any:
     """Lazy import wrapper for the cluster+embed job."""
@@ -68,7 +74,7 @@ def _run_tracked_job(
         trigger=trigger,
         origin_hostname=_ORIGIN_HOSTNAME,
         origin_ip=_ORIGIN_IP,
-        origin_mode="full",
+        origin_mode=_ORIGIN_MODE,
     )
     config = load_config()
     t0 = time.perf_counter()
@@ -122,6 +128,8 @@ def main() -> None:
         datefmt="%Y-%m-%d %H:%M:%S",
     )
 
+    global _ORIGIN_MODE
+
     config = load_config()
     interval_min = config.get("schedule", {}).get("fetch_interval_minutes", 60)
     enrichment_cron = config.get("schedule", {}).get("enrichment_cron", "10 * * * *")
@@ -131,9 +139,12 @@ def main() -> None:
     availability_interval = config.get("schedule", {}).get(
         "availability_check_interval_minutes", 10
     )
+    llm_jobs_enabled = config.get("schedule", {}).get("llm_jobs_enabled", True)
+    _ORIGIN_MODE = "full" if llm_jobs_enabled else "light"
 
     scheduler = BlockingScheduler()
 
+    # Non-LLM stages always run here (no Ollama required).
     scheduler.add_job(
         lambda: _run_tracked_job("fetch_feeds", fetch_all_due_feeds),
         trigger=IntervalTrigger(minutes=interval_min),
@@ -152,32 +163,48 @@ def main() -> None:
         trigger=IntervalTrigger(minutes=availability_interval),
         id="check_source_availability",
     )
-    scheduler.add_job(
-        lambda: _run_tracked_job("cluster_articles", _cluster_articles_guarded),
-        trigger=CronTrigger.from_crontab(cluster_cron),
-        id="cluster_articles",
-    )
-    scheduler.add_job(
-        lambda: _run_tracked_job("rewrite_articles", _rewrite_articles_job),
-        trigger=CronTrigger.from_crontab(rewrite_cron),
-        id="rewrite_articles",
-    )
-    scheduler.add_job(
-        lambda: _run_tracked_job("highlight_stories", _highlight_articles_job),
-        trigger=CronTrigger.from_crontab(highlight_cron),
-        id="highlight_stories",
-    )
 
-    logger.info(
-        "Scheduler started: fetch every %d min, enrichment=%s, "
-        "cluster=%s, rewrite=%s, highlight=%s, availability every %d min",
-        interval_min,
-        enrichment_cron,
-        cluster_cron,
-        rewrite_cron,
-        highlight_cron,
-        availability_interval,
-    )
+    # LLM stages (embed+cluster, rewrite, highlight) require Ollama. On a "light"
+    # worker (e.g. the NAS) they are disabled and run off-host instead — see
+    # docs/REMOTE_REWRITE.md. Lazy-imported job wrappers keep the LLM stack out of
+    # this process entirely when disabled.
+    if llm_jobs_enabled:
+        scheduler.add_job(
+            lambda: _run_tracked_job("cluster_articles", _cluster_articles_guarded),
+            trigger=CronTrigger.from_crontab(cluster_cron),
+            id="cluster_articles",
+        )
+        scheduler.add_job(
+            lambda: _run_tracked_job("rewrite_articles", _rewrite_articles_job),
+            trigger=CronTrigger.from_crontab(rewrite_cron),
+            id="rewrite_articles",
+        )
+        scheduler.add_job(
+            lambda: _run_tracked_job("highlight_stories", _highlight_articles_job),
+            trigger=CronTrigger.from_crontab(highlight_cron),
+            id="highlight_stories",
+        )
+
+    if llm_jobs_enabled:
+        logger.info(
+            "Scheduler started (full): fetch every %d min, enrichment=%s, "
+            "cluster=%s, rewrite=%s, highlight=%s, availability every %d min",
+            interval_min,
+            enrichment_cron,
+            cluster_cron,
+            rewrite_cron,
+            highlight_cron,
+            availability_interval,
+        )
+    else:
+        logger.info(
+            "Scheduler started (light): fetch every %d min, enrichment=%s, "
+            "availability every %d min. LLM stages (cluster/rewrite/highlight) "
+            "are disabled here and run off-host (see docs/REMOTE_REWRITE.md).",
+            interval_min,
+            enrichment_cron,
+            availability_interval,
+        )
     with contextlib.suppress(KeyboardInterrupt, SystemExit):
         scheduler.start()
 

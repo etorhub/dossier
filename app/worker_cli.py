@@ -199,6 +199,30 @@ def highlight_stories_cmd() -> None:
     click.echo("Highlight job completed. Check ops dashboard for details.")
 
 
+@worker_cli.command("run-llm-stages")
+def run_llm_stages_cmd() -> None:
+    """Run the off-host LLM stages in order: embed+cluster → rewrite → highlight.
+
+    This is the entry point for running the LLM half of the pipeline against the
+    NAS's Postgres from external compute (Modal / local / VPS), where the NAS
+    worker runs light (fetch/enrich only). Each stage records its own job_runs row.
+    Order matters: embed+cluster must precede rewrite, which must precede highlight.
+    """
+    from app.clustering.service import run_cluster_and_embed
+    from app.scheduler import _run_tracked_job
+    from app.services.highlight_service import run_highlight_batch
+    from app.services.rewrite_service import run_rewrite_batch
+
+    try:
+        _run_tracked_job("cluster_articles", run_cluster_and_embed, trigger="manual")
+        _run_tracked_job("rewrite_articles", run_rewrite_batch, trigger="manual")
+        _run_tracked_job("highlight_stories", run_highlight_batch, trigger="manual")
+    except Exception as e:
+        click.echo(f"LLM stages failed: {e}", err=True)
+        raise SystemExit(1) from e
+    click.echo("LLM stages completed. Check ops dashboard for details.")
+
+
 @worker_cli.command("run-pipeline")
 @click.option(
     "--sources-path",
