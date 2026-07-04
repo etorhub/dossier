@@ -40,7 +40,15 @@ class LLMProvider(ABC):
         ...
 ```
 
-The primary implementation is `OllamaProvider`, connecting to Ollama (`qwen2.5:3b` for rewrite, `paraphrase-multilingual` for embeddings). Config in `config/app.yaml`: `llm.model`, `llm.host`. Never instantiate a provider directly outside of the provider factory.
+Two concrete implementations are active:
+
+- **`OllamaProvider`** — local dev. Reads `llm.host` from config or `OLLAMA_HOST` env.
+- **`VllmOpenAIProvider`** — NAS production. Calls a Modal-hosted vLLM OpenAI-compatible
+  endpoint (`Qwen/Qwen2.5-32B-Instruct-AWQ` on L40S GPU). Reads `llm.api_base` /
+  `LLM_API_BASE` and `OPENAI_API_KEY` env vars. Never instantiate a provider directly
+  outside the factory.
+
+Backend selection: `LLM_PROVIDER=ollama` (default when unset) or `LLM_PROVIDER=vllm`.
 
 ## Single-language mode
 
@@ -88,7 +96,15 @@ Two users with identical rewrite settings share cached results.
 
 ## Embeddings and clustering
 
-Article clustering uses the embedding provider (`app/llm/embeddings.py`). Ollama `paraphrase-multilingual` produces vectors; articles are clustered by cosine similarity. Never call the embedding API directly from routes — it runs only in the worker (clustering job).
+Article clustering uses the embedding provider (`app/llm/embeddings.py`).
+
+- **Local dev:** `OllamaEmbeddingProvider` with `paraphrase-multilingual`.
+- **NAS prod:** `VllmOpenAIEmbeddingProvider` hitting Modal's vLLM embed endpoint
+  (`BAAI/bge-m3` on L4 GPU). Selected via `EMBED_PROVIDER=vllm`, `EMBED_API_BASE`,
+  `EMBED_API_KEY` env vars.
+
+Articles are clustered by cosine similarity. Never call the embedding API directly from
+routes — it runs only in the worker (clustering job).
 
 ## Error handling
 

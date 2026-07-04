@@ -22,13 +22,11 @@ The pipeline runs automatically. Once a day at 6:00 the worker scores all cluste
 
 ## Deployment Model
 
-The project is open source (AGPL). Two supported targets, one `docker-compose.yml`:
+The project is open source (AGPL). The **only** deployment target for the app stack (database, web, worker, ops) is a self-hosted **NAS UGreen DSP 2800** running Docker via `docker-compose.yml`. LLM inference is offloaded to **Modal** GPU functions reached over HTTPS via the provider abstraction — the NAS itself has no GPU and no Docker GPU device reservations. See [`docs/DEPLOYMENT_PORTAINER.md`](docs/DEPLOYMENT_PORTAINER.md) for the Portainer setup guide and [`docs/MODAL_GPU_BACKEND.md`](docs/MODAL_GPU_BACKEND.md) for the Modal deployment.
 
-**Local machine (primary — GPU, RTX 4070 or similar):** `docker compose up --build`. Ollama runs with `qwen2.5:14b` (rewrite, ~8.7 GB Q4, fits in 12 GB VRAM) and `bge-m3` (embeddings, 1024-dim, MTEB #1 multilingual). This is the default config in `app.yaml` and the default build.
+There is no Raspberry Pi, Oracle Cloud, VPS, or second-machine app deployment path — keep the app stack scoped to the single NAS target. Don't reintroduce split-scheduler modes, GPU device reservations in compose, or multi-machine app compose overrides. The Modal inference dependency is the deliberate exception: it is a managed remote API, not a second app host.
 
-**NAS (UGreen DSP 2800, CPU-only):** same compose file, but Portainer sets `DOSSIER_LLM_MODEL=qwen2.5:3b` in the stack environment to pull and use the lighter rewrite model. `bge-m3` works on CPU too. See [`docs/DEPLOYMENT_PORTAINER.md`](docs/DEPLOYMENT_PORTAINER.md) for the full Portainer setup guide.
-
-Don't reintroduce split-scheduler modes, separate compose files per environment, GPU device reservations in compose, or multi-machine overrides. The single env var `DOSSIER_LLM_MODEL` is the only knob needed between the two targets.
+For local development and tests, `COMPOSE_PROFILES=local-llm` starts an Ollama container with lightweight models — no Modal account needed. Provider switching is driven entirely by environment variables (`LLM_PROVIDER`, `EMBED_PROVIDER`).
 
 The NAS's internal 06:00 rewrite schedule is a fallback, not the only way to run that job — it can also be run on demand from a local machine or an ad-hoc/VPS box, against the NAS's production database, over a Cloudflare Tunnel using a scoped `dossier_pipeline` Postgres role. This is an ops/CLI capability (`app/worker_cli.py rewrite-articles`, already existing), not a new scheduler mode. See [`docs/REMOTE_REWRITE.md`](docs/REMOTE_REWRITE.md).
 
@@ -78,12 +76,12 @@ See `docs/TECH_STACK.md` for full details, project structure, dependencies, Dock
 
 - **Backend:** Python 3.12+ with Flask
 - **Database:** PostgreSQL 18
-- **LLM:** Ollama (local, no API key) via provider interface — `qwen2.5:14b` locally (GPU), `qwen2.5:3b` on NAS (set via `DOSSIER_LLM_MODEL`); text generation and embeddings
-- **Embeddings:** Ollama (`bge-m3`, 1024-dim) for article clustering — MTEB #1 multilingual, handles Catalan/Spanish cross-lingual pairs accurately
+- **LLM:** Provider abstraction (`app/llm/provider.py`) — **prod (NAS):** `Qwen/Qwen2.5-32B-Instruct-AWQ` served via vLLM on Modal (L40S GPU), reached over HTTPS with bearer auth; **local dev:** Ollama with a small model for fast tests. Switched via `LLM_PROVIDER` env var (`vllm` / `ollama`).
+- **Embeddings:** Provider abstraction (`app/llm/embeddings.py`) — **prod (NAS):** `BAAI/bge-m3` served via vLLM on Modal (L4 GPU); **local dev:** Ollama `paraphrase-multilingual`. Switched via `EMBED_PROVIDER` env var.
 - **Frontend:** Plain HTML + CSS + HTMX
 - **Scheduling:** APScheduler runs the pipeline in the worker: fetch feeds → enrich (extract full text) → embed → cluster → rewrite. The daily rewrite (06:00) selects the top 10 stories by relevance score and rewrites them in Catalan only — no cascade, no translation step. Content is ready when the user opens the app.
 - **Content filtering:** `app/feed/classifier.py` classifies articles as `news` or `non_news` using keyword heuristics (recipes, horoscopes, classifieds, promotions). Applied at fetch time (title + raw_text) and again at enrich time (full text). Non-news articles are stored with `article_type = 'non_news'` and excluded from enrichment, embedding, and clustering. Operators review and override via the ops dashboard.
-- **Packaging:** Docker + docker-compose (db, web, worker, ollama, ops). Web uses slim image; worker uses ollama client; ollama runs models in dedicated container; ops dashboard on port 5001.
+- **Packaging:** Docker + docker-compose (db, web, worker, ops). Web uses slim image; worker calls Modal inference endpoints over HTTPS. `COMPOSE_PROFILES=local-llm` adds Ollama for local dev only — not used in the NAS prod stack. Ops dashboard on port 5001. Modal apps are deployed separately via `modal deploy` (see `modal/`).
 - **Dev tooling:** Ruff (lint/format), Mypy (type check), Pytest, Lefthook (git hooks), Commitizen (conventional commits). All tools are managed by **`uv`** — always invoke via `uv run ruff`, `uv run mypy`, `uv run pytest`, etc. Bare tool invocations (e.g. `ruff check`) will use the wrong environment or fail. Lefthook hooks call `uv run` automatically, so `git commit` works without any prefix. `RUFF_CACHE_DIR=/tmp/ruff-cache` is set in `lefthook.yml` to avoid cache permission issues.
 - **Branch workflow:** Always `git pull origin master` (or `main`) before creating a new branch to avoid diverged histories.
 - **CI/CD pipeline:** GitHub Actions (`.github/workflows/`). `pr-ci.yml` runs CI (lint → type check → test) on pull requests targeting `main` or `master`; both branches are protected and merges require the `ci` check to pass — never bypass branch protection. `publish.yml` builds the `web` and `worker` images on every push to `main` or `master` (and on `vX.Y.Z` tags, plus manual `workflow_dispatch`) and pushes versioned tags to GHCR (`ghcr.io/etorhub/dossier-web`, `ghcr.io/etorhub/dossier-worker`). **The NAS pulls these prebuilt images — it does not build from source.** Compose services reference `image:` (selected by `DOSSIER_TAG`, default `latest`); Portainer redeploys via polling + re-pull (no inbound NAS access needed). Local dev still builds from source — `docker-compose.override.yml` supplies the `build:` directives, so `docker compose up --build` works for contributors. See `docs/DEPLOYMENT_PORTAINER.md`.
@@ -97,7 +95,7 @@ These are hard rules, not preferences:
 - **Flask routes return HTML only.** Never return JSON to the frontend. Every endpoint renders and returns a Jinja2 template partial. This is HATEOAS — the server owns all state and rendering.
 - **HTMX is the only frontend dependency.** No JavaScript frameworks. No build step. No npm. HTMX is loaded via a single CDN script tag. The only permitted JavaScript is a small inline `<script>` block in `base.html` for the Web Speech API (TTS feature detection and playback). No external JS files, no JS libraries beyond HTMX.
 - **LLM calls are always abstracted.** Never call Ollama directly from a route. Always go through the provider interface in `app/llm/provider.py`.
-- **The pipeline runs on a schedule.** APScheduler in the worker runs: fetch feeds → enrich (Trafilatura extraction) → embed (Ollama) → cluster (cosine similarity) → rewrite (LLM cascade: neutral EN from sources, simplify, translate). When a user opens the app, content is already ready. No on-demand LLM calls during page load. On-demand rewrites (after setup/settings save) are queued in `rewrite_requests` and processed by the worker.
+- **The pipeline runs on a schedule.** APScheduler in the worker runs: fetch feeds → enrich (Trafilatura extraction) → embed (embedding provider) → cluster (cosine similarity) → rewrite (LLM provider). When a user opens the app, content is already ready. No on-demand LLM calls during page load. On-demand rewrites (after setup/settings save) are queued in `rewrite_requests` and processed by the worker.
 - **Config is never hardcoded.** YAML files define the catalog of available sources/topics and app-level settings. User preferences (location, selected sources, selected topics, filter toggle, rewrite tone, language) live in PostgreSQL, set via the web UI.
 - **Multi-user from the start.** The schema, auth, and caching all support multiple independent user accounts.
 
@@ -122,7 +120,7 @@ These are hard rules, not preferences:
 - **Hardcoding user-facing strings.** Every UI string must be wrapped in `_()` or `ngettext()` (templates) or `gettext()` (Python). Run the i18n extraction/update/compile workflow after changes.
 - **Returning JSON from Flask routes.** Every route must return `render_template(...)` or `render_template_string(...)`. If you find yourself writing `jsonify`, stop.
 - **Adding JavaScript frameworks or files.** HTMX attributes on HTML elements handle all interactivity. There is no `static/js/` directory and no external JS libraries. The only permitted JavaScript is a small inline `<script>` in `base.html` for the Web Speech API (TTS). Do not add JS for anything else.
-- **Calling Ollama directly.** Always use `from app.llm.provider import get_provider` and call through the interface.
+- **Calling any LLM SDK directly.** Always use `from app.llm.provider import get_provider` and call through the interface. The concrete backend (Ollama locally, vLLM on Modal in prod) is wired by config — routes and services never know which is active.
 - **Hardcoding source URLs or prompts.** These live in config files.
 - **Putting user preferences in YAML files.** User profile settings live in PostgreSQL, set through the setup wizard. Only the source catalog and app-level config belong in YAML.
 - **Using SQLite.** This project uses PostgreSQL. Always use `psycopg2` or the db layer, never `sqlite3`.
@@ -177,6 +175,7 @@ For automated news source discovery (finding feeds by location, validation, qual
 
 ## Environment Quirks
 
+- **Modal GPU inference (prod):** LLM and embedding providers switch between Ollama (local dev) and Modal-hosted vLLM (NAS prod) via env vars — `LLM_PROVIDER=vllm`, `LLM_API_BASE=https://<rewrite-app>.modal.run/v1`, `OPENAI_API_KEY=<modal-rewrite-token>`, `EMBED_PROVIDER=vllm`, `EMBED_API_BASE=https://<embed-app>.modal.run/v1`, `EMBED_API_KEY=<modal-embed-token>`. When these vars are unset, the provider falls back to Ollama. See `docs/MODAL_GPU_BACKEND.md`.
 - **Alembic**: run via `.venv/bin/python3 -m alembic`, not `.venv/bin/alembic` (shebang points to a stale path).
 - **Alembic revision IDs**: use simple numeric strings (`"031"`, `"032"`) matching the existing chain — hex IDs collide and cause `Cycle detected` errors.
 - **ruff cache**: if `git commit` fails with "Permission denied" on `.ruff_cache/`, prefix with `RUFF_CACHE_DIR=/tmp/ruff_cache`.
