@@ -1,0 +1,14 @@
+{# Reusable UI patterns. Import: {% from 'macros/ui.html' import alert_box, form_submit %} #}
+
+{% macro alert_box(title) %}
+<section role="alert" aria-live="polite" class="alert alert-info">
+  <h2>{{ title }}</h2>
+  {{ caller() }}
+</section>
+{% endmacro %}
+
+{% macro form_submit(label, wrapper='form-group--actions') %}
+<div class="{{ wrapper }}">
+  <button type="submit" class="btn btn-primary">{{ label }}</button>
+</div>
+{% endmacro %}

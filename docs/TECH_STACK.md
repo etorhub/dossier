@@ -11,7 +11,7 @@ Technology choices for Dossier, with rationale.
 | Backend | Python 3.12+ with Flask | Lightweight, well-understood, Jinja2 built-in |
 | Database | PostgreSQL 18 | Robust, multi-user, JSONB support, wide hosting availability |
 | LLM | Ollama (local) via provider interface | `qwen2.5:14b` for rewriting, `bge-m3` for embeddings — tuned for local GPU (RTX 4070). NAS deployment overrides to `qwen2.5:3b` via `DOSSIER_LLM_MODEL`. |
-| Frontend | Plain HTML + CSS + HTMX | No build step, no JS framework, server-rendered throughout |
+| Frontend | Plain HTML + CSS + HTMX | No build step, no JS framework, server-rendered throughout. See [`docs/DESIGN_SYSTEM.md`](DESIGN_SYSTEM.md). |
 | Templating | Jinja2 (Flask built-in) | Tight Flask integration, partial rendering for HTMX |
 | Scheduling | APScheduler in dedicated worker container | Web and worker run as separate containers; web has zero ML/LLM deps |
 | Packaging | Docker + docker-compose | Single `docker-compose up` runs everything |

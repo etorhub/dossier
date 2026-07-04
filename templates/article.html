@@ -5,7 +5,7 @@
 
 {% block content %}
 {% if error %}
-<p style="color: #c00;">{{ error }}</p>
+<p class="flash-error">{{ error }}</p>
 <a href="{{ url_for('reader.index') }}" class="btn btn-ghost">← {{ _('Back') }}</a>
 {% elif article %}
 <article>

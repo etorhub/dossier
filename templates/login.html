@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% from 'macros/ui.html' import form_submit %}
 {% block title %}{{ _('Log in') }} — {{ _('Dossier') }}{% endblock %}
 {% block content %}
 <div class="auth-card">
@@ -16,9 +17,7 @@
       <label for="password">{{ _('Password') }}</label>
       <input type="password" id="password" name="password" required autocomplete="current-password">
     </div>
-    <div class="form-actions">
-      <button type="submit" class="btn btn-primary" style="min-height: var(--touch-min);">{{ _('Log in') }}</button>
-    </div>
+    {{ form_submit(_('Log in'), 'form-actions') }}
   </form>
   <p class="form-link">{{ _("Don't have an account?") }} <a href="{{ url_for('auth.register') }}">{{ _('Register') }}</a></p>
 </div>

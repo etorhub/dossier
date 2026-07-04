@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% from 'macros/ui.html' import form_submit %}
 {% block title %}{{ _('Setup') }} — {{ _('Dossier') }}{% endblock %}
 {% block content %}
 <h1>{{ _('Welcome — set up your news feed') }}</h1>
@@ -47,8 +48,6 @@
     <p>{{ _('Select the topics you\'re interested in (all selected by default).') }}</p>
     {% include "partials/setup_topics.html" %}
   </section>
-  <div class="form-group" style="margin-top: 1.5rem;">
-    <button type="submit" class="btn btn-primary" style="min-height: var(--touch-min);">{{ _('Save and continue') }}</button>
-  </div>
+  {{ form_submit(_('Save and continue')) }}
 </form>
 {% endblock %}

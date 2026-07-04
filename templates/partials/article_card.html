@@ -24,7 +24,7 @@
     </div>
     <h2 class="article-title" id="article-card-title-{{ article.id }}">
       <a href="{{ url_for('reader.article_page', story_id=article.id) }}"
-         style="color:inherit;text-decoration:none;">{{ article.title }}</a>
+         class="article-title-link">{{ article.title }}</a>
     </h2>
     {% if article.summary %}
     <p class="article-summary">{{ article.summary }}</p>
