@@ -1,14 +1,12 @@
 # Deployment: NAS via Portainer (UGreen DSP 2800)
 
-This guide deploys the **full Dossier stack** — database, web, worker, ops dashboard,
-and a local Ollama (CPU inference) — as a single Portainer **stack** on the NAS,
-using the repo's `docker-compose.yml`.
-
-> **Model note:** the default `docker-compose.yml` targets a local GPU machine
-> (`qwen2.5:14b` + `bge-m3`). For the NAS (CPU-only) you **must** add
-> `DOSSIER_LLM_MODEL=qwen2.5:3b` to the Portainer stack environment — this
-> overrides the rewrite model without changing any files. `bge-m3` runs on
-> CPU too (~30s/article), so no override needed for embeddings.
+This guide deploys the **full Dossier stack** — database, web, worker, and ops
+dashboard — as a single Portainer **stack** on the NAS, using the repo's
+`docker-compose.yml`. LLM inference (rewriting + embeddings) runs on **Modal GPU
+functions** reached over HTTPS; the NAS itself has no GPU and no local Ollama in
+this configuration. See [`docs/MODAL_GPU_BACKEND.md`](MODAL_GPU_BACKEND.md) for
+the Modal deployment steps — complete those first so you have the endpoint URLs
+and API keys to paste into Portainer's environment variables below.
 
 **The NAS pulls prebuilt images, it does not build from source.** GitHub Actions
 (`.github/workflows/publish.yml`) builds the `web` and `worker` images on every
@@ -20,20 +18,22 @@ with the `DOSSIER_TAG` environment variable (default `latest`).
 
 ---
 
-## Architecture (single NAS, one stack)
+## Architecture
 
 ```
-UGreen DSP 2800
-  ├── db          — PostgreSQL 18 + pgvector
-  ├── ollama      — qwen2.5:3b (rewrite, via DOSSIER_LLM_MODEL override) + bge-m3 (embeddings), CPU only
-  ├── ollama-init — one-shot model pull, runs once on first start
-  ├── db-init     — one-shot Alembic migration, runs once on first start
-  ├── web         — Flask app, port 5000
-  ├── worker      — APScheduler pipeline (fetch → enrich → embed → cluster → rewrite)
-  └── ops         — operator dashboard, port 5001
+UGreen DSP 2800                          Modal (GPU cloud, pay-per-second)
+  ├── db       — PostgreSQL 18+pgvector    ├── dossier-rewrite — Qwen2.5-32B-AWQ, L40S GPU
+  ├── db-init  — Alembic migrations        └── dossier-embed   — BGE-M3, L4 GPU
+  ├── web      — Flask app, port 5000
+  ├── worker   — APScheduler pipeline ──────────────────────────────────────────┐
+  └── ops      — operator dashboard, port 5001          (HTTPS + bearer auth)   │
+                                                                                 │
+       worker calls Modal endpoints for every embed + rewrite call ──────────────┘
 ```
 
-Everything runs on the NAS — no external services, no GPU, no second machine.
+The NAS runs the app stack; Modal runs LLM inference. Both scale to zero — Modal
+containers spin up on demand and shut down after idle, so you pay only for the
+seconds they're actually computing (roughly 10–20 minutes/day for the daily digest).
 
 ---
 
@@ -41,9 +41,10 @@ Everything runs on the NAS — no external services, no GPU, no second machine.
 
 - Portainer CE installed and reachable on the NAS (Container Manager → Portainer, or
   the UGOS Docker app)
-- The NAS has internet access to build the app image and pull `db`/`ollama` images
-- At least ~6 GB free RAM and ~10 GB free disk (Postgres data + Ollama models +
-  article cache grow over time)
+- The NAS has internet access to pull `db` images and to reach Modal endpoints at runtime
+- At least ~4 GB free RAM and ~5 GB free disk (Postgres data + article cache grow over time)
+- **Modal apps deployed** — complete `docs/MODAL_GPU_BACKEND.md` before this step. You
+  will need the two `https://*.modal.run/v1` endpoint URLs and the two API keys.
 
 ---
 
@@ -75,17 +76,21 @@ are needed. If you later make the packages private, add a registry under
 In the stack's **Environment variables** section, add:
 
 ```bash
-# Required
+# Required — app secrets
 POSTGRES_PASSWORD=<choose-a-strong-password>
 SECRET_KEY=<generate-with: python3 -c "import secrets; print(secrets.token_hex(32))">
 
-# Starts Ollama in this stack (profile local-llm)
-COMPOSE_PROFILES=local-llm
-OLLAMA_HOST=http://ollama:11434
+# Required — Modal LLM inference (rewriting)
+# Get these from `modal deploy modal/rewrite_server.py` and the Modal dashboard
+LLM_PROVIDER=vllm
+LLM_API_BASE=https://<your-workspace>--dossier-rewrite-serve.modal.run/v1
+OPENAI_API_KEY=<rewrite-bearer-token-from-modal-secret>
 
-# NAS model override — the default config targets a GPU machine (qwen2.5:14b).
-# This tells ollama-init to pull qwen2.5:3b instead, and tells the worker to use it.
-DOSSIER_LLM_MODEL=qwen2.5:3b
+# Required — Modal LLM inference (embeddings)
+# Get these from `modal deploy modal/embed_server.py`
+EMBED_PROVIDER=vllm
+EMBED_API_BASE=https://<your-workspace>--dossier-embed-serve.modal.run/v1
+EMBED_API_KEY=<embed-bearer-token-from-modal-secret>
 
 # Optional: which published image tag to run. Default is `latest` (newest default-branch
 # build). Pin a release for reproducible deploys / rollback, e.g. DOSSIER_TAG=v1.2.0
@@ -104,16 +109,10 @@ slowest app step; subsequent redeploys only pull changed layers). On first start
 
 1. `db` comes up and passes its healthcheck
 2. `db-init` runs Alembic migrations once, then exits (`service_completed_successfully`)
-3. `ollama` starts in CPU mode (`OLLAMA_NUM_PARALLEL=2`, `OLLAMA_MAX_LOADED_MODELS=1`
-   — one model resident at a time, since the daily job never runs rewrite and
-   embedding concurrently)
-4. `ollama-init` pulls `qwen2.5:3b` (via `DOSSIER_LLM_MODEL`) and `bge-m3` (~2.5 GB total)
-   — the slowest step on first run; expect 10–30 min depending on NAS bandwidth — then exits
-5. `web`, `worker`, and `ops` start once their dependencies are healthy/complete
+3. `web`, `worker`, and `ops` start once their dependencies are healthy/complete
 
-Watch progress in Portainer: **Stacks → dossier → Containers**, check logs on
-`ollama-init` for pull progress, and on `worker` for `"waiting for ollama-init"` →
-`"Scheduler started"`.
+Watch progress in Portainer: **Stacks → dossier → Containers**, check `worker` logs for
+`"Scheduler started"`. There is no Ollama pull step — inference runs on Modal.
 
 ---
 
@@ -141,25 +140,20 @@ Catalan, ready to read when you open the app.
 
 ## Performance tuning for the DSP 2800
 
-`docker-compose.yml` already applies the safe defaults below. Adjust only if you
-observe resource pressure (Portainer → container stats, or the NAS's own resource monitor):
+LLM inference now runs on Modal — the NAS no longer does any model compute during the
+06:00 rewrite burst. RAM and CPU pressure from that job are gone. The remaining tuning
+knobs:
 
 | Setting | Default | When to change |
 |---|---|---|
-| `DOSSIER_LLM_MODEL` | `qwen2.5:3b` (set in Portainer env) | Leave at `qwen2.5:3b` for the NAS — do not pull `qwen2.5:14b` on CPU |
-| `OLLAMA_NUM_PARALLEL` | `2` | Lower to `1` if RAM is tight and rewrites contend |
-| `OLLAMA_MAX_LOADED_MODELS` | `1` | Keep at `1` — embedding and rewriting never run concurrently in the daily job |
-| gunicorn workers (`web`, `ops`) | default (compose doesn't pin `-w`) | If RAM is tight, edit the service `command` to add `-w 1` |
+| gunicorn workers (`web`, `ops`) | default (compose doesn't pin `-w`) | If RAM is tight, add `-w 1` to the service `command` |
+| `schedule.rewrite_parallel_workers` (app.yaml) | `1` | Raise to 2–4 once Modal is confirmed working — each worker call is a separate HTTPS request and Modal handles the parallelism |
 
 General guidance:
-- `qwen2.5:3b` (via `DOSSIER_LLM_MODEL` override) is the right model for 10 stories/day on CPU
-- `bge-m3` works fine on CPU at ~30s/article — only ~10–20 articles need embedding per day at steady state
-- Postgres, Ollama, and the article/job-run data all persist in named volumes/bind
-  mounts — back up `pgdata`, `ollama_data`, and `./data/job_runs` before any major
-  Portainer stack recreation
-- If the NAS also runs other containers (Plex, etc.), consider setting per-service
-  memory limits in the compose (`mem_limit:`) so Dossier can't starve them during the
-  06:00 rewrite burst
+- Postgres data and job-run logs persist in named volumes/bind mounts — back up
+  `pgdata` and `./data/job_runs` before any major Portainer stack recreation
+- If the NAS also runs other containers (Plex, etc.), consider `mem_limit:` on db/web
+  to cap their RAM; without an Ollama container, peak RAM is much lower than before
 
 ---
 
@@ -210,12 +204,13 @@ runs via `DOSSIER_TAG`:
 - **Stack not updating after a push**: confirm **Automatic updates → Polling** is on
   with **"Re-pull image"** enabled, and that `publish.yml` succeeded for that commit
   (repo → **Actions**). Polling only redeploys once the new image is actually in GHCR.
-- **`ollama-init` stuck / failing to pull**: check NAS internet connectivity and disk
-  space (`docker system df`); model pulls need ~5 GB free during download+extraction
-- **`worker` logs `waiting for ollama-init`**: normal on first start — wait for the
-  pull to finish; subsequent restarts skip this since models persist in `ollama_data`
+- **Worker logs LLM errors / rewrites failing**: check that `LLM_PROVIDER`, `LLM_API_BASE`,
+  and `OPENAI_API_KEY` are set correctly in Portainer's environment. Verify Modal apps are
+  deployed and running: `modal app list` (see `docs/MODAL_GPU_BACKEND.md`).
+- **Embeddings failing / clustering job errors**: check `EMBED_PROVIDER`, `EMBED_API_BASE`,
+  and `EMBED_API_KEY`. Modal embed app cold-start can take 30–60 s on first call after
+  idle — a timeout here is usually a transient retry-able error.
 - **Web UI slow on first open**: the worker hasn't completed its first pipeline pass
   yet — run `./scripts/fetch-news.sh` manually (Step 4) to seed content immediately
-- **Out of memory**: `OLLAMA_NUM_PARALLEL`/`OLLAMA_MAX_LOADED_MODELS` are already at
-  the minimum (`1`); add `-w 1` to gunicorn commands, or check for other containers
-  competing for RAM during the 06:00 rewrite window
+- **Out of memory**: add `-w 1` to gunicorn commands in the service `command`; without
+  Ollama running on the NAS, peak RAM is much lower than before so this should be rare

@@ -27,7 +27,11 @@ At 06:00 the pipeline scores all clustered stories, picks the top 10 by relevanc
 
 ## Deployment Model
 
-The project is open source (AGPL). The **only** deployment target: **NAS UGreen DSP 2800** running Docker via `docker-compose.yml` (CPU-only, no GPU). Ollama runs on the same machine with `qwen2.5:3b` — CPU inference, adequate for 10 stories/day. See `docs/DEPLOYMENT_PORTAINER.md`. There is no Pi/GPU/hybrid/Oracle/VPS path — keep the codebase scoped to this single target.
+The project is open source (AGPL). The **only** deployment target for the app stack (db, web, worker, ops) is a **NAS UGreen DSP 2800** running Docker via `docker-compose.yml`. LLM inference (rewrite + embeddings) is offloaded to **Modal GPU functions** reached over HTTPS via the provider abstraction — the NAS has no GPU and no Docker GPU device reservations. See `docs/DEPLOYMENT_PORTAINER.md` and `docs/MODAL_GPU_BACKEND.md`.
+
+There is no Pi/Oracle/VPS/second-machine app deployment path. Don't reintroduce GPU device reservations in compose. The Modal inference dependency is the deliberate exception — it is a managed remote API, not a second app host.
+
+Local dev: `COMPOSE_PROFILES=local-llm` starts Ollama (no Modal needed). Provider switching: `LLM_PROVIDER` / `EMBED_PROVIDER` env vars (`ollama` default, `vllm` for prod).
 
 The NAS's internal 06:00 rewrite schedule is a fallback, not the only way to run that job — it can also be run on demand from a local machine or an ad-hoc/VPS box, against the NAS's production database, over a Cloudflare Tunnel using a scoped `dossier_pipeline` Postgres role. This is an ops/CLI capability (`app/worker_cli.py rewrite-articles`, already existing), not a new scheduler mode. See `docs/REMOTE_REWRITE.md`.
 
@@ -76,11 +80,11 @@ See `docs/TECH_STACK.md` for full details, project structure, dependencies, Dock
 
 - **Backend:** Python 3.12+ with Flask
 - **Database:** PostgreSQL 18
-- **LLM:** Ollama (local, no API key) via provider interface — `qwen2.5:3b` for rewriting, `paraphrase-multilingual` for embeddings
-- **Embeddings:** Ollama (paraphrase-multilingual) for article clustering
+- **LLM:** Provider abstraction (`app/llm/provider.py`) — **prod:** `Qwen/Qwen2.5-32B-Instruct-AWQ` on Modal (L40S GPU) via `VllmOpenAIProvider`; **local dev:** Ollama via `OllamaProvider`. Selected by `LLM_PROVIDER` env var.
+- **Embeddings:** Provider abstraction (`app/llm/embeddings.py`) — **prod:** `BAAI/bge-m3` on Modal (L4 GPU) via `VllmOpenAIEmbeddingProvider`; **local dev:** Ollama `paraphrase-multilingual`. Selected by `EMBED_PROVIDER` env var.
 - **Frontend:** Plain HTML + CSS + HTMX
 - **Scheduling:** APScheduler runs the pipeline in the worker: fetch → enrich → embed → cluster (continuous) + daily rewrite at 06:00 (top-10 stories, Catalan only, no cascade). Content is ready when the user opens the app.
-- **Packaging:** Docker + docker-compose (db, web, worker, ollama, ops). Web uses slim image; worker uses ollama client; ollama runs models in dedicated container; ops dashboard on port 5001.
+- **Packaging:** Docker + docker-compose (db, web, worker, ops). Worker calls Modal over HTTPS for inference. `COMPOSE_PROFILES=local-llm` adds Ollama for local dev only — not used on the NAS. Modal apps deployed separately via `modal deploy` (see `modal/`).
 
 ---
 
@@ -90,8 +94,8 @@ These are hard rules, not preferences:
 
 - **Flask routes return HTML only.** Never return JSON to the frontend. Every endpoint renders and returns a Jinja2 template partial. This is HATEOAS — the server owns all state and rendering.
 - **HTMX is the only frontend dependency.** No JavaScript frameworks. No build step. No npm. HTMX is loaded via a single CDN script tag.
-- **LLM calls are always abstracted.** Never call Ollama directly from a route. Always go through the provider interface in `app/llm/provider.py`.
-- **The pipeline runs on a schedule.** APScheduler in the worker runs: fetch feeds → enrich (Trafilatura extraction) → embed (Ollama) → cluster (cosine similarity) continuously, then a daily rewrite at 06:00 (top-10 stories, Catalan only — no cascade, no translation). The web container has zero ML/LLM imports. On-demand rewrites (setup/settings) are queued in `rewrite_requests`; the worker polls and processes them. When a user opens the app, content is already ready.
+- **LLM calls are always abstracted.** Never call any LLM SDK directly from a route. Always go through the provider interface in `app/llm/provider.py`. The concrete backend (Ollama locally, vLLM on Modal in prod) is wired by config — routes and services never know which is active.
+- **The pipeline runs on a schedule.** APScheduler in the worker runs: fetch feeds → enrich (Trafilatura extraction) → embed (embedding provider) → cluster (cosine similarity) continuously, then a daily rewrite at 06:00 (top-10 stories, Catalan only — no cascade, no translation). The web container has zero ML/LLM imports. On-demand rewrites (setup/settings) are queued in `rewrite_requests`; the worker polls and processes them. When a user opens the app, content is already ready.
 - **Config is never hardcoded.** YAML files define the catalog of available sources/topics and app-level settings. User preferences (location, selected sources, selected topics, filter toggle, rewrite tone, language) live in PostgreSQL, set via the web UI.
 - **Multi-user from the start.** The schema, auth, and caching all support multiple independent user accounts.
 
@@ -115,7 +119,7 @@ These are hard rules, not preferences:
 - **Hardcoding user-facing strings.** Every UI string must be wrapped in `_()` or `ngettext()` (templates) or `gettext()` (Python). Run the i18n extraction/update/compile workflow after changes.
 - **Returning JSON from Flask routes.** Every route must return `render_template(...)` or `render_template_string(...)`. If you find yourself writing `jsonify`, stop.
 - **Adding JavaScript.** HTMX attributes on HTML elements handle all interactivity. There is no `static/js/` directory.
-- **Calling Ollama directly.** Always use `from app.llm.provider import get_provider` and call through the interface.
+- **Calling any LLM SDK directly.** Always use `from app.llm.provider import get_provider` and call through the interface. The backend is Ollama locally or Modal vLLM in prod — the abstraction makes this transparent.
 - **Hardcoding source URLs or prompts.** These live in config files.
 - **Putting user preferences in YAML files.** User profile settings live in PostgreSQL, set through the setup wizard. Only the source catalog and app-level config belong in YAML.
 - **Using SQLite.** This project uses PostgreSQL. Always use `psycopg2` or the db layer, never `sqlite3`.
