@@ -60,7 +60,7 @@ Refer to `docs/MVP_PLAN.md` for the phased plan.
 
 - Profile configuration (topics, rewrite tone)
 - Account management: set up once, left alone
-- **Future:** reading streak / gamification (planned, not yet implemented)
+- **Daily reading session (gamified):** `/` guides through today's digest one article at a time → completion screen; the reading streak (🔥) advances on **full-digest completion** (not per-article). Review view (`/review`) revisits stories; Stats view (`/stats`) shows current + longest streak. Backed by `user_read_stories` via `app/db/reading.py` + `app/services/reading_service.py`. Backlog (badge milestones, timezone) in MVP_PLAN.md / TODOS.md.
 
 ### Operator-facing
 
