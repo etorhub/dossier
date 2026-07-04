@@ -49,7 +49,7 @@ def get_read_story_ids(user_id: int, story_ids: list[str]) -> set[str]:
             cur.execute(
                 """
                 SELECT story_id FROM user_read_stories
-                WHERE user_id = %s AND story_id = ANY(%s)
+                WHERE user_id = %s AND story_id = ANY(%s::uuid[])
                 """,
                 (user_id, story_ids),
             )

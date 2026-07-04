@@ -1,6 +1,6 @@
 <span id="streak-counter" hx-swap-oob="true" class="streak-counter" aria-live="polite" hidden></span>
 {% if error %}
-<p style="color: var(--accent); font-family: var(--font-ui); font-size: 0.875rem;">{{ error }}</p>
+<p class="flash-error">{{ error }}</p>
 {% elif article %}
 <article class="article-card article-card--expanded">
   {% if article.image_url %}
@@ -52,7 +52,7 @@
     <div class="article-actions">
       {% if article.source_urls %}
       <a href="{{ article.source_urls[0] }}" target="_blank" rel="noopener noreferrer"
-         class="btn btn-ghost" style="font-size:0.875rem;"
+         class="btn btn-ghost btn-sm"
          aria-label="{{ _('View original article, opens in new tab') }}">{{ _('View original') }} <span aria-hidden="true">↗</span></a>
       {% endif %}
       <button type="button"

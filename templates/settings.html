@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% from 'macros/ui.html' import alert_box, form_submit %}
 {% block title %}{{ _('Settings') }} — {{ _('Dossier') }}{% endblock %}
 {% block content %}
 <h1>{{ _('Settings') }}</h1>
@@ -6,14 +7,13 @@
 <p class="flash-success">{{ _('Settings saved.') }}</p>
 {% endif %}
 {% if needs_regeneration_confirmation %}
-<section role="alert" aria-live="polite" style="margin-bottom: 1.5rem; padding: 1rem; border: 2px solid var(--accent); background: var(--bg); border-radius: var(--radius);">
-  <h2 style="margin-top: 0;">{{ _('Feed regeneration') }}</h2>
+{% call alert_box(_('Feed regeneration')) %}
   <p>{{ _('Changing these settings will regenerate your feed. This may take a few minutes. Your new articles will appear once ready.') }}</p>
-  <p>
-    <button type="submit" form="settings-form" class="btn btn-primary" style="min-height: var(--touch-min);">{{ _('Confirm and save') }}</button>
-    <a href="{{ url_for('settings.settings_page') }}" class="btn" style="margin-left: 0.5rem;">{{ _('Cancel') }}</a>
+  <p class="btn-row">
+    <button type="submit" form="settings-form" class="btn btn-primary">{{ _('Confirm and save') }}</button>
+    <a href="{{ url_for('settings.settings_page') }}" class="btn">{{ _('Cancel') }}</a>
   </p>
-</section>
+{% endcall %}
 {% endif %}
 <form id="settings-form" method="post" action="{{ url_for('settings.settings_page') }}">
   {% if needs_regeneration_confirmation %}
@@ -65,8 +65,6 @@
     <p>{{ _("Select the topics you're interested in.") }}</p>
     {% include "partials/setup_topics.html" %}
   </section>
-  <div class="form-group" style="margin-top: 1.5rem;">
-    <button type="submit" class="btn btn-primary" style="min-height: var(--touch-min);">{% if needs_regeneration_confirmation %}{{ _('Confirm and save') }}{% else %}{{ _('Save') }}{% endif %}</button>
-  </div>
+  {{ form_submit(_('Confirm and save') if needs_regeneration_confirmation else _('Save')) }}
 </form>
 {% endblock %}

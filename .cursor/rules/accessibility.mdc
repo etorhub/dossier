@@ -27,10 +27,12 @@ Every interactive element — buttons, links, toggles — must have a minimum ta
 .article-link {
   display: inline-block;
   padding: 12px 16px;
-  min-height: 48px;
-  min-width: 48px;
+  min-height: var(--touch-min);
+  min-width: var(--touch-min);
 }
 ```
+
+(`--touch-min` is `48px` in [`app/static/dossier.css`](app/static/dossier.css).)
 
 ## Typography
 

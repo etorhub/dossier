@@ -17,14 +17,14 @@
     aria-live="polite"
     role="status"
     aria-label="{{ _('Articles being prepared') }}">
-    <div style="padding: 3rem 0; text-align: center; color: var(--fg-faint); font-family: var(--font-ui);">
+    <div class="session-message">
       <p>{{ _('Preparing your articles') }}<span class="feed-loading-dots" aria-hidden="true"></span></p>
-      <p style="font-size: 0.8rem; margin-top: 0.5rem;">{{ _('This may take a minute on first run.') }}</p>
+      <p class="session-message-sub">{{ _('This may take a minute on first run.') }}</p>
     </div>
   </div>
 {% else %}
   <div id="feed-empty" aria-live="polite">
-    <div style="padding: 3rem 0; text-align: center; color: var(--fg-faint); font-family: var(--font-ui);">
+    <div class="session-message">
       <p>{{ _('No articles yet.') }} <a href="{{ url_for('settings.settings_page') }}">{{ _('Check your settings') }}</a></p>
     </div>
   </div>
