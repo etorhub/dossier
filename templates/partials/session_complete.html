@@ -1,0 +1,19 @@
+<div class="completion">
+  <span class="completion-emoji" aria-hidden="true">🎉</span>
+  <h1>{{ _('All caught up!') }}</h1>
+  <p>{{ ngettext("You've read all %(num)d story today.", "You've read all %(num)d stories today.", total)|format(num=total) }}</p>
+  {% if profile and profile.reading_streak %}
+  <div class="completion-streak"
+       aria-label="{{ ngettext('%(num)d day streak', '%(num)d day streak', profile.reading_streak)|format(num=profile.reading_streak) }}">
+    <span aria-hidden="true">🔥</span> {{ profile.reading_streak }}
+    {% if streak_incremented %}<span class="completion-streak-plus" aria-hidden="true">+1</span>{% endif %}
+  </div>
+  {% if streak_incremented and profile.longest_streak and profile.reading_streak == profile.longest_streak and profile.longest_streak > 1 %}
+  <p>{{ _('New personal best!') }}</p>
+  {% endif %}
+  {% endif %}
+  <div class="completion-actions">
+    <a href="{{ url_for('reader.review') }}" class="btn">{{ _('Review articles') }}</a>
+    <a href="{{ url_for('reader.stats') }}" class="btn">{{ _('View stats') }}</a>
+  </div>
+</div>

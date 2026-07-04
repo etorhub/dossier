@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PROJECT VERSION\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2026-07-02 01:23+0200\n"
+"POT-Creation-Date: 2026-07-03 17:16+0000\n"
 "PO-Revision-Date: 2026-03-17 12:11+0100\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language: ca\n"
@@ -16,7 +16,7 @@ msgstr ""
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=utf-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"Generated-By: Babel 2.10.3\n"
+"Generated-By: Babel 2.18.0\n"
 
 #: app/i18n_strings.py:13
 msgid "Catalan"
@@ -90,7 +90,7 @@ msgstr "La contrasenya ha de tenir almenys 8 caràcters."
 msgid "Email already registered."
 msgstr "Aquesta adreça de correu ja està registrada."
 
-#: app/routes/reader.py:91 app/routes/reader.py:121 app/routes/reader.py:146
+#: app/routes/reader.py:155 app/routes/reader.py:186 app/routes/reader.py:211
 msgid "Article not found."
 msgstr "Article no trobat."
 
@@ -99,8 +99,9 @@ msgid "Something went wrong"
 msgstr "Alguna cosa ha anat malament"
 
 #: templates/500.html:3 templates/article.html:3 templates/base.html:6
-#: templates/index.html:2 templates/login.html:2 templates/register.html:2
-#: templates/settings.html:2 templates/setup.html:2
+#: templates/login.html:2 templates/register.html:2 templates/review.html:2
+#: templates/session.html:2 templates/settings.html:2 templates/setup.html:2
+#: templates/stats.html:2
 msgid "Dossier"
 msgstr "Dossier"
 
@@ -128,88 +129,83 @@ msgstr "Enrere"
 
 #: templates/article.html:16 templates/partials/article_card.html:14
 #: templates/partials/article_expanded.html:14
+#: templates/partials/session_step.html:24
 msgid "Image source:"
 msgstr "Font de la imatge:"
 
 #: templates/article.html:25
-#, python-format
 msgid "%(num)d source aggregated"
 msgid_plural "%(num)d sources aggregated"
 msgstr[0] "%(num)d font agregada"
 msgstr[1] "%(num)d fonts agregades"
 
-#: templates/article.html:26 templates/partials/article_card.html:22
+#: templates/article.html:26 templates/partials/article_card.html:23
 #: templates/partials/article_expanded.html:22
-#, python-format
+#: templates/partials/session_step.html:31
 msgid "%(num)d source"
 msgid_plural "%(num)d sources"
 msgstr[0] "%(num)d font"
 msgstr[1] "%(num)d fonts"
 
-#: templates/article.html:34 templates/base.html:774
+#: templates/article.html:34 templates/base.html:858
 #: templates/partials/article_expanded.html:30
+#: templates/partials/session_step.html:39
 msgid "Read article aloud"
 msgstr "Llegir l'article en veu alta"
 
-#: templates/article.html:36 templates/base.html:771
+#: templates/article.html:36 templates/base.html:855
 #: templates/partials/article_expanded.html:31
+#: templates/partials/session_step.html:40
 msgid "Listen"
 msgstr "Escoltar"
 
-#: templates/article.html:41 templates/article.html:44 templates/base.html:773
+#: templates/article.html:41 templates/article.html:44 templates/base.html:857
 #: templates/partials/article_expanded.html:36
 #: templates/partials/article_expanded.html:40
+#: templates/partials/session_step.html:45
+#: templates/partials/session_step.html:49
 msgid "Volume"
 msgstr "Volum"
 
-#: templates/base.html:772
+#: templates/base.html:856
 msgid "Stop"
 msgstr "Aturar"
 
-#: templates/base.html:779 templates/base.html:808
-msgid "Feed"
-msgstr "Dossier"
+#: templates/base.html:863 templates/base.html:893 templates/stats.html:19
+msgid "Today"
+msgstr "Avui"
 
-#: templates/base.html:780 templates/base.html:816 templates/settings.html:2
+#: templates/base.html:864 templates/base.html:902 templates/review.html:2
+#: templates/review.html:7
+msgid "Review"
+msgstr "Repàs"
+
+#: templates/base.html:865 templates/base.html:910
+msgid "Stats"
+msgstr "Estadístiques"
+
+#: templates/base.html:866 templates/base.html:918 templates/settings.html:2
 #: templates/settings.html:4
 msgid "Settings"
 msgstr "Configuració"
 
-#: templates/base.html:786
+#: templates/base.html:872
 msgid "Log out"
 msgstr "Tancar sessió"
 
-#: templates/base.html:791 templates/login.html:2 templates/login.html:5
+#: templates/base.html:877 templates/login.html:2 templates/login.html:5
 #: templates/login.html:20 templates/register.html:23
 msgid "Log in"
 msgstr "Iniciar sessió"
 
-#: templates/base.html:792 templates/login.html:23 templates/register.html:2
+#: templates/base.html:878 templates/login.html:23 templates/register.html:2
 #: templates/register.html:5 templates/register.html:20
 msgid "Register"
 msgstr "Registrar-se"
 
-#: templates/base.html:800
+#: templates/base.html:886
 msgid "Main navigation"
 msgstr "Navegació principal"
-
-#: templates/index.html:2 templates/index.html:7
-msgid "Today's feed"
-msgstr "El dossier d'avui"
-
-#: templates/index.html:7
-#, python-format
-msgid "%(num)d article"
-msgid_plural "%(num)d articles"
-msgstr[0] "%(num)d article"
-msgstr[1] "%(num)d articles"
-
-#: templates/index.html:7
-#, python-format
-msgid "%(num)d day streak"
-msgid_plural "%(num)d day streak"
-msgstr[0] "%(num)d dia de ratxa"
-msgstr[1] "%(num)d dies de ratxa"
 
 #: templates/login.html:12 templates/register.html:12
 msgid "Email"
@@ -230,6 +226,36 @@ msgstr "Contrasenya (almenys 8 caràcters)"
 #: templates/register.html:23
 msgid "Already have an account?"
 msgstr "Ja tens compte?"
+
+#: templates/review.html:7
+msgid "%(num)d article"
+msgid_plural "%(num)d articles"
+msgstr[0] "%(num)d article"
+msgstr[1] "%(num)d articles"
+
+#: templates/session.html:2
+msgid "Today's reading"
+msgstr "Lectura d'avui"
+
+#: templates/partials/feed_content.html:19 templates/session.html:20
+msgid "Articles being prepared"
+msgstr "S'estan preparant els articles"
+
+#: templates/partials/feed_content.html:21 templates/session.html:22
+msgid "Preparing your articles"
+msgstr "Preparant els teus articles"
+
+#: templates/partials/feed_content.html:22 templates/session.html:23
+msgid "This may take a minute on first run."
+msgstr "Pot trigar un minut en la primera execució."
+
+#: templates/partials/feed_content.html:28 templates/session.html:28
+msgid "No articles yet."
+msgstr "Encara no hi ha articles."
+
+#: templates/partials/feed_content.html:28 templates/session.html:28
+msgid "Check your settings"
+msgstr "Comprova la configuració"
 
 #: templates/settings.html:6
 msgid "Settings saved."
@@ -325,11 +351,49 @@ msgstr "Selecciona els temes que t'interessen (tots seleccionats per defecte)."
 msgid "Save and continue"
 msgstr "Desar i continuar"
 
-#: templates/partials/article_card.html:35
+#: templates/stats.html:2 templates/stats.html:4
+msgid "Your reading stats"
+msgstr "Les teves estadístiques de lectura"
+
+#: templates/stats.html:9
+msgid "Current streak"
+msgstr "Ratxa actual"
+
+#: templates/stats.html:13
+msgid "Longest streak"
+msgstr "Millor ratxa"
+
+#: templates/partials/session_step.html:4 templates/stats.html:19
+msgid "%(done)d of %(total)d read"
+msgid_plural "%(done)d of %(total)d read"
+msgstr[0] "%(done)d de %(total)d llegits"
+msgstr[1] "%(done)d de %(total)d llegits"
+
+#: templates/partials/session_step.html:10 templates/stats.html:25
+msgid "Reading progress"
+msgstr "Progrés de lectura"
+
+#: templates/stats.html:30
+msgid "You're all caught up for today."
+msgstr "Ja estàs al dia per avui."
+
+#: templates/stats.html:32
+msgid "Continue reading"
+msgstr "Continua llegint"
+
+#: templates/stats.html:37
+msgid "Last read:"
+msgstr "Última lectura:"
+
+#: templates/partials/article_card.html:20
+msgid "Read"
+msgstr "Llegit"
+
+#: templates/partials/article_card.html:36
 msgid "Read full story:"
 msgstr "Llegeix l'article complet:"
 
-#: templates/partials/article_card.html:35
+#: templates/partials/article_card.html:36
 msgid "Read full story"
 msgstr "Llegeix l'article complet"
 
@@ -349,25 +413,41 @@ msgstr "Veure menys:"
 msgid "Show less"
 msgstr "Mostrar menys"
 
-#: templates/partials/feed_content.html:19
-msgid "Articles being prepared"
-msgstr "S'estan preparant els articles"
+#: templates/partials/session_complete.html:3
+msgid "All caught up!"
+msgstr "Ja estàs al dia!"
 
-#: templates/partials/feed_content.html:21
-msgid "Preparing your articles"
-msgstr "Preparant els teus articles"
+#: templates/partials/session_complete.html:4
+msgid "You've read all %(num)d story today."
+msgid_plural "You've read all %(num)d stories today."
+msgstr[0] "Has llegit %(num)d història d'avui."
+msgstr[1] "Has llegit les %(num)d històries d'avui."
 
-#: templates/partials/feed_content.html:22
-msgid "This may take a minute on first run."
-msgstr "Pot trigar un minut en la primera execució."
+#: templates/partials/session_complete.html:7
+msgid "%(num)d day streak"
+msgid_plural "%(num)d day streak"
+msgstr[0] "%(num)d dia de ratxa"
+msgstr[1] "%(num)d dies de ratxa"
 
-#: templates/partials/feed_content.html:28
-msgid "No articles yet."
-msgstr "Encara no hi ha articles."
+#: templates/partials/session_complete.html:12
+msgid "New personal best!"
+msgstr "Nou rècord personal!"
 
-#: templates/partials/feed_content.html:28
-msgid "Check your settings"
-msgstr "Comprova la configuració"
+#: templates/partials/session_complete.html:16
+msgid "Review articles"
+msgstr "Repassa els articles"
+
+#: templates/partials/session_complete.html:17
+msgid "View stats"
+msgstr "Mostra les estadístiques"
+
+#: templates/partials/session_step.html:73
+msgid "Finish"
+msgstr "Acaba"
+
+#: templates/partials/session_step.html:73
+msgid "Next"
+msgstr "Següent"
 
 #~ msgid "Read articles"
 #~ msgstr "Articles llegits"
@@ -437,4 +517,6 @@ msgstr "Comprova la configuració"
 #~ msgid "Language"
 #~ msgstr "Idioma"
 
+#~ msgid "Feed"
+#~ msgstr "Dossier"
 

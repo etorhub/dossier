@@ -17,6 +17,7 @@
   {% endif %}
   <div class="article-card-body">
     <div class="card-category">
+      {% if read_ids is defined and read_ids and article.id in read_ids %}<span class="read-badge">✓ {{ _('Read') }}</span> · {% endif %}
       {% if article.categories %}{{ _(article.categories[0])|capitalize }}{% endif %}
       {% if article.published_at %}<time datetime="{{ article.published_at.isoformat() }}"> · {{ article.published_at|naturaltime }}</time>{% endif %}
       {% if article.sources_count %} · {{ ngettext('%(num)d source', '%(num)d sources', article.sources_count)|format(num=article.sources_count) }}{% endif %}
