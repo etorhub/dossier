@@ -124,6 +124,7 @@ These are hard rules, not preferences:
 - **Putting user preferences in YAML files.** User profile settings live in PostgreSQL, set through the setup wizard. Only the source catalog and app-level config belong in YAML.
 - **Using SQLite.** This project uses PostgreSQL. Always use `psycopg2` or the db layer, never `sqlite3`.
 - **Making LLM calls during request handling.** The web container never imports or runs LLM/ML code. On-demand rewrites (after setup/settings save) are queued in `rewrite_requests` and processed by the worker. Routes serve pre-cached content from the database.
+- **Widening Postgres's port exposure.** `db` publishes on `127.0.0.1:5432` deliberately loopback-only, reached externally only via the Cloudflare Tunnel + `dossier_pipeline` role (see `docs/REMOTE_REWRITE.md`). Don't bind it to `0.0.0.0` or reuse the main `dossier` role for remote access.
 
 ---
 

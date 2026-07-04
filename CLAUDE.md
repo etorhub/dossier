@@ -126,6 +126,7 @@ These are hard rules, not preferences:
 - **Using SQLite.** This project uses PostgreSQL. Always use `psycopg2` or the db layer, never `sqlite3`.
 - **Making LLM calls during request handling.** The web container never imports or runs LLM/ML code. On-demand rewrites (after setup/settings save) are queued in `rewrite_requests` and processed by the worker. Routes serve pre-cached content from the database.
 - **Bypassing the content classifier.** All articles inserted via `insert_article()` must have their `article_type` set by `classify_article()` in `orchestrator.py`. Never skip classification or hardcode `article_type = 'news'` unconditionally. The classifier is in `app/feed/classifier.py`.
+- **Widening Postgres's port exposure or reusing the `dossier` role for remote access.** `db` publishes on `127.0.0.1:5432` deliberately loopback-only; external reachability goes only through the Cloudflare Tunnel + Access-gated `dossier_pipeline` role (migration `037`), never the app's main `dossier` role. Don't bind the port to `0.0.0.0`, and don't put the pipeline role's password in a migration or commit — see `docs/REMOTE_REWRITE.md`.
 
 ---
 
@@ -183,6 +184,7 @@ For automated news source discovery (finding feeds by location, validation, qual
 - **Default branch is `main`, not `master`**: the repo's default/active branch is `main` (PRs merge there), even though older docs say `master`. **Any workflow with a branch trigger must list both** (`branches: [main, master]`, mirroring `pr-ci.yml`) and use `{{is_default_branch}}` for the `:latest` tag — never hardcode `github.ref == 'refs/heads/master'`. A `master`-only trigger silently does nothing on a `main` merge (this is exactly how `publish.yml` first shipped broken). When wiring deploys (Portainer ref, etc.), point them at `main`.
 - **New GHCR packages are private by default**: the first `publish.yml` run creates `dossier-web`/`dossier-worker` as private. Portainer can't pull them until they're made public (repo → Packages → visibility) or a `read:packages` PAT is added as a Portainer registry. Expect `manifest unknown`/`pull access denied` until both the first publish has run *and* visibility is sorted.
 - **Workflow trigger changes take effect from the commit that lands them**: for `push` events GitHub reads the workflow file from the pushed commit, so merging a trigger fix into `main` both fixes future runs and triggers that very run. A `vX.Y.Z` tag push triggers `publish.yml` regardless of branch — handy to seed images before a trigger fix is merged (but the pre-fix version won't push `:latest`).
+- **`dossier_pipeline` role starts with no password**: migration `037` creates the role deliberately without one (so no secret lands in git). It must be set once via `ALTER ROLE dossier_pipeline WITH PASSWORD '...'` run manually against the NAS after deploying, or the remote-rewrite path (`docs/REMOTE_REWRITE.md`) stays unusable. Relatedly, `db` now publishes on `127.0.0.1:5432` — loopback-only, reachable only via a process on the NAS host itself (`cloudflared`) — don't widen that binding.
 
 ---
 
