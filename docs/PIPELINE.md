@@ -42,14 +42,12 @@ flowchart TD
 
     subgraph REWRITE["⑤ REWRITE  ·  daily 06:00"]
         R1["Merge source texts"]
-        R2["LLM: neutral rewrite → EN"]
+        R2["LLM: Catalan rewrite (neutral/ca)"]
         R3["LLM: proofread (optional)"]
-        R4["LLM: simplify (if style=simple)"]
-        R5["LLM: translate (if lang ≠ base)"]
-        R1 --> R2 --> R3 --> R4 --> R5
+        R1 --> R2 --> R3
     end
 
-    subgraph HIGHLIGHT["⑥ HIGHLIGHT  ·  daily 06:30"]
+    subgraph HIGHLIGHT["⑥ HIGHLIGHT  ·  :15 and :45 hourly"]
         H1["LLM: wrap key terms in **bold**"]
     end
 
@@ -248,28 +246,27 @@ Articles without embeddings (Ollama was unavailable when they were processed) ar
 **Trigger:** `CronTrigger('0 6 * * *')` — daily at 06:00
 **Entry point:** `app/services/rewrite_service.py::run_rewrite_batch()`
 
-### LLM cascade
+### Digest rewrite (current config)
 
-One story produces one rewrite variant per `(style, language)` combination configured in `app.yaml`. The cascade:
+With `rewriting.base_language: ca` and a single `ca` language entry, each selected story gets one `neutral/ca` rewrite (no simplify or translate steps). The job scores pending stories and applies `digest.top_n` (default 10) before calling the LLM.
 
 ```mermaid
 flowchart TD
-    SRC["Source articles\n(up to 30, ≤ 8000 chars each, ≤ 100 000 chars total)"]
-    R["① Rewrite\nqwen2.5:14b · T=0.2\nMerge sources → neutral journalistic text"]
-    P["② Proofread  (optional)\nqwen2.5:14b · T=0.1\nSpelling and grammar only"]
-    S{"style\n= simple?"}
-    SIM["③ Simplify\nqwen2.5:14b · T=0.2\nReduce reading level"]
-    TR{"lang ≠\nbase_lang?"}
-    TRL["④ Translate\nqwen2.5:14b · T=0.15\nTarget language with writing notes"]
-    OUT["story_rewrites row\n(story_id, style, language,\ntitle, summary, full_text)"]
+    SRC["Source articles
+(up to 30, ≤ 8000 chars each)"]
+    R["① Rewrite
+Catalan journalistic text"]
+    P["② Proofread  (optional)
+Spelling and grammar only"]
+    OUT["story_rewrites row
+(story_id, style=neutral, language=ca)"]
 
-    SRC --> R --> P --> S
-    S -->|"yes"| SIM --> TR
-    S -->|"no"| TR
-    TR -->|"yes"| TRL --> OUT
-    TR -->|"no"| OUT
+    SRC --> R --> P --> OUT
 ```
 
+Cascade machinery (simplify, translate) remains in code for multi-language configs but is inactive today.
+
+### Output contract
 ### Output contract
 
 Every LLM call in this stage must produce exactly three labelled sections (enforced via a prompt prefix injected at runtime):
@@ -284,7 +281,7 @@ The parser strips markdown bold, normalises localised header aliases (`TÍTULO:`
 
 ### Concurrency
 
-A thread pool processes stories in parallel (`rewrite_parallel_workers = 2` on GPU). A single `_OLLAMA_CHAT_LOCK` serialises the actual Ollama calls so two threads don't flood the same GPU context simultaneously. On CPU-only NAS, set `rewrite_parallel_workers = 1`.
+A thread pool processes stories in parallel (`rewrite_parallel_workers = 2`). With Ollama, a single `_OLLAMA_CHAT_LOCK` serialises chat calls per process. With Modal vLLM (NAS prod), concurrency is governed by the remote endpoint.
 
 ### Inputs → Outputs
 
@@ -298,7 +295,7 @@ A thread pool processes stories in parallel (`rewrite_parallel_workers = 2` on G
 
 | Key | Default | Effect |
 |---|---|---|
-| `llm.rewrite_model` | `qwen2.5:14b` | Override with `DOSSIER_LLM_MODEL=qwen2.5:3b` for NAS/CPU |
+| `llm.rewrite_model` | `qwen2.5:14b` (dev) | NAS prod uses Modal `Qwen2.5-32B-AWQ` via `LLM_PROVIDER=vllm` |
 | `llm.simplify_model` | `qwen2.5:14b` | Falls back to `rewrite_model`; not activated in the current Catalan-only config |
 | `llm.translate_model` | `qwen2.5:14b` | Falls back to `rewrite_model`; not activated (single-language digest) |
 | `processing.rewrite_proofread_enabled` | `true` | Toggle the proofread pass |
@@ -308,12 +305,12 @@ A thread pool processes stories in parallel (`rewrite_parallel_workers = 2` on G
 
 ## Stage 6 — HIGHLIGHT
 
-**Trigger:** `CronTrigger('30 6 * * *')` — daily at 06:30
+**Trigger:** `CronTrigger('15-59/30 * * * *')` — at :15 and :45 each hour
 **Entry point:** `app/services/highlight_service.py::run_highlight_batch()`
 
 A lightweight LLM pass over each `story_rewrites.full_text`. The model wraps significant terms and named entities in `**bold**`. The web UI renders these as visual emphasis without a separate search index or NER pipeline.
 
-Runs after REWRITE so it always operates on the final translated/simplified output.
+Runs on rewrites that lack `highlighted_full_text`; typically follows the morning rewrite batch but the cron is not tied to 06:00.
 
 ### Inputs → Outputs
 
@@ -350,7 +347,7 @@ The single deployment target is the NAS (`docker-compose.yml`, CPU-only Ollama).
 :05  ENRICH runs
 :15  EMBED + CLUSTER run (skipped if enrichment still pending)
 06:00  REWRITE runs (daily)
-06:30  HIGHLIGHT runs (daily)
+:15/:45  HIGHLIGHT runs (hourly)
 ```
 
 ### Manual CLI

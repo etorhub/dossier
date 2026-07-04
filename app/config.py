@@ -124,9 +124,10 @@ DEFAULTS: dict[str, Any] = {
 def load_config(config_path: str | Path | None = None) -> dict[str, Any]:
     """Load app config from YAML file, falling back to defaults if missing.
 
-    Two env vars allow per-deployment model overrides without touching app.yaml.
-    Useful for the NAS (CPU-only) which needs lighter models than the local GPU setup:
-      DOSSIER_LLM_MODEL       — overrides llm.model and all *_model task overrides
+    Env overrides (take precedence over config/app.yaml when set):
+      LLM_PROVIDER / LLM_API_BASE — rewrite provider (ollama local, vllm Modal prod)
+      EMBED_PROVIDER / EMBED_API_BASE / EMBED_API_KEY — embedding provider
+      DOSSIER_LLM_MODEL — overrides llm.model and all *_model task overrides
       DOSSIER_EMBEDDING_MODEL — overrides embeddings.model
     """
     if config_path is None:
@@ -138,6 +139,12 @@ def load_config(config_path: str | Path | None = None) -> dict[str, Any]:
         with path.open() as f:
             data = yaml.safe_load(f)
         config = _deep_merge(DEFAULTS.copy(), data) if isinstance(data, dict) else DEFAULTS.copy()
+
+    _apply_env_str(config, "llm", "provider", "LLM_PROVIDER")
+    _apply_env_str(config, "llm", "api_base", "LLM_API_BASE")
+    _apply_env_str(config, "embeddings", "provider", "EMBED_PROVIDER")
+    _apply_env_str(config, "embeddings", "api_base", "EMBED_API_BASE")
+    _apply_env_str(config, "embeddings", "api_key", "EMBED_API_KEY")
 
     llm_model = os.environ.get("DOSSIER_LLM_MODEL")
     if llm_model:
@@ -151,6 +158,13 @@ def load_config(config_path: str | Path | None = None) -> dict[str, Any]:
         config["embeddings"]["model"] = embedding_model
 
     return config
+
+
+def _apply_env_str(config: dict[str, Any], section: str, key: str, env_name: str) -> None:
+    """Set config[section][key] from env when the variable is non-empty."""
+    value = os.environ.get(env_name)
+    if value is not None and value.strip():
+        config.setdefault(section, {})[key] = value.strip()
 
 
 def get_topic_info(topic_id: str, config: dict[str, Any] | None = None) -> dict[str, str]:

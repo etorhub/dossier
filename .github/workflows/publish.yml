@@ -2,7 +2,7 @@ name: Publish images
 
 # Builds the web and worker images once on GitHub's runners and pushes them to
 # GHCR with versioned, immutable tags. The NAS then *pulls* these instead of
-# building from source on the box (CPU-only, shared with inference). Portainer
+# building from source on the box (building from source on the box). Portainer
 # redeploys by polling + re-pulling the image tag (no inbound access needed).
 #
 # Triggers: push to main/master, vX.Y.Z tags, or a manual run from the Actions tab.

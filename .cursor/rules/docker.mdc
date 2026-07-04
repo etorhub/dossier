@@ -8,13 +8,13 @@ globs: ["Dockerfile", "docker-compose.yml", "docker-compose*.yml", "requirements
 ## Image targets (`Dockerfile`)
 
 - **`web`** — Gunicorn serves **`app:application`**. Uses **`requirements-web.txt`** only: no `ollama`, no trafilatura-heavy processing stack unless that file is intentionally updated. This keeps the reader-facing container slim.
-- **`worker`** — Runs **`python -m app.scheduler`** (pipeline). Uses **`requirements.txt`** (full stack including Ollama client, trafilatura, etc.). LLM **inference** runs in the **ollama** service; the worker is a client via `OLLAMA_HOST`.
+- **`worker`** — Runs **`python -m app.scheduler`** (pipeline). Uses **`requirements.txt`** (full stack including Ollama client, trafilatura, etc.). Inference goes through the provider abstraction: **Ollama** locally (`COMPOSE_PROFILES=local-llm`) or **Modal vLLM** in NAS prod (`LLM_PROVIDER` / `EMBED_PROVIDER` env vars).
 
 Do **not** add LLM/embedding dependencies to the web stage or `requirements-web.txt` unless the architecture is deliberately changed and documented.
 
 ## Images: build vs pull
 
-- `.github/workflows/publish.yml` builds these two targets on push to `master` (and on
+- `.github/workflows/publish.yml` builds these two targets on push to `main` or `master` (and on
   `vX.Y.Z` tags) and pushes them to GHCR: `ghcr.io/etorhub/dossier-web` (used by `web`,
   `ops`, `db-init`) and `ghcr.io/etorhub/dossier-worker`.
 - **`docker-compose.yml` uses `image:`, not `build:`** — the NAS/Portainer stack
@@ -30,7 +30,8 @@ Do **not** add LLM/embedding dependencies to the web stage or `requirements-web.
 
 | Service      | Role |
 | ------------ | ---- |
-| `db`         | PostgreSQL 18 |
+| `db`         | PostgreSQL 18 + pgvector |
+| `db-init`    | One-shot Alembic migrations |
 | `web`        | Reader app, port **5000** |
 | `worker`     | Scheduled pipeline |
 | `ollama`     | Model runtime |

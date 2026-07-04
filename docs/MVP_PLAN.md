@@ -33,7 +33,7 @@ Canonical phased plan for the minimum viable product. This document replaces sca
    - `db` — PostgreSQL 18. Persistent volume, health check via `pg_isready`.
    - `web` — Flask app (gunicorn in production, `flask run --debug` in dev).
    - `worker` — APScheduler process. Same image as `web`, different entrypoint.
-   - `docker-compose.yml` — NAS deployment defaults (CPU-only Ollama, memory-conscious settings).
+   - `docker-compose.yml` — NAS deployment (GHCR image pulls; Modal GPU inference in prod).
    - `docker-compose.override.yml` — Dev overrides (bind mounts, live reload).
    - `.env.example` — Template for `POSTGRES_PASSWORD`, `SECRET_KEY`.
 
@@ -106,7 +106,7 @@ Canonical phased plan for the minimum viable product. This document replaces sca
    - `run_rewrite_batch` filters to top-N before calling the LLM.
    - Single variant: `neutral / ca` (Catalan).
    - No cascading simplify/translate steps.
-   - Model: `qwen2.5:14b` on Ollama (local GPU). Use `DOSSIER_LLM_MODEL=qwen2.5:3b` for NAS/CPU deployment.
+   - Model: `Qwen/Qwen2.5-32B-Instruct-AWQ` on Modal (NAS prod) or `qwen2.5:14b` via Ollama (local dev).
    - Output: `TITLE: / SUMMARY: / FULL:` per story, stored in `story_rewrites`.
 
 ### Schedule
@@ -168,7 +168,7 @@ digest:
 | Continuous fetching and enrichment                                     | ✅     |
 | Story clustering (cosine similarity on BGE-M3 embeddings)             | ✅     |
 | Daily digest selection (top-10 by recency + coverage)                  | ✅     |
-| Rewrite in Catalan only (`qwen2.5:14b` local / `qwen2.5:3b` NAS)       | ✅     |
+| Rewrite in Catalan only (Ollama local / Modal NAS prod)                  | ✅     |
 | Auth (email + password)                                                | ✅     |
 | Setup wizard (topics, tone)                                            | ✅     |
 | Digest view (10 stories, expandable, TTS)                              | ✅     |

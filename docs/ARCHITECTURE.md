@@ -6,7 +6,7 @@ Technical reference for Dossier. Update this document when architectural decisio
 
 ## System Overview
 
-A Flask web application that fetches news from RSS feeds and open publisher APIs on a schedule, rewrites each article via Ollama (local LLM) to match a reader's accessibility profile, and presents the result in a clean, accessible reader interface.
+A Flask web application that fetches news from RSS feeds on a schedule, rewrites clustered stories via the LLM provider abstraction (Ollama locally, Modal vLLM in NAS prod), and presents the daily digest in a clean, accessible reader interface.
 
 The system has no client-side rendering. Flask renders all HTML server-side via Jinja2. HTMX makes targeted requests to Flask routes and swaps HTML fragments into the page. PostgreSQL stores user accounts, fetched articles, stories, rewritten content, and all configuration.
 
@@ -20,9 +20,9 @@ A five-stage pipeline runs on a background schedule (APScheduler): fetch feeds �
 |-------|-----------|--------------|
 | 1. Fetch | `app/feed/` | Fetch RSS feeds, parse XML, classify, deduplicate, insert articles |
 | 2. Enrich | `app/extraction/` | Trafilatura extracts full text; re-classifies with full text; updates `articles` |
-| 3. Embed | `app/llm/embeddings.py` | Ollama (paraphrase-multilingual) embeds each `news` article; stores vectors |
+| 3. Embed | `app/llm/embeddings.py` | `bge-m3` via embedding provider embeds each `news` article; stores vectors |
 | 4. Cluster | `app/clustering/` | Cosine similarity + complete-linkage groups related articles into stories |
-| 5. Rewrite | `app/services/rewrite_service.py` | LLM cascade: merge sources → neutral EN, simplify, translate to all languages |
+| 5. Rewrite | `app/services/rewrite_service.py` | Merge sources → single Catalan rewrite (`neutral/ca`); optional proofread pass |
 
 **Content filtering** is applied in stages 1 and 2. The classifier (`app/feed/classifier.py`) uses keyword heuristics to detect non-news content (recipes, horoscopes, classifieds, promotions). Articles classified as `non_news` are stored in the database but excluded from enrichment, embedding, and clustering. Operators can review and override classifications in the ops dashboard.
 
@@ -115,9 +115,9 @@ A `RawArticle` has: `id`, `title`, `url`, `source`, `published_at`, `raw_text` (
 
 The LLM abstraction layer. Nothing outside this directory calls Ollama directly.
 
-- `provider.py` — `LLMProvider` abstract base class and `OllamaProvider` implementation
-- `embeddings.py` — `EmbeddingProvider` for article clustering; Ollama (paraphrase-multilingual)
-- `prompts/` — `rewrite_cluster_neutral.txt`, `simplify_article.txt`, `translate_article.txt` for the cascading rewrite pipeline
+- `provider.py` — `LLMProvider` abstract base; `OllamaProvider`, `VllmOpenAIProvider`, etc.
+- `embeddings.py` — `EmbeddingProvider`; Ollama or vLLM (`bge-m3`)
+- `prompts/` — rewrite templates (`rewrite_cluster_neutral.txt`, etc.); simplify/translate prompts exist for multi-language configs
 
 ### `app/clustering/`
 
@@ -214,8 +214,8 @@ All config lives in `config/`. The app reads it at startup. No config is hardcod
 ```yaml
 llm:
   provider: ollama
-  model: qwen2.5:3b # fallback for any task without its own model
-  rewrite_model: qwen2.5:3b # merge sources → rewrite in target language
+  model: qwen2.5:14b # fallback for any task without its own model
+  rewrite_model: qwen2.5:14b # merge sources → rewrite in target language
   host: http://ollama:11434
   max_retries: 3
 
@@ -239,7 +239,7 @@ rewriting:
 
 embeddings:
   provider: ollama
-  model: paraphrase-multilingual
+  model: bge-m3
   host: http://ollama:11434
   max_retries: 3
   max_input_chars: 8000

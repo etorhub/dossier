@@ -184,8 +184,7 @@ runs via `DOSSIER_TAG`:
 - **Roll back** by editing `DOSSIER_TAG` to a known-good tag and redeploying — seconds,
   no rebuild. (Available tags are listed under the repo's **Packages** on GitHub.)
 
-`db-init` re-runs Alembic migrations safely on every redeploy (idempotent), and
-`ollama-init` only pulls models that aren't already present in the `ollama_data` volume.
+`db-init` re-runs Alembic migrations safely on every redeploy (idempotent).
 
 > **Migrations and rollback:** rolling the image back does **not** roll back the
 > database. Alembic migrations are forward-only here, so a rollback is safe only to a

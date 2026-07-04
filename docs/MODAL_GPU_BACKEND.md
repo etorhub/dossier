@@ -11,7 +11,7 @@ the worker calls these endpoints for every embed and rewrite operation.
 ```
 NAS worker (APScheduler)
   │
-  ├─ embed job (hourly) ──► HTTPS ──► dossier-embed   [BGE-M3, L4 GPU]   ─► vectors
+  ├─ cluster job (:15)  ──► HTTPS ──► dossier-embed   [BGE-M3, L4 GPU]   ─► vectors
   └─ rewrite job (06:00) ─► HTTPS ──► dossier-rewrite [Qwen2.5-32B, L40S] ─► Catalan text
 ```
 
