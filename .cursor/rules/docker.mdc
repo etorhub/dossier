@@ -43,6 +43,7 @@ Match **depends_on** and healthchecks to this flow: DB ready before web/worker/o
 
 - **`config/`** is mounted into containers for YAML catalog and app config.
 - **`DATABASE_URL`**, **`SECRET_KEY`**, and **`POSTGRES_PASSWORD`** come from environment / `.env` — never commit real secrets. Use `.env.example` for documented placeholders.
+- **`db` publishes `127.0.0.1:5432:5432`** (loopback only, in the base `docker-compose.yml`) so host-side tools and a NAS-side `cloudflared` process can reach it — never widen this to `0.0.0.0` or a LAN-reachable bind. See `docs/REMOTE_REWRITE.md` for the scoped `dossier_pipeline` role and Tunnel setup this enables.
 
 ## Edits checklist
 

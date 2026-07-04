@@ -7,10 +7,6 @@
 # ghcr.io/... names referenced in docker-compose.yml, so `docker compose up --build`
 # uses your local source instead of pulling.
 services:
-  db:
-    ports:
-      - "5432:5432"
-
   db-init:
     build:
       context: .
