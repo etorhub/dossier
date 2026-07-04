@@ -98,7 +98,7 @@ Two users with identical rewrite settings share cached results.
 
 Article clustering uses the embedding provider (`app/llm/embeddings.py`).
 
-- **Local dev:** `OllamaEmbeddingProvider` with `paraphrase-multilingual`.
+- **Local dev:** `OllamaEmbeddingProvider` with `bge-m3`.
 - **NAS prod:** `VllmOpenAIEmbeddingProvider` hitting Modal's vLLM embed endpoint
   (`BAAI/bge-m3` on L4 GPU). Selected via `EMBED_PROVIDER=vllm`, `EMBED_API_BASE`,
   `EMBED_API_KEY` env vars.

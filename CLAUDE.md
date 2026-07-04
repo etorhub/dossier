@@ -77,7 +77,7 @@ See `docs/TECH_STACK.md` for full details, project structure, dependencies, Dock
 - **Backend:** Python 3.12+ with Flask
 - **Database:** PostgreSQL 18
 - **LLM:** Provider abstraction (`app/llm/provider.py`) — **prod (NAS):** `Qwen/Qwen2.5-32B-Instruct-AWQ` served via vLLM on Modal (L40S GPU), reached over HTTPS with bearer auth; **local dev:** Ollama with a small model for fast tests. Switched via `LLM_PROVIDER` env var (`vllm` / `ollama`).
-- **Embeddings:** Provider abstraction (`app/llm/embeddings.py`) — **prod (NAS):** `BAAI/bge-m3` served via vLLM on Modal (L4 GPU); **local dev:** Ollama `paraphrase-multilingual`. Switched via `EMBED_PROVIDER` env var.
+- **Embeddings:** Provider abstraction (`app/llm/embeddings.py`) — **prod (NAS):** `BAAI/bge-m3` served via vLLM on Modal (L4 GPU); **local dev:** Ollama `bge-m3`. Switched via `EMBED_PROVIDER` env var.
 - **Frontend:** Plain HTML + CSS + HTMX
 - **Scheduling:** APScheduler runs the pipeline in the worker: fetch feeds → enrich (extract full text) → embed → cluster → rewrite. The daily rewrite (06:00) selects the top 10 stories by relevance score and rewrites them in Catalan only — no cascade, no translation step. Content is ready when the user opens the app.
 - **Content filtering:** `app/feed/classifier.py` classifies articles as `news` or `non_news` using keyword heuristics (recipes, horoscopes, classifieds, promotions). Applied at fetch time (title + raw_text) and again at enrich time (full text). Non-news articles are stored with `article_type = 'non_news'` and excluded from enrichment, embedding, and clustering. Operators review and override via the ops dashboard.
@@ -95,7 +95,7 @@ These are hard rules, not preferences:
 - **Flask routes return HTML only.** Never return JSON to the frontend. Every endpoint renders and returns a Jinja2 template partial. This is HATEOAS — the server owns all state and rendering.
 - **HTMX is the only frontend dependency.** No JavaScript frameworks. No build step. No npm. HTMX is loaded via a single CDN script tag. The only permitted JavaScript is a small inline `<script>` block in `base.html` for the Web Speech API (TTS feature detection and playback). No external JS files, no JS libraries beyond HTMX.
 - **LLM calls are always abstracted.** Never call Ollama directly from a route. Always go through the provider interface in `app/llm/provider.py`.
-- **The pipeline runs on a schedule.** APScheduler in the worker runs: fetch feeds → enrich (Trafilatura extraction) → embed (embedding provider) → cluster (cosine similarity) → rewrite (LLM provider). When a user opens the app, content is already ready. No on-demand LLM calls during page load. On-demand rewrites (after setup/settings save) are queued in `rewrite_requests` and processed by the worker.
+- **The pipeline runs on a schedule.** APScheduler in the worker runs: fetch feeds → enrich (Trafilatura extraction) → embed (embedding provider) → cluster (cosine similarity) → rewrite (LLM provider). When a user opens the app, content is already ready. No on-demand LLM calls during page load. The `rewrite_requests` table exists for future on-demand rewrites but is not yet wired to routes or the scheduler; all rewrites are driven by the scheduled batch job.
 - **Config is never hardcoded.** YAML files define the catalog of available sources/topics and app-level settings. User preferences (location, selected sources, selected topics, filter toggle, rewrite tone, language) live in PostgreSQL, set via the web UI.
 - **Multi-user from the start.** The schema, auth, and caching all support multiple independent user accounts.
 
@@ -124,7 +124,7 @@ These are hard rules, not preferences:
 - **Hardcoding source URLs or prompts.** These live in config files.
 - **Putting user preferences in YAML files.** User profile settings live in PostgreSQL, set through the setup wizard. Only the source catalog and app-level config belong in YAML.
 - **Using SQLite.** This project uses PostgreSQL. Always use `psycopg2` or the db layer, never `sqlite3`.
-- **Making LLM calls during request handling.** The web container never imports or runs LLM/ML code. On-demand rewrites (after setup/settings save) are queued in `rewrite_requests` and processed by the worker. Routes serve pre-cached content from the database.
+- **Making LLM calls during request handling.** The web container never imports or runs LLM/ML code. The `rewrite_requests` table exists for future on-demand rewrites but is not yet wired to routes or the scheduler; all rewrites are driven by the scheduled batch job. Routes serve pre-cached content from the database.
 - **Bypassing the content classifier.** All articles inserted via `insert_article()` must have their `article_type` set by `classify_article()` in `orchestrator.py`. Never skip classification or hardcode `article_type = 'news'` unconditionally. The classifier is in `app/feed/classifier.py`.
 - **Widening Postgres's port exposure or reusing the `dossier` role for remote access.** `db` publishes on `127.0.0.1:5432` deliberately loopback-only; external reachability goes only through the Cloudflare Tunnel + Access-gated `dossier_pipeline` role (migration `037`), never the app's main `dossier` role. Don't bind the port to `0.0.0.0`, and don't put the pipeline role's password in a migration or commit — see `docs/REMOTE_REWRITE.md`.
 

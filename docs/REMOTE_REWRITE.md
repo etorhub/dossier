@@ -5,8 +5,7 @@ described in [`docs/DEPLOYMENT_PORTAINER.md`](DEPLOYMENT_PORTAINER.md). The work
 internal scheduler keeps running the daily rewrite job at 06:00 there as a fallback.
 This page covers the **optional, additional** path: running that same rewrite job
 from your local machine (GPU) or an ad-hoc/VPS box, writing results into the NAS's
-Postgres, when you want a better or earlier rewrite than the NAS's CPU model
-produces.
+Postgres, when you want an earlier rewrite than the NAS's scheduled 06:00 job, or to run inference on a different machine (local GPU Ollama or Modal endpoints).
 
 Running it externally never conflicts with the 06:00 job — `run_rewrite_batch` only
 processes stories still needing a rewrite, so a same-day rerun after the scheduled
@@ -74,9 +73,7 @@ export OLLAMA_HOST=http://host.docker.internal:11434  # wherever Ollama runs on 
 The script opens a local proxy to the NAS's Postgres via `cloudflared access tcp`,
 waits for it to be ready, runs `python -m app.worker_cli rewrite-articles` inside
 the published worker image against that proxy, and tears the proxy down when done.
-Whatever `OLLAMA_HOST` points at on that machine is where the actual LLM inference
-happens — your local GPU today, a rented GPU VPS's Ollama later. No Dossier code
-runs any differently based on where you invoke it from.
+Inference runs wherever the worker container's provider env points: `OLLAMA_HOST` for local Ollama, or `LLM_PROVIDER=vllm` / `EMBED_PROVIDER=vllm` with Modal URLs (same vars as NAS prod). No Dossier code behaves differently based on where you invoke the script.
 
 To trigger this from a VPS/ad-hoc server on its own schedule, put the same script
 and env vars on a cron entry there — that's ordinary ops on that box, not a Dossier

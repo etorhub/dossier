@@ -4,13 +4,26 @@ Technology choices for Dossier, with rationale.
 
 ---
 
+## Documentation map
+
+| Topic | Canonical doc |
+| --- | --- |
+| NAS deploy + GHCR images | [`DEPLOYMENT_PORTAINER.md`](DEPLOYMENT_PORTAINER.md) |
+| Modal GPU inference | [`MODAL_GPU_BACKEND.md`](MODAL_GPU_BACKEND.md) |
+| Remote rewrite ops | [`REMOTE_REWRITE.md`](REMOTE_REWRITE.md) |
+| Pipeline schedules + stages | [`PIPELINE.md`](PIPELINE.md) |
+| Architecture decisions | [`ARCHITECTURE.md`](ARCHITECTURE.md) |
+| MVP phase history | [`MVP_PLAN.md`](MVP_PLAN.md) |
+
+---
+
 ## Core Stack
 
 | Layer | Technology | Why |
 | --- | --- | --- |
 | Backend | Python 3.12+ with Flask | Lightweight, well-understood, Jinja2 built-in |
 | Database | PostgreSQL 18 | Robust, multi-user, JSONB support, wide hosting availability |
-| LLM | Ollama (local) via provider interface | `qwen2.5:14b` for rewriting, `bge-m3` for embeddings — tuned for local GPU (RTX 4070). NAS deployment overrides to `qwen2.5:3b` via `DOSSIER_LLM_MODEL`. |
+| LLM | Provider abstraction (`app/llm/`) | **Local dev:** Ollama (`qwen2.5:14b`, `bge-m3`). **NAS prod:** Modal vLLM (`Qwen2.5-32B-AWQ` rewrite, `BGE-M3` embed) via `LLM_PROVIDER` / `EMBED_PROVIDER` env vars. |
 | Frontend | Plain HTML + CSS + HTMX | No build step, no JS framework, server-rendered throughout. See [`docs/DESIGN_SYSTEM.md`](DESIGN_SYSTEM.md). |
 | Templating | Jinja2 (Flask built-in) | Tight Flask integration, partial rendering for HTMX |
 | Scheduling | APScheduler in dedicated worker container | Web and worker run as separate containers; web has zero ML/LLM deps |
@@ -58,7 +71,7 @@ Technology choices for Dossier, with rationale.
 │   ├── services/            # Business logic — routes call services
 │   ├── llm/
 │   │   ├── provider.py      # Abstract LLM interface + Ollama, Gemini, Anthropic, vLLM-compatible
-│   │   ├── embeddings.py    # Embedding provider (Ollama paraphrase-multilingual)
+│   │   ├── embeddings.py    # Embedding provider (Ollama bge-m3 / Modal vLLM)
 │   │   └── prompts/        # rewrite_cluster_neutral, simplify_article, translate_article
 │   ├── feed/                # RSS fetching (fetcher, parser, orchestrator, availability)
 │   ├── extraction/          # Full-text extraction (extractor, trafilatura)
@@ -153,60 +166,21 @@ docker compose up -d ops
 
 ## Docker Composition
 
-Five services: PostgreSQL, Ollama (LLM/embeddings), the Flask web app (slim image), the worker (feed processing + ollama client), and the ops dashboard.
+See [`docker-compose.yml`](../docker-compose.yml) for the authoritative service definitions. Summary:
 
-- **ollama** — Runs Ollama server. Default config targets a local GPU (RTX 4070): `qwen2.5:14b` + `bge-m3`, `OLLAMA_NUM_PARALLEL=2`. The model pulled by `ollama-init` is controlled by `DOSSIER_LLM_MODEL` (default `qwen2.5:14b`). For NAS deployment (CPU-only) set `DOSSIER_LLM_MODEL=qwen2.5:3b` in the Portainer stack env vars. `OLLAMA_MAX_LOADED_MODELS=1` keeps one model resident at a time (rewrite and embed never run concurrently).
-- **web** — Gunicorn serves the Flask app. Uses `requirements-web.txt` (no ollama, no feed processing). Runs `alembic upgrade head` on startup, then Gunicorn.
-- **worker** — Runs APScheduler (`python -m app.scheduler`) for scheduled pipeline jobs (fetch, enrich, cluster, rewrite, check_source_availability). Uses `requirements.txt` (includes ollama Python client). Connects to ollama service for LLM and embeddings. Processing CLI commands run here: `docker compose exec worker python -m app.worker_cli fetch-feeds`, etc.
-- **ops** — Separate Flask app for operators. Serves the ops dashboard at port 5001. Uses the same database; no auth by default.
+| Service | Image / role | Notes |
+| --- | --- | --- |
+| `db` | `pgvector/pgvector:pg18` | Loopback-only port `127.0.0.1:5432` |
+| `db-init` | `ghcr.io/etorhub/dossier-web` | One-shot `alembic upgrade head` |
+| `web` | `ghcr.io/etorhub/dossier-web` | Reader app, port **5000** |
+| `worker` | `ghcr.io/etorhub/dossier-worker` | APScheduler pipeline |
+| `ops` | `ghcr.io/etorhub/dossier-web` | Ops dashboard, port **5001** |
+| `ollama` + `ollama-init` | `ollama/ollama` | Profile `local-llm` only (local dev) |
 
-```yaml
-# docker-compose.yml (simplified)
-services:
-  ollama:
-    image: ollama/ollama
-    volumes:
-      - ollama_data:/root/.ollama
-    # ...
+**NAS production** pulls prebuilt GHCR images (`DOSSIER_TAG`); no `build:` in base compose. Inference uses Modal — see [`DEPLOYMENT_PORTAINER.md`](DEPLOYMENT_PORTAINER.md).
 
-  db:
-    image: postgres:18-alpine
-    # ...
+**Local dev** auto-merges [`docker-compose.override.yml`](../docker-compose.override.yml): bind mounts, `build:` targets, `flask run --debug`, Postgres on `localhost:5432`.
 
-  web:
-    build:
-      context: .
-      target: web
-    ports:
-      - "5000:5000"
-    command: sh -c "alembic upgrade head && gunicorn -b 0.0.0.0:5000 app:application"
-
-  worker:
-    build:
-      context: .
-      target: worker
-    depends_on:
-      db:
-        condition: service_healthy
-      ollama-init:
-        condition: service_completed_successfully
-        required: false  # omitted when local-llm profile is off (host Ollama)
-    environment:
-      OLLAMA_HOST: http://ollama:11434
-    command: python -m app.scheduler
-    # ...
-
-  ops:
-    build:
-      context: .
-      target: web
-    ports:
-      - "5001:5001"
-    command: gunicorn -b 0.0.0.0:5001 ops:application
-    # ...
-```
-
-`docker-compose.override.yml` provides dev overrides: bind mounts for live reload, `flask run --debug` for the web service, exposed ports, and **Postgres published on `localhost:5432`** so you can run `flask run` on the host or connect with `psql`. The `.env` file contains the database password. No LLM API keys required. An `.env.example` template is provided in the repo.
 
 ### PostgreSQL major upgrades (Docker)
 
@@ -253,55 +227,41 @@ The reader UI needs Flask (HTMX); you can skip **worker** and **Ollama** and sti
 
 ## LLM Provider Interface
 
-The app never calls Ollama directly. All LLM access goes through `app/llm/provider.py`, which defines an abstract `LLMProvider` class. Implementations include `OllamaProvider` (default), Gemini, Anthropic, and `VllmOpenAIProvider` for any OpenAI-compatible HTTP server (e.g. vLLM, SGLang). Config in `config/app.yaml`: `llm.provider` (`ollama` \| `vllm` \| …), `llm.model`, `llm.host` (Ollama default `http://ollama:11434`). For `llm.provider: vllm`, set `llm.api_base` to the server’s OpenAI root (e.g. `http://localhost:8000/v1`). Per-task models for the rewrite cascade: `rewrite_model`, `simplify_model`, `translate_model` (each falls back to `model` when unset). Default is `qwen2.5:14b` — set `DOSSIER_LLM_MODEL=qwen2.5:3b` for NAS/CPU deployment. No API key required for Ollama.
+All LLM access goes through `app/llm/provider.py`. Implementations: `OllamaProvider` (local dev), `VllmOpenAIProvider` (Modal prod), plus optional Gemini/Anthropic.
 
-Rewrite throughput: `schedule.rewrite_parallel_workers` runs multiple stories concurrently; each story parallelizes translation steps. Align with Ollama’s `OLLAMA_NUM_PARALLEL` (see `docker-compose.yml`). Benchmark: `python scripts/benchmark_rewrite_llm.py --help`.
+Config in `config/app.yaml`: `llm.provider`, `llm.model`, `llm.api_base`. Env overrides: `LLM_PROVIDER`, `LLM_API_BASE`, `DOSSIER_LLM_MODEL`, `OPENAI_API_KEY` (vLLM bearer token).
 
 ## Embedding Provider
 
-Article clustering uses embeddings for similarity via **Ollama** (`bge-m3`, 1024-dim). BGE-M3 is the top multilingual embedding model on MTEB and handles Catalan/Spanish cross-lingual pairs accurately. Config: `embeddings.model`, `embeddings.host`. Override with `DOSSIER_EMBEDDING_MODEL` if needed. No API key required.
-
----
+Article clustering uses `app/llm/embeddings.py`: `OllamaEmbeddingProvider` (local dev, `bge-m3`) or `VllmOpenAIEmbeddingProvider` (Modal prod). Env overrides: `EMBED_PROVIDER`, `EMBED_API_BASE`, `EMBED_API_KEY`, `DOSSIER_EMBEDDING_MODEL`.
 
 ## Scheduling Model
 
-APScheduler runs in the dedicated `worker` container only (`python -m app.scheduler`). It is never started inside the `web` container. The web container has zero imports from `app/llm/`, `app/feed/`, `app/extraction/`, or `app/clustering/` — it is a thin HTTP layer.
+APScheduler runs in the dedicated `worker` container only (`python -m app.scheduler`). The web container has zero imports from `app/llm/`, `app/feed/`, `app/extraction/`, or `app/clustering/`.
 
-Background jobs in the worker:
+Schedules are defined in [`config/app.yaml`](../config/app.yaml) (see [`PIPELINE.md`](PIPELINE.md) for stage detail):
 
-1. **Fetch jobs** — poll feeds per their configured interval. Articles are stored in the `articles` table.
-2. **Enrichment jobs** — extract full article text from URLs (Trafilatura) for articles with `extraction_status = 'pending'`.
-3. **Cluster jobs** — embed articles (Ollama paraphrase-multilingual), complete-linkage cosine similarity grouping, create story records only for groups with ≥2 distinct sources covering the same event.
-4. **Rewrite jobs** — run at a configurable daily time (default: 06:00). Uses a cascading pipeline: generate neutral English from sources, simplify to simple English, then translate both to other languages (translations may run in parallel within a story; multiple stories may run in parallel). Per-task models (`rewrite_model`, `simplify_model`, `translate_model`) can be tuned in config. Rewrites are stored in `story_rewrites` and shared across all users with the same `(style, language)` variant.
-5. **Availability check** — runs every 10 minutes (configurable). HTTP HEAD/GET to each active feed; stores results in `source_availability_checks`. Visible in the ops dashboard.
+| Job | Default schedule |
+| --- | --- |
+| `fetch_feeds` | every 60 min |
+| `enrich_articles` | hourly at :05 |
+| `check_source_availability` | every 10 min |
+| `cluster_articles` | hourly at :15 (embed + cluster) |
+| `rewrite_articles` | daily 06:00 (top-10 Catalan digest) |
+| `highlight_stories` | hourly at :15 and :45 |
 
-When a user opens the app, content is already ready. No waiting.
+The daily rewrite selects up to `digest.top_n` stories (default 10) and produces a single `neutral/ca` variant. Rewrites are stored in `story_rewrites` and served from the database; no LLM calls during HTTP requests.
 
 ### CLI Commands
 
 | Command | Where | Purpose |
 | --- | --- | --- |
-| `flask seed-sources` | Web container | Seed sources from config (lightweight) |
+| `flask seed-sources` | Web container | Seed sources from config |
 | `flask make-admin <email>` | Web container | Grant admin access |
-| `flask show-rewrite-failures` | Web container | List recent rewrite failures (DB read) |
-| `python -m app.worker_cli fetch-feeds` | Worker container | Run feed fetcher once |
-| `python -m app.worker_cli enrich-articles` | Worker container | Run enrichment once |
-| `python -m app.worker_cli cluster-articles` | Worker container | Run clustering once |
-| `python -m app.worker_cli rewrite-articles` | Worker container | Run rewrite batch once |
-| `python -m app.worker_cli rewrite-all-stories` | Worker container | Regenerate rewrites for every story with articles (operator / prompt tuning) |
-| `python -m app.worker_cli run-pipeline` | Worker container | Full pipeline: seed → fetch → enrich → cluster → rewrite |
-
-### Full story rewrite backfill (`rewrite-all-stories`)
-
-The scheduled rewrite job (`rewrite-articles` / `rewrite_articles`) only processes stories that are missing a required `(style, language)` variant or have `needs_rewrite = true`. For **prompt or model iteration**, operators can run a **full backfill** that ignores coverage and flags and runs the **entire cascade** (neutral → simple when configured → translations) for every selected story:
-
-```bash
-docker compose exec worker python -m app.worker_cli rewrite-all-stories
-```
-
-- **Job name** in `job_runs` and per-run logs: `rewrite_all_stories` (distinct from `rewrite_articles`).
-- **Time window:** `processing.cluster_window_hours` — only stories with at least one linked article whose `published_at` falls in that window. Set to **`0`** in `config/app.yaml` to include **all** stories in the database.
-- **Batch size:** `schedule.rewrite_batch_size` — **`0`** means no limit per invocation; a positive value caps how many stories are processed in one run (ordered by newest article first).
-- **Parallelism:** same as the normal rewrite job (`schedule.rewrite_parallel_workers`).
-
-This can consume **many** LLM calls. Prefer a small `rewrite_batch_size` and/or a narrow window while experimenting; widen only when you intend to reprocess everything.
+| `python -m app.worker_cli fetch-feeds` | Worker | Run feed fetcher once |
+| `python -m app.worker_cli enrich-articles` | Worker | Run enrichment once |
+| `python -m app.worker_cli cluster-articles` | Worker | Run embed + cluster once |
+| `python -m app.worker_cli rewrite-articles` | Worker | Run rewrite batch once |
+| `python -m app.worker_cli highlight-stories` | Worker | Run highlight batch once |
+| `python -m app.worker_cli rewrite-all-stories` | Worker | Full backfill (operator tooling) |
+| `python -m app.worker_cli run-pipeline` | Worker | Full pipeline in one shot |

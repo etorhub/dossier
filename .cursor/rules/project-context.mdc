@@ -13,7 +13,7 @@ Personal daily news digest — curated, rewritten in Catalan, delivered once a d
 
 Most news interfaces are built for engagement, not comprehension. This project takes a different approach: a curated **daily digest** delivered once a day — the 10 most relevant stories, rewritten in clean Catalan, ready to read in 5 minutes.
 
-At 06:00 the pipeline scores all clustered stories, picks the top 10 by relevance (recency + multi-source coverage), rewrites them via LLM, and sends a push: "El teu dossier d'avui és aquí". No feed to scroll, no noise.
+At 06:00 the pipeline scores all clustered stories, picks the top 10 by relevance (recency + multi-source coverage), and rewrites them in Catalan. Content is ready when you open the app — no feed to scroll, no noise.
 
 ---
 
@@ -81,7 +81,7 @@ See `docs/TECH_STACK.md` for full details, project structure, dependencies, Dock
 - **Backend:** Python 3.12+ with Flask
 - **Database:** PostgreSQL 18
 - **LLM:** Provider abstraction (`app/llm/provider.py`) — **prod:** `Qwen/Qwen2.5-32B-Instruct-AWQ` on Modal (L40S GPU) via `VllmOpenAIProvider`; **local dev:** Ollama via `OllamaProvider`. Selected by `LLM_PROVIDER` env var.
-- **Embeddings:** Provider abstraction (`app/llm/embeddings.py`) — **prod:** `BAAI/bge-m3` on Modal (L4 GPU) via `VllmOpenAIEmbeddingProvider`; **local dev:** Ollama `paraphrase-multilingual`. Selected by `EMBED_PROVIDER` env var.
+- **Embeddings:** Provider abstraction (`app/llm/embeddings.py`) — **prod:** `BAAI/bge-m3` on Modal (L4 GPU) via `VllmOpenAIEmbeddingProvider`; **local dev:** Ollama `bge-m3`. Selected by `EMBED_PROVIDER` env var.
 - **Frontend:** Plain HTML + CSS + HTMX
 - **Scheduling:** APScheduler runs the pipeline in the worker: fetch → enrich → embed → cluster (continuous) + daily rewrite at 06:00 (top-10 stories, Catalan only, no cascade). Content is ready when the user opens the app.
 - **Packaging:** Docker + docker-compose (db, web, worker, ops). Worker calls Modal over HTTPS for inference. `COMPOSE_PROFILES=local-llm` adds Ollama for local dev only — not used on the NAS. Modal apps deployed separately via `modal deploy` (see `modal/`).
@@ -95,7 +95,7 @@ These are hard rules, not preferences:
 - **Flask routes return HTML only.** Never return JSON to the frontend. Every endpoint renders and returns a Jinja2 template partial. This is HATEOAS — the server owns all state and rendering.
 - **HTMX is the only frontend dependency.** No JavaScript frameworks. No build step. No npm. HTMX is loaded via a single CDN script tag.
 - **LLM calls are always abstracted.** Never call any LLM SDK directly from a route. Always go through the provider interface in `app/llm/provider.py`. The concrete backend (Ollama locally, vLLM on Modal in prod) is wired by config — routes and services never know which is active.
-- **The pipeline runs on a schedule.** APScheduler in the worker runs: fetch feeds → enrich (Trafilatura extraction) → embed (embedding provider) → cluster (cosine similarity) continuously, then a daily rewrite at 06:00 (top-10 stories, Catalan only — no cascade, no translation). The web container has zero ML/LLM imports. On-demand rewrites (setup/settings) are queued in `rewrite_requests`; the worker polls and processes them. When a user opens the app, content is already ready.
+- **The pipeline runs on a schedule.** APScheduler in the worker runs: fetch feeds → enrich (Trafilatura extraction) → embed (embedding provider) → cluster (cosine similarity) continuously, then a daily rewrite at 06:00 (top-10 stories, Catalan only — no cascade, no translation). The web container has zero ML/LLM imports. The `rewrite_requests` table exists for future on-demand rewrites but is not yet wired. All rewrites are driven by the scheduled batch job. When a user opens the app, content is already ready.
 - **Config is never hardcoded.** YAML files define the catalog of available sources/topics and app-level settings. User preferences (location, selected sources, selected topics, filter toggle, rewrite tone, language) live in PostgreSQL, set via the web UI.
 - **Multi-user from the start.** The schema, auth, and caching all support multiple independent user accounts.
 
@@ -123,7 +123,7 @@ These are hard rules, not preferences:
 - **Hardcoding source URLs or prompts.** These live in config files.
 - **Putting user preferences in YAML files.** User profile settings live in PostgreSQL, set through the setup wizard. Only the source catalog and app-level config belong in YAML.
 - **Using SQLite.** This project uses PostgreSQL. Always use `psycopg2` or the db layer, never `sqlite3`.
-- **Making LLM calls during request handling.** The web container never imports or runs LLM/ML code. On-demand rewrites (after setup/settings save) are queued in `rewrite_requests` and processed by the worker. Routes serve pre-cached content from the database.
+- **Making LLM calls during request handling.** The web container never imports or runs LLM/ML code. The `rewrite_requests` table exists for future on-demand rewrites but is not yet wired to routes or the scheduler; all rewrites are driven by the scheduled batch job. Routes serve pre-cached content from the database.
 - **Widening Postgres's port exposure.** `db` publishes on `127.0.0.1:5432` deliberately loopback-only, reached externally only via the Cloudflare Tunnel + `dossier_pipeline` role (see `docs/REMOTE_REWRITE.md`). Don't bind it to `0.0.0.0` or reuse the main `dossier` role for remote access.
 
 ---

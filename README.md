@@ -6,11 +6,11 @@
 [![PostgreSQL 18](https://img.shields.io/badge/PostgreSQL-18-336791?logo=postgresql&logoColor=white)](https://www.postgresql.org/)
 [![Docker](https://img.shields.io/badge/Docker-Ready-2496ed?logo=docker&logoColor=white)](https://www.docker.com/)
 [![HTMX](https://img.shields.io/badge/HTMX-2.x-3d7fcf?logo=htmx&logoColor=white)](https://htmx.org/)
-[![Ollama](https://img.shields.io/badge/LLM-Ollama_local-000000)](https://ollama.ai/)
+[![LLM](https://img.shields.io/badge/LLM-Ollama_dev_%7C_Modal_prod-000000)](https://ollama.ai/)
 
 A personal daily news digest — curated, rewritten in Catalan, delivered once a day.
 
-Once a day at 06:00, the pipeline scores all clustered stories, picks the 10 most relevant, rewrites them in clean Catalan, and sends a push notification: "El teu dossier d'avui és aquí". Open the app, read 10 well-written stories in ~5 minutes, and you're done.
+Once a day at 06:00, the pipeline scores all clustered stories, picks the 10 most relevant, and rewrites them in clean Catalan. Open the app, read 10 well-written stories in ~5 minutes, and you're done.
 
 ---
 
@@ -18,14 +18,14 @@ Once a day at 06:00, the pipeline scores all clustered stories, picks the 10 mos
 
 - Fetches news from RSS feeds and open publishers continuously (Catalan and Spanish sources)
 - Clusters articles from different outlets covering the same event into a single story
-- Every morning at 06:00: selects the 10 most relevant stories (by recency and multi-source coverage), rewrites them via LLM in Catalan, and sends a push notification
+- Every morning at 06:00: selects the 10 most relevant stories (by recency and multi-source coverage) and rewrites them via LLM in Catalan
 - Presents the daily digest in a clean, accessible interface with large fonts, high contrast, and large touch targets
 - Provides text-to-speech when the browser supports it
 - Content is ready when you open the app — no waiting, no loading screens
 
 ## Who It's For
 
-A personal tool for anyone who wants a quick, clean daily briefing. Designed to run on a home NAS (UGreen DSP 2800) with Ollama running locally. One instance, one digest, one language.
+A personal tool for anyone who wants a quick, clean daily briefing. Designed to run on a home NAS (UGreen DSP 2800). LLM inference uses Modal GPU in production; local dev uses Ollama (`COMPOSE_PROFILES=local-llm`). One instance, one digest, one language.
 
 Neither the user nor anyone setting up the instance ever touches the codebase. Setup is done through the web app.
 
@@ -39,7 +39,7 @@ Neither the user nor anyone setting up the instance ever touches the codebase. S
 
 ### Setup
 
-The **Ollama** service is optional in Compose (profile `local-llm`). Clustering, embeddings, and rewrites need a reachable Ollama. [`.env.example`](.env.example) sets `COMPOSE_PROFILES=local-llm` so a copied `.env` starts Ollama in Docker and runs **`ollama-init`** once per `up` (pulls `qwen2.5:3b`, `paraphrase-multilingual` into the `ollama_data` volume). The **worker** waits for that init to finish before running. Model pull happens at **container start**, not during `docker build`. The compose file is tuned for CPU-only inference on a NAS — no GPU is required or used.
+The **Ollama** service is optional in Compose (profile `local-llm`). Clustering, embeddings, and rewrites need a reachable Ollama. [`.env.example`](.env.example) sets `COMPOSE_PROFILES=local-llm` so a copied `.env` starts Ollama in Docker and runs **`ollama-init`** once per `up` (pulls `qwen2.5:14b` and `bge-m3` into the `ollama_data` volume). The **worker** waits for that init to finish before running. Model pull happens at **container start**, not during `docker build`. Local dev uses the `local-llm` Compose profile for Ollama. NAS production offloads inference to Modal — see [`docs/MODAL_GPU_BACKEND.md`](docs/MODAL_GPU_BACKEND.md).
 
 **Run from source** (local box or quick CLI start — builds the images locally; the
 `docker-compose.override.yml` supplies the `build:` directives):
@@ -52,14 +52,14 @@ docker compose up --build -d
 ```
 
 **NAS deployment** (UGreen DSP 2800, the real target) **pulls prebuilt, versioned
-images from GHCR** — GitHub Actions builds them on every push to `master`, so the NAS
+images from GHCR** — GitHub Actions builds them on every push to `main`, so the NAS
 never spends CPU building. See [`docs/DEPLOYMENT_PORTAINER.md`](docs/DEPLOYMENT_PORTAINER.md)
 for the Portainer stack setup, image tagging (`DOSSIER_TAG`), auto-update polling, and
 rollback.
 
 Without a `.env`, pass the profile explicitly: `docker compose --profile local-llm up --build -d`.
 
-**Ollama on the host instead** (e.g. already running `ollama serve`): remove or comment out `COMPOSE_PROFILES=local-llm` in `.env`, pull the same model tags on the host (`ollama pull qwen2.5:3b paraphrase-multilingual`), and set `OLLAMA_HOST` for the worker. See [`.env.example`](.env.example).
+**Ollama on the host instead** (e.g. already running `ollama serve`): remove or comment out `COMPOSE_PROFILES=local-llm` in `.env`, pull the same model tags on the host (`ollama pull qwen2.5:14b bge-m3`), and set `OLLAMA_HOST` for the worker. See [`.env.example`](.env.example).
 
 Wait for services to be healthy (web at `http://localhost:5000`, worker running, **ollama** healthy if you use the profile). Then populate with news:
 
