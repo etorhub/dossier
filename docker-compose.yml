@@ -109,6 +109,8 @@ services:
       EMBED_PROVIDER: ${EMBED_PROVIDER:-}
       EMBED_API_BASE: ${EMBED_API_BASE:-}
       EMBED_API_KEY: ${EMBED_API_KEY:-}
+      DOSSIER_LLM_MODEL: ${DOSSIER_LLM_MODEL:-}
+      DOSSIER_EMBEDDING_MODEL: ${DOSSIER_EMBEDDING_MODEL:-}
     volumes:
       - ./config:/app/config
       - ./data/job_runs:/app/data/job_runs
