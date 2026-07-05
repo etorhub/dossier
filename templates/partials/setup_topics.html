@@ -1,9 +1,0 @@
-<div class="topic-grid">
-  {% for t in topic_infos %}
-  <label class="topic-option">
-    <input type="checkbox" name="topics" value="{{ t.id }}"
-      {% if not profile or t.id in (profile.topic_ids or []) %}checked{% endif %}>
-    <span class="topic-option-label">{% with icon=t.icon %}{% include "partials/topic_icon.html" %}{% endwith %} {{ _(t.label) }}</span>
-  </label>
-  {% endfor %}
-</div>

@@ -4,7 +4,7 @@ from typing import Any
 
 from flask import Blueprint, redirect, render_template, request, session, url_for
 
-from app.config import get_topic_info, load_config, load_sources
+from app.config import load_config, load_sources
 from app.services import profile_service
 
 settings_bp = Blueprint("settings", __name__, url_prefix="/settings")
@@ -20,11 +20,6 @@ def _all_topics(sources: list[dict[str, Any]]) -> list[str]:
                 seen.add(t)
                 result.append(t)
     return sorted(result)
-
-
-def _topic_infos(topic_ids: list[str], config: dict[str, Any]) -> list[dict[str, Any]]:
-    """Build list of {id, label, icon, emoji} for each topic."""
-    return [{"id": tid, **get_topic_info(tid, config)} for tid in topic_ids]
 
 
 @settings_bp.route("/", methods=["GET", "POST"])
@@ -43,13 +38,10 @@ def settings_page() -> Any:
 
     if request.method == "GET":
         config = load_config()
-        topic_infos = _topic_infos(topics, config)
         return render_template(
             "settings.html",
             profile=profile,
             sources=sources,
-            topics=topics,
-            topic_infos=topic_infos,
             style_options=profile_service.get_style_options(config),
             needs_regeneration_confirmation=False,
         )
@@ -62,9 +54,7 @@ def settings_page() -> Any:
     high_contrast = request.form.get("high_contrast") == "on"
     color_scheme = request.form.get("color_scheme", "").strip() or None
 
-    topic_ids = request.form.getlist("topics")
-    if not topic_ids:
-        topic_ids = topics
+    topic_ids = topics
 
     form_data = {
         "location": location,
@@ -85,13 +75,10 @@ def settings_page() -> Any:
             "color_scheme": form_data.get("color_scheme"),
             "topic_ids": topic_ids,
         }
-        topic_infos = _topic_infos(topics, config)
         return render_template(
             "settings.html",
             profile=display_profile,
             sources=sources,
-            topics=topics,
-            topic_infos=topic_infos,
             style_options=profile_service.get_style_options(config),
             needs_regeneration_confirmation=True,
         )

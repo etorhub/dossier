@@ -105,19 +105,16 @@ def _get_rewrite_with_fallback(
 def get_feed(
     user_id: int,
 ) -> tuple[list[dict[str, Any]], bool]:
-    """Return today's stories for the user, filtered by catalog topic overlap.
+    """Return today's stories for the user, sorted by relevance.
 
     Returns (feed, rewrites_pending). rewrites_pending is True when there are
-    stories matching the user's profile but no rewrites yet (e.g. after setup).
+    stories with articles but no rewrites yet (e.g. after setup).
     Each feed item has: id (story_id), title, summary, full_text, sources (list
     of {source_name, url, title}), relevance_score. Uses story_rewrites.
     Only stories with at least 2 distinct sources are shown (canonical stories).
     """
     profile = profile_service.get_profile_with_selections(user_id)
     if not profile:
-        return ([], False)
-    topic_ids = set(profile.get("topic_ids", []))
-    if not topic_ids:
         return ([], False)
 
     sources = {s["id"]: s for s in load_sources()}
@@ -132,8 +129,7 @@ def get_feed(
         datetime.now(UTC) - timedelta(hours=window_hours) if window_hours else None
     )
     story_rows = db_stories.get_stories_with_articles_in_window(since)
-    # Filter stories: keep only if >=1 article's source overlaps user topics
-    # AND story has at least min_sources distinct sources (canonical stories)
+    # Filter stories: keep only those with at least min_sources distinct sources (canonical stories)
     visible_stories: list[dict[str, Any]] = []
     for row in story_rows:
         story_id = row["story_id"]
@@ -141,17 +137,11 @@ def get_feed(
         distinct_sources = len({a["source_id"] for a in articles})
         if distinct_sources < min_sources:
             continue
-        for art in articles:
-            sid = art["source_id"]
-            src = sources.get(sid, {})
-            src_topics = set(src.get("topics", []))
-            if topic_ids & src_topics:
-                visible_stories.append({"story_id": story_id, "articles": articles})
-                break
+        visible_stories.append({"story_id": story_id, "articles": articles})
 
     # Score each story (non-behavioral signals only; see scoring_service)
     for s in visible_stories:
-        s["relevance_score"] = score_story(s, topic_ids, sources, config)
+        s["relevance_score"] = score_story(s, set(), sources, config)
         pubs = [a["published_at"] for a in s["articles"] if a.get("published_at")]
         s["max_published_at"] = max(pubs) if pubs else None
 
