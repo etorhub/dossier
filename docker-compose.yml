@@ -103,6 +103,12 @@ services:
       DATABASE_URL: postgresql://dossier:${POSTGRES_PASSWORD:-devpassword}@db:5432/dossier
       POSTGRES_HOST: db
       OLLAMA_HOST: http://ollama:11434
+      LLM_PROVIDER: ${LLM_PROVIDER:-}
+      LLM_API_BASE: ${LLM_API_BASE:-}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      EMBED_PROVIDER: ${EMBED_PROVIDER:-}
+      EMBED_API_BASE: ${EMBED_API_BASE:-}
+      EMBED_API_KEY: ${EMBED_API_KEY:-}
     volumes:
       - ./config:/app/config
       - ./data/job_runs:/app/data/job_runs
