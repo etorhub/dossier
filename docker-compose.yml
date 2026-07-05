@@ -53,8 +53,10 @@ services:
     # Loopback-only: reachable from the host itself (local dev tools via
     # localhost:5432, or on the NAS a cloudflared process proxying a Tunnel
     # TCP route — see docs/REMOTE_REWRITE.md) but never from the LAN/WAN.
+    # DB_HOST_PORT overrides the host-side port (default 5432) if it collides
+    # with another Postgres instance already bound to loopback on the host.
     ports:
-      - "127.0.0.1:5432:5432"
+      - "127.0.0.1:${DB_HOST_PORT:-5432}:5432"
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U dossier"]
       interval: 5s
