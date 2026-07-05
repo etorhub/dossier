@@ -85,12 +85,18 @@ SECRET_KEY=<generate-with: python3 -c "import secrets; print(secrets.token_hex(3
 LLM_PROVIDER=vllm
 LLM_API_BASE=https://<your-workspace>--dossier-rewrite-serve.modal.run/v1
 OPENAI_API_KEY=<rewrite-bearer-token-from-modal-secret>
+# Must match modal/rewrite_server.py's MODEL_NAME (the --served-model-name vLLM
+# was started with) — config/app.yaml's default is the Ollama-local tag, not this.
+DOSSIER_LLM_MODEL=Qwen/Qwen2.5-32B-Instruct-AWQ
 
 # Required — Modal LLM inference (embeddings)
 # Get these from `modal deploy modal/embed_server.py`
 EMBED_PROVIDER=vllm
 EMBED_API_BASE=https://<your-workspace>--dossier-embed-serve.modal.run/v1
 EMBED_API_KEY=<embed-bearer-token-from-modal-secret>
+# Must match modal/embed_server.py's MODEL_NAME — a mismatch here causes vLLM to
+# reject requests with "404 The model `<name>` does not exist."
+DOSSIER_EMBEDDING_MODEL=BAAI/bge-m3
 
 # Optional: which published image tag to run. Default is `latest` (newest default-branch
 # build). Pin a release for reproducible deploys / rollback, e.g. DOSSIER_TAG=v1.2.0
