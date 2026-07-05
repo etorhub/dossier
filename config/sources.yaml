@@ -3,16 +3,16 @@
 
 sources:
   - id: "3cat"
-    name: "3Cat Notícies"
+    name: "3CatInfo"
     domain: "www.3cat.cat"
-    homepage_url: "https://www.3cat.cat/"
+    homepage_url: "https://www.3cat.cat/3catinfo/"
     country_code: "ES"
     region: "Catalonia"
     languages: ["ca"]
     topics: ["general"]
     full_text: true
     feeds:
-      - url: "https://www.3cat.cat/rss/noticia/catala/rss.xml"
+      - url: "https://api.3cat.cat/noticies?_format=rss&origen=frontal&frontal=n324-portada-noticia&version=2.0"
         type: rss
         label: main
 
