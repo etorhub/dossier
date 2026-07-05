@@ -63,25 +63,6 @@ def test_setup_get_renders_form_for_authenticated_user(client: FlaskClient) -> N
     assert b'name="language"' not in response.data
 
 
-def test_setup_get_includes_all_unique_topics(client: FlaskClient) -> None:
-    """GET /setup/ includes each unique topic from the sources list exactly once."""
-    _auth(client)
-    with (
-        patch("app.routes.setup.load_sources", return_value=_SOURCES),
-        patch("app.routes.setup.load_config", return_value=_CONFIG),
-        patch(
-            "app.routes.setup.profile_service.get_style_options",
-            return_value=_STYLE_OPTIONS,
-        ),
-        patch("app.db.users.get_user_by_id", return_value={"is_admin": False, "email": "u@e.com"}),
-        patch("app.services.profile_service.get_profile_with_selections", return_value=None),
-    ):
-        response = client.get("/setup/")
-    # The three unique topics from _SOURCES should appear in the response
-    for topic in ("general", "technology", "sports"):
-        assert topic.encode() in response.data
-
-
 # ---------------------------------------------------------------------------
 # POST /setup/
 # ---------------------------------------------------------------------------

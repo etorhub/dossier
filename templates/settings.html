@@ -60,11 +60,6 @@
       </div>
     </div>
   </section>
-  <section>
-    <h2>{{ _('Topics') }}</h2>
-    <p>{{ _("Select the topics you're interested in.") }}</p>
-    {% include "partials/setup_topics.html" %}
-  </section>
   {{ form_submit(_('Confirm and save') if needs_regeneration_confirmation else _('Save')) }}
 </form>
 {% endblock %}
