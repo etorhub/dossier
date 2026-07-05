@@ -95,6 +95,12 @@ EMBED_API_KEY=<embed-bearer-token-from-modal-secret>
 # Optional: which published image tag to run. Default is `latest` (newest default-branch
 # build). Pin a release for reproducible deploys / rollback, e.g. DOSSIER_TAG=v1.2.0
 DOSSIER_TAG=latest
+
+# Optional: host-side port for `db`'s loopback publish (127.0.0.1:<port>:5432).
+# Default 5432. Set this if the NAS already runs another Postgres (e.g. another
+# stack's db) bound to 127.0.0.1:5432 — otherwise `db` will fail to start with
+# "address already in use".
+DB_HOST_PORT=5432
 ```
 
 Never commit these to the repo — they live only in the Portainer stack's environment.
@@ -213,3 +219,19 @@ runs via `DOSSIER_TAG`:
   yet — run `./scripts/fetch-news.sh` manually (Step 4) to seed content immediately
 - **Out of memory**: add `-w 1` to gunicorn commands in the service `command`; without
   Ollama running on the NAS, peak RAM is much lower than before so this should be rare
+- **`db` fails to deploy with "failed to bind host port 127.0.0.1:5432: address already in
+  use"**: another stack on the NAS (e.g. a different app's Postgres) already holds that
+  port. Set `DB_HOST_PORT` (see Step 2) to a free port, e.g. `DB_HOST_PORT=5433`, and
+  redeploy — this only changes the host-side publish, not how the app containers reach
+  `db` (they always use the internal `db` hostname on the compose network), so no other
+  config needs to change.
+- **`db-init` fails with `could not translate host name "db" to address: Name or service
+  not known`, or `web`/`worker`/`ops` stay stuck in "Created" forever**: usually means `db`
+  was recreated outside of a full stack redeploy (e.g. a container-level "Recreate" action)
+  and lost its network attachment, so it never joined `dossier_default` — check with
+  `docker inspect dossier-db-1 --format '{{json .NetworkSettings.Networks}}'`; `{}` means
+  it's not attached. Fix: `docker rm -f dossier-db-1` (safe — data lives in the `pgdata`
+  named volume, not the container) and redeploy the whole stack so Compose recreates it
+  correctly. If this recurs, check whether **Automatic updates → Polling** is set too
+  aggressively (below 15–30 min) for how long the stack takes to start — a poll firing
+  mid-startup can repeatedly interrupt the dependency chain.
