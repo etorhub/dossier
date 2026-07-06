@@ -34,10 +34,12 @@ class LLMProvider(ABC):
         max_tokens: int = 1000,
         *,
         temperature: float | None = None,
+        system: str | None = None,
     ) -> str:
         """Send prompt to the model and return the generated text.
 
         temperature: optional sampling temperature; when None, provider default applies.
+        system: optional system-role instruction, sent as a separate turn from the prompt.
         """
         ...
 
@@ -58,7 +60,13 @@ class OllamaProvider(LLMProvider):
         self._max_retries = max_retries
         self._timeout = timeout
 
-    def _complete_once(self, prompt: str, max_tokens: int, temperature: float | None) -> str:
+    def _complete_once(
+        self,
+        prompt: str,
+        max_tokens: int,
+        temperature: float | None,
+        system: str | None,
+    ) -> str:
         import ollama
 
         try:
@@ -66,9 +74,13 @@ class OllamaProvider(LLMProvider):
             options: dict[str, Any] = {"num_predict": max_tokens}
             if temperature is not None:
                 options["temperature"] = float(temperature)
+            messages: list[dict[str, str]] = []
+            if system:
+                messages.append({"role": "system", "content": system})
+            messages.append({"role": "user", "content": prompt})
             response = client.chat(
                 model=self._model,
-                messages=[{"role": "user", "content": prompt}],
+                messages=messages,
                 options=options,
             )
             message = (
@@ -97,10 +109,11 @@ class OllamaProvider(LLMProvider):
         max_tokens: int = 1000,
         *,
         temperature: float | None = None,
+        system: str | None = None,
     ) -> str:
         with _OLLAMA_CHAT_LOCK:
             return run_with_retries(
-                lambda: self._complete_once(prompt, max_tokens, temperature),
+                lambda: self._complete_once(prompt, max_tokens, temperature, system),
                 max_retries=self._max_retries,
                 label=f"Ollama chat ({self._model})",
                 retry_if=lambda exc: not is_ollama_connection_failure(exc),

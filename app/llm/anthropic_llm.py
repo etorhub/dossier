@@ -61,6 +61,7 @@ class AnthropicLLMProvider(LLMProvider):
         max_tokens: int = 1000,
         *,
         temperature: float | None = None,
+        system: str | None = None,
     ) -> str:
         api_key = _anthropic_api_key()
         url = f"{self._api_base}/v1/messages"
@@ -73,6 +74,8 @@ class AnthropicLLMProvider(LLMProvider):
         }
         if temperature is not None:
             body["temperature"] = float(temperature)
+        if system:
+            body["system"] = system
         headers = {
             "Content-Type": "application/json",
             "x-api-key": api_key,

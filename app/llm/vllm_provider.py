@@ -75,14 +75,19 @@ class VllmOpenAIProvider(LLMProvider):
         max_tokens: int = 1000,
         *,
         temperature: float | None = None,
+        system: str | None = None,
     ) -> str:
         url = f"{self._api_base}/chat/completions"
         headers: dict[str, str] = {}
         if self._api_key:
             headers["Authorization"] = f"Bearer {self._api_key}"
+        messages: list[dict[str, str]] = []
+        if system:
+            messages.append({"role": "system", "content": system})
+        messages.append({"role": "user", "content": prompt})
         body: dict[str, Any] = {
             "model": self._model,
-            "messages": [{"role": "user", "content": prompt}],
+            "messages": messages,
             "max_tokens": max_tokens,
         }
         if temperature is not None:

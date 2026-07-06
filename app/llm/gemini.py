@@ -50,6 +50,7 @@ class GeminiLLMProvider(LLMProvider):
         max_tokens: int = 1000,
         *,
         temperature: float | None = None,
+        system: str | None = None,
     ) -> str:
         try:
             key = gemini_api_key()
@@ -62,6 +63,7 @@ class GeminiLLMProvider(LLMProvider):
                 timeout_seconds=self._timeout_seconds,
                 max_retries=self._max_retries,
                 temperature=temperature,
+                system=system,
             )
         except ValueError as e:
             raise LLMProviderError(str(e)) from e
