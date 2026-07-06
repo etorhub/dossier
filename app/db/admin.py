@@ -554,6 +554,36 @@ def get_incidents(config: dict[str, Any]) -> list[dict[str, Any]]:
                         "severity": "error",
                     }
                 )
+
+            # Rewrite job firing far more often than the daily cadence (config
+            # not loaded correctly falls back to a fast dev cron — see app/config.py)
+            cur.execute(
+                """
+                SELECT COUNT(*) AS cnt
+                FROM job_runs
+                WHERE job_name = 'rewrite_articles'
+                  AND trigger = 'scheduled'
+                  AND started_at >= NOW() - INTERVAL '24 hours'
+                """
+            )
+            scheduled_rewrite_runs = cur.fetchone()["cnt"]
+            if scheduled_rewrite_runs > 2:
+                incidents.append(
+                    {
+                        "type": "rewrite_frequency_anomaly",
+                        "title": (
+                            f"Rewrite job ran {scheduled_rewrite_runs} times today "
+                            "(expected ~1)"
+                        ),
+                        "detail": (
+                            "Scheduled rewrite_articles runs are far more frequent than "
+                            "the configured daily cadence — check config/app.yaml is "
+                            "mounted correctly and the worker's startup log shows "
+                            "rewrite_cron='0 6 * * *'."
+                        ),
+                        "severity": "error",
+                    }
+                )
     finally:
         return_connection(conn)
 

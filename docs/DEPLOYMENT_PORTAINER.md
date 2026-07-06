@@ -215,6 +215,19 @@ runs via `DOSSIER_TAG`:
 - **Stack not updating after a push**: confirm **Automatic updates → Polling** is on
   with **"Re-pull image"** enabled, and that `publish.yml` succeeded for that commit
   (repo → **Actions**). Polling only redeploys once the new image is actually in GHCR.
+- **Modal costs much higher than expected / rewrite job runs constantly**: check the
+  `worker` container logs for the `"Scheduler started: ..."` line printed on every boot
+  — if `rewrite=` shows anything other than `0 6 * * *` (e.g. `*/5 * * * *`),
+  `config/app.yaml` isn't being read inside the container, and the worker fell back to
+  its safety-net defaults. Confirm with
+  `docker exec -it <worker-container-name> cat /app/config/app.yaml` — if that fails or
+  the file is missing/empty, the `./config` bind mount is pointing at an empty
+  directory. This usually means the stack wasn't deployed via the **Repository** build
+  method (Step 1) — redeploy that way so Portainer's git checkout actually populates
+  `./config` next to `docker-compose.yml`, or otherwise confirm the host path backing
+  the `worker`/`web`/`ops` `./config` volume actually contains the repo's `config/`
+  directory. The ops dashboard's Incidents panel also flags this automatically
+  (`rewrite_frequency_anomaly`) if the rewrite job runs more than twice in a day.
 - **Worker logs LLM errors / rewrites failing**: check that `LLM_PROVIDER`, `LLM_API_BASE`,
   and `OPENAI_API_KEY` are set correctly in Portainer's environment. Verify Modal apps are
   deployed and running: `modal app list` (see `docs/MODAL_GPU_BACKEND.md`).
