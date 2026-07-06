@@ -1,10 +1,13 @@
 """Load configuration from YAML files."""
 
+import logging
 import os
 from pathlib import Path
 from typing import Any
 
 import yaml
+
+logger = logging.getLogger(__name__)
 
 DEFAULTS: dict[str, Any] = {
     "paths": {
@@ -45,10 +48,13 @@ DEFAULTS: dict[str, Any] = {
         "cluster_gate_max_pending": 5,  # tolerate up to N pending before blocking cluster
     },
     "schedule": {
-        "fetch_interval_minutes": 5,
-        "enrichment_cron": "*/5 * * * *",
-        "cluster_cron": "*/5 * * * *",
-        "rewrite_cron": "*/5 * * * *",
+        # Safety-net defaults, used only if config/app.yaml can't be read at
+        # runtime — must fail toward the safe daily cadence, never toward a
+        # fast dev-testing cadence that would hammer paid inference endpoints.
+        "fetch_interval_minutes": 60,
+        "enrichment_cron": "5 * * * *",
+        "cluster_cron": "15 * * * *",
+        "rewrite_cron": "0 6 * * *",
         "highlight_cron": "15-59/30 * * * *",
         "rewrite_batch_size": 0,
         "rewrite_parallel_workers": 1,
@@ -134,6 +140,9 @@ def load_config(config_path: str | Path | None = None) -> dict[str, Any]:
         config_path = Path(__file__).resolve().parent.parent / "config" / "app.yaml"
     path = Path(config_path)
     if not path.exists():
+        logger.warning(
+            "config/app.yaml not found at %s — falling back to built-in defaults", path
+        )
         config = DEFAULTS.copy()
     else:
         with path.open() as f:
