@@ -62,10 +62,10 @@ _CATALAN_LANGUAGE_RETRY_SUFFIX = (
     "\n\n[Language correction — mandatory]\n"
     "Your previous answer was rejected because it contained Spanish words. "
     "Rewrite the whole answer in Catalan only. Do not use any Spanish word, "
-    "including common ones like \"muy\", \"también\", \"porque\", \"está\", \"años\", \"pero\", "
-    "\"desde\", \"hasta\", \"según\", \"cuando\". Use the Catalan equivalents instead "
-    "(\"molt\", \"també\", \"perquè\", \"està\", \"anys\", \"però\", \"des de\", \"fins\", "
-    "\"segons\", \"quan\"). Respond again with TITLE:, SUMMARY:, FULL: in Catalan, nothing else."
+    'including common ones like "muy", "también", "porque", "está", "años", "pero", '
+    '"desde", "hasta", "según", "cuando". Use the Catalan equivalents instead '
+    '("molt", "també", "perquè", "està", "anys", "però", "des de", "fins", '
+    '"segons", "quan"). Respond again with TITLE:, SUMMARY:, FULL: in Catalan, nothing else.'
 )
 
 # Unambiguous Spanish-only words that never appear in correct Catalan text. Used as a
@@ -89,6 +89,21 @@ def _has_spanish_leakage(*texts: str) -> bool:
     combined = " ".join(texts)
     hits = {m.lower() for m in _SPANISH_ONLY_MARKERS.findall(combined)}
     return len(hits) >= 2
+
+
+def _language_system_message(language_label: str) -> str:
+    """System-role instruction reinforcing the target language.
+
+    Sent as a separate system turn (not buried in the user prompt) because chat-tuned
+    models generally give system-level instructions more weight — helpful for models
+    that otherwise default to a more common relative language (e.g. Spanish for Catalan).
+    """
+    return (
+        f"You are a professional news wire journalist writing exclusively in "
+        f"{language_label}. Respond only in {language_label}, in every section of your "
+        f"reply. Never use Spanish, French, or English words, phrasing, or false friends "
+        f"— if {language_label} is Catalan, watch especially for Spanish leakage."
+    )
 
 
 def _rewrite_story_title_snippet(articles: list[dict[str, Any]], story_id: str) -> str:
@@ -460,7 +475,12 @@ def _proofread_if_enabled(
         full_text=full_text,
     )
     try:
-        response = provider.complete(prompt, max_tokens=max_tokens, temperature=temp)
+        response = provider.complete(
+            prompt,
+            max_tokens=max_tokens,
+            temperature=temp,
+            system=_language_system_message(language_label),
+        )
         return _parse_story_llm_response(response)
     except Exception as e:
         if is_ollama_connection_failure(e):
@@ -555,7 +575,10 @@ def rewrite_story(
             style,
             language,
         )
-        response = provider.complete(prompt, max_tokens=max_tokens, temperature=rw_temp)
+        system_msg = _language_system_message(prompt_language)
+        response = provider.complete(
+            prompt, max_tokens=max_tokens, temperature=rw_temp, system=system_msg
+        )
         try:
             title, summary, full_text = _parse_story_llm_response(response)
             if language == "ca" and _has_spanish_leakage(title, summary, full_text):
@@ -568,8 +591,11 @@ def rewrite_story(
                     prompt + _CATALAN_LANGUAGE_RETRY_SUFFIX,
                     max_tokens=max_tokens,
                     temperature=rw_temp,
+                    system=system_msg,
                 )
                 title, summary, full_text = _parse_story_llm_response(retry_response)
+                if language == "ca" and _has_spanish_leakage(title, summary, full_text):
+                    raise ValueError("Spanish leakage persisted after language-correction retry")
         except StoryIncoherentError as sie:
             logger.warning(
                 "rewrite_story: incoherent story_id=%s — dissolving. Reason: %s",
@@ -677,7 +703,12 @@ def _simplify_rewrite(
 
     try:
         sim_temp = _llm_task_temperature(config, "simplify")
-        response = provider.complete(prompt, max_tokens=max_tokens, temperature=sim_temp)
+        response = provider.complete(
+            prompt,
+            max_tokens=max_tokens,
+            temperature=sim_temp,
+            system=_language_system_message(prompt_language),
+        )
         title, summary, full_text = _parse_story_llm_response(response)
         title, summary, full_text = _proofread_if_enabled(
             provider,
@@ -743,7 +774,12 @@ def _translate_rewrite(
 
     try:
         tr_temp = _llm_task_temperature(config, "translate")
-        response = provider.complete(prompt, max_tokens=max_tokens, temperature=tr_temp)
+        response = provider.complete(
+            prompt,
+            max_tokens=max_tokens,
+            temperature=tr_temp,
+            system=_language_system_message(target_language),
+        )
         title, summary, full_text = _parse_story_llm_response(response)
         title, summary, full_text = _proofread_if_enabled(
             provider,

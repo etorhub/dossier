@@ -29,6 +29,7 @@ def gemini_generate_content(
     timeout_seconds: float = 120.0,
     max_retries: int = 3,
     temperature: float | None = None,
+    system: str | None = None,
 ) -> str:
     """Call generateContent; return concatenated text from candidates."""
     base = api_base.rstrip("/")
@@ -44,6 +45,8 @@ def gemini_generate_content(
         "contents": [{"parts": [{"text": prompt}]}],
         "generationConfig": gen_cfg,
     }
+    if system:
+        body["systemInstruction"] = {"parts": [{"text": system}]}
     data = request_json_with_retries(
         "POST",
         url,

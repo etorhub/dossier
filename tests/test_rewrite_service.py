@@ -505,6 +505,69 @@ def test_rewrite_story_provider_error_stores_failed() -> None:
         )
 
 
+def test_rewrite_story_persistent_spanish_leakage_stores_failed() -> None:
+    """If the retry also leaks Spanish, the story is stored as failed, not silently kept."""
+    spanish_response = """TITLE:
+Un titular con muy también porque error.
+
+SUMMARY:
+Esto tambien esta mal porque si.
+
+FULL:
+Cuerpo del articulo con errores tambien porque si."""
+
+    with (
+        patch("app.services.rewrite_service.db_stories") as mock_db,
+        patch("app.services.rewrite_service.get_provider") as mock_get,
+    ):
+        mock_provider = MagicMock()
+        # Draft and retry both leak Spanish; proofread should never be reached.
+        mock_provider.complete.side_effect = [spanish_response, spanish_response]
+        mock_get.return_value = mock_provider
+
+        articles = [{"id": "art1", "raw_text": "Original text.", "full_text": None}]
+        config = {"rewriting": {"styles": [{"id": "neutral", "prompt": "rewrite_cluster_neutral"}]}}
+
+        result = rewrite_story("story-1", articles, "neutral", "ca", config)
+
+        assert result is False
+        assert mock_provider.complete.call_count == 2  # draft + retry, no proofread
+        mock_db.insert_story_rewrite.assert_called_once_with(
+            story_id="story-1",
+            style="neutral",
+            language="ca",
+            title=None,
+            summary=None,
+            full_text=None,
+            rewrite_failed=True,
+            error_message="Spanish leakage persisted after language-correction retry",
+        )
+
+
+def test_rewrite_story_passes_language_system_message() -> None:
+    """rewrite_story sends a system-role instruction naming the target language."""
+    with (
+        patch("app.services.rewrite_service.db_stories"),
+        patch("app.services.rewrite_service.get_provider") as mock_get,
+    ):
+        mock_provider = MagicMock()
+        mock_provider.complete.return_value = "TITLE:\nT\n\nSUMMARY:\nS\n\nFULL:\nF"
+        mock_get.return_value = mock_provider
+
+        articles = [{"id": "art1", "raw_text": "Original text.", "full_text": None}]
+        config = {
+            "rewriting": {
+                "styles": [{"id": "neutral", "prompt": "rewrite_cluster_neutral"}],
+                "languages": [{"id": "ca", "label": "Catalan"}],
+            }
+        }
+
+        rewrite_story("story-1", articles, "neutral", "ca", config)
+
+        draft_kwargs = mock_provider.complete.call_args_list[0][1]
+        assert "Catalan" in draft_kwargs["system"]
+
+
 def test_run_rewrite_batch_unlimited_passes_no_sql_limit() -> None:
     """rewrite_batch_size 0 passes limit=None so all pending stories are selected."""
     with patch("app.services.rewrite_service.db_stories") as mock_stories:
